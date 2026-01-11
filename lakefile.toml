@@ -1,0 +1,10 @@
+name = "EffectSSA"
+version = "0.1.0"
+defaultTargets = ["effectssa"]
+
+[[lean_lib]]
+name = "EffectSSA"
+
+[[lean_exe]]
+name = "effectssa"
+root = "Main"
