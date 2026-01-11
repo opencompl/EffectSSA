@@ -9,7 +9,7 @@ import EffectSSA.Trace.Defs
 namespace EffectSSA
 
 /-!
-## Classes
+## MemoryModel class
 -/
 
 class MemoryModel τ extends MemorySignature τ where
@@ -41,3 +41,9 @@ class MemoryModel τ extends MemorySignature τ where
   What this means precisely is formalized in `LawfulMemoryModel`.
   -/
   Compat : Event τ → Event τ → Prop
+
+
+/-! ## API -/
+variable {τ} [MemoryModel τ]
+
+def Trace.Legal : Trace τ → Prop := MemoryModel.LegalTrace
