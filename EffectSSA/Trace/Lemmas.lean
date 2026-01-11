@@ -1,4 +1,5 @@
 import EffectSSA.Trace.Defs
+import EffectSSA.Assumptions.LawfulMemoryModel
 
 /-!
 # Trace lemmas
@@ -29,3 +30,12 @@ theorem eq_of_mem_events {es : Trace τ} (h : z ∈ es.events) :
     rcases h with ⟨i, h⟩
     repeat (rcases h with ⟨rfl, h⟩)
     simp
+
+/-! ## Semantic lemmas -/
+section Semantics
+variable {τ : Ty} [LawfulMemoryModel τ]
+
+-- theorem read_eq_read_of' (xs ys : Trace τ) (h : xs ⌣ ys) :
+
+
+end Semantics
