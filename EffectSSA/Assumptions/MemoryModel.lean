@@ -40,4 +40,4 @@ class MemoryModel τ extends MemorySignature τ where
   subsequent events.
   What this means precisely is formalized in `LawfulMemoryModel`.
   -/
-  Compat : Event τ → Event τ
+  Compat : Event τ → Event τ → Prop
