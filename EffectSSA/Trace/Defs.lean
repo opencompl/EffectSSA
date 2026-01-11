@@ -1,6 +1,7 @@
 import EffectSSA.Assumptions.MemorySignature
 
 import Mathlib.Data.Set.Defs
+import Mathlib.Data.Set.Operations
 
 /-!
 
@@ -52,6 +53,10 @@ end Event
 /-! ## Trace API -/
 namespace Trace
 
+/- A list of `Event`s may be implicitly coerced to a `Trace`. -/
+instance : Coe (List (Event τ)) (Trace τ) where
+  coe := .seq
+
 /--
 Add a new event to the front of a trace,
 where adding an event onto a UB trace just yields UB.
@@ -85,23 +90,21 @@ FIXME: The namespace is duplicated in Trace.TraceZipper, should I find another n
        outside of this file.
 -/
 structure TraceZipper τ [MemorySignature τ] where
-  pre : Trace τ
+  /-- Events which happened *after* `event`. -/
+  pre : List (Event τ)
+  /-- The main event of interest. -/
   event : Event τ
-  post : Trace τ
+  /-- Events which happened *before* `event`. -/
+  post : List (Event τ)
+
+-- FIXME: the naming `pre`/`post` is correct in the sense they are pre/postfixes
+--   of the trace, but have the wrong chronological implication!
 
 
-def events (ev : Trace τ) : Set (TraceZipper τ) :=
-  /-
-  TODO: write the body of `Trace.events`, so that I can write `⟨pre, e, post⟩ ∈ es.events`
-  -/
-  { }
+def events : Trace τ → Set (TraceZipper τ)
+  | .ub => {}
+  | .seq es => { ⟨es.take i, es[i], es.drop (i + 1)⟩ | (i : Fin es.length)}
 
-theorem eq_of_mem_events {es : Trace τ} (h : z ∈ es.events) :
-    es = z.pre ++ (z.event :> z.post) := by
-  /-
-  TODO: prove this characterization of `Trace.events` inhabitants
-  -/
-  sorry
-  -- FIXME: should this theorem be moved to a Lemmas file?
+
 
 end Trace
