@@ -34,3 +34,32 @@ class LawfulMemoryModel τ extends MemoryModel τ where
   -/
   read_illegal {es : Trace τ} (h : ¬es.Legal) :
     read t p es = read t p .ub
+
+  /--
+  Compatibility is symmetric
+  -/
+  compat_symm (e₁ e₂ : Event τ) : (e₁ ⌣ₑ e₂) → (e₂ ⌣ₑ e₁)
+
+  /--
+  If `e₁ ⌣ₑ e₂`, then the events can be added to a trace in either order
+  without affecting subsequent reads of any location.
+  -/
+  read_eq_read (h : e₁ ⌣ₑ e₂) (es : Trace τ) (t) (p) :
+    read t p (e₁ :> e₂ :> es) = read t p (e₂ :> e₁ :> es)
+
+  -- FIXME: I'm not sure, but we might also need something like the following
+  --        to relate compatible states to legal traces. We'll see,
+  --        for now I'll assume we don't and leave it out.
+  -- /--
+  -- If `e₁ ⌣ₑ e₂`, the events may be re-ordered without affecting legality of the
+  -- trace.
+  -- -/
+  -- legal_iff_of_compat (h : e₁ ⌣ₑ e₂) (es : Trace τ) :
+  --   (e₁ :> e₂ :> es).Legal ↔ (e₂ :> e₁ :> es)
+
+  /--
+  If `e ⌣ₑ load p`, then adding `e` to any trace should not change the value
+  read from location `p`.
+  -/
+  read_eq_read_of_load (h : e ⌣ₑ (.load t p)) (es : Trace τ) :
+    read t p (e :> es) = read t p e

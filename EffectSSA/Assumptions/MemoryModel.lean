@@ -34,7 +34,7 @@ class MemoryModel τ extends MemorySignature τ where
 
   /--
   `Compat` is a compatibility / non-interference relation between events,
-  also written as `(· ⌣ ·)`.
+  also written as `(· ⌣ₑ ·)`.
   Intuitively, two events are compatible if they may be freely reordered without
   changing the result of the events themselves (if either is a `load`) or any
   subsequent events.
@@ -47,3 +47,5 @@ class MemoryModel τ extends MemorySignature τ where
 variable {τ} [MemoryModel τ]
 
 def Trace.Legal : Trace τ → Prop := MemoryModel.LegalTrace
+
+@[inherit_doc] infixl:60 " ⌣ₑ " => MemoryModel.Compat
