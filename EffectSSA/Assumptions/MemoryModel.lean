@@ -31,6 +31,7 @@ class MemoryModel τ extends MemorySignature τ where
   `LegalTrace` predicate.
   -/
   LegalTrace : Trace τ → Prop
+  [instDecideLegal : DecidablePred LegalTrace]
 
   /--
   `Compat` is a compatibility / non-interference relation between events,
@@ -41,11 +42,15 @@ class MemoryModel τ extends MemorySignature τ where
   What this means precisely is formalized in `LawfulMemoryModel`.
   -/
   Compat : Event τ → Event τ → Prop
+  [instDecideCompat : DecidableRel Compat]
 
 
 /-! ## API -/
-variable {τ} [MemoryModel τ]
+variable {τ} [μ : MemoryModel τ]
 
 def Trace.Legal : Trace τ → Prop := MemoryModel.LegalTrace
+instance : DecidablePred (@Trace.Legal τ _) :=
+  μ.instDecideLegal
 
 @[inherit_doc] infixl:60 " ⌣ₑ " => MemoryModel.Compat
+attribute [instance] MemoryModel.instDecideCompat

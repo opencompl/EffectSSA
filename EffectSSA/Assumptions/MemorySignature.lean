@@ -17,6 +17,7 @@ namespace EffectSSA
 structure Ty where
   /-- Plain Data types -/
   DType : Type
+  [instDecidableEqDType : DecidableEq DType]
 
 variable (τ : Ty)
 
@@ -25,13 +26,20 @@ variable (τ : Ty)
 class MemorySignature where
   /-- Semantic domain of pointers. -/
   Ptr : Type
+  [instDecidableEqPtr : DecidableEq Ptr]
+
   /-- Semantic domain of plain data types. -/
   TVal : τ.DType → Type
+  [instDecidableEqTVal : ∀ t, DecidableEq (TVal t)]
 
 namespace Ty
 variable [MemorySignature τ]
 
 abbrev Ptr : Type := MemorySignature.Ptr τ
 abbrev TVal : τ.DType → Type := MemorySignature.TVal
+
+attribute [instance] Ty.instDecidableEqDType
+attribute [instance] MemorySignature.instDecidableEqPtr
+attribute [instance] MemorySignature.instDecidableEqTVal
 
 end Ty

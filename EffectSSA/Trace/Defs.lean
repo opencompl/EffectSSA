@@ -27,6 +27,7 @@ inductive Event where
   /-- Location `p` was freed -/
   | free (t : τ.DType) (p : τ.Ptr)
   | split
+  deriving DecidableEq
 
 /-!
 ## Trace Definition
@@ -35,6 +36,7 @@ inductive Event where
 inductive Trace where
   | seq : List (Event τ) → Trace
   | ub : Trace
+  deriving DecidableEq
 
 /-!
 ### API
