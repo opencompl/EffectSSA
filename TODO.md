@@ -7,12 +7,9 @@
     in the draft, because I'm phrasing things in terms of single event
     compatibility!
 
-- [ ] Prove equivalence between the `LawfulMemoryModel` as formalized in Lean
-        and the lawfulness assumptions as written in the draft
-
-- [ ] Define semantics
-  - [ ] load/store operations
-  - [ ] merge/split operations
+- [X] Define semantics
+  - [X] load/store operations
+  - [X] merge/split operations
 
 - [X] Define syntax
   - [X] Basic syntax setup
@@ -26,3 +23,13 @@
   - For now, I just have a `WellTyped` predicate. We could expand this to
     an intrinsically well-typed type of programs `TProgram`, but I'm not yet
     sure if we want to do so
+
+- [ ] Figure out how to compose the semantics functions into semantics of a particular program
+  - [ ] On the whiteboard
+  - [ ] In markdown
+  - [ ] In Lean
+
+## Bonus Objectives
+
+- [ ] Prove equivalence between the `LawfulMemoryModel` as formalized in Lean
+        and the lawfulness assumptions as written in the draft
