@@ -25,12 +25,12 @@ inductive Instruction (τ : Ty) (n : Nat) where
   | loadI (t : τ.DType) (p : Var n)
   | storeI (t : τ.DType) (p : Var n) (x : Var n)
   | allocI (t : τ.DType) (p : Var n)
-  | freeI (p : Var n)
+  | freeI (t : τ.DType) (p : Var n)
   -- Basic memory ops in EffectSSA form
   | loadE (t : τ.DType) (eff : Var n) (p : Var n)
   | storeE (t : τ.DType) (eff : Var n) (p : Var n) (x : Var n)
   | allocE (t : τ.DType) (eff : Var n) (p : Var n)
-  | freeE (eff : Var n) (p : Var n)
+  | freeE (t : τ.DType) (eff : Var n) (p : Var n)
   -- FIXME: the draft also has stack address & constant value instruction
   -- Effect Bookkeeping
   | createEff
