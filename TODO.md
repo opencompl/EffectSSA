@@ -24,10 +24,11 @@
     an intrinsically well-typed type of programs `TProgram`, but I'm not yet
     sure if we want to do so
 
-- [ ] Figure out how to compose the semantics functions into semantics of a particular program
+- [X] Figure out how to compose the semantics functions into semantics of a particular program
   - [X] On the whiteboard
-  - [ ] In markdown
-  - [ ] In Lean
+  - [X] Rough outline the markdown draft
+  - [X] In Lean  
+  - [ ] Write this idiomatically in the markdown draft
 
 ## Bonus Objectives
 
