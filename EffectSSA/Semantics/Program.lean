@@ -77,7 +77,7 @@ where
     modifyGetTrace (fun es => ((), f es))
   /--
   Take the current trace from the state, such that it is absent after.
-  If the trace is already absent, modify the state to be UB,
+  Otherwise, if the trace is already absent, modify the state to be UB,
   and return a UB trace
   -/
   takeTrace : ExecM τ (Trace τ) :=
@@ -86,7 +86,7 @@ where
       | some es => (es, none)
   /--
   Set the current trace in the state, assuming it was absent.
-  If a state is already present, replace it with UB.
+  Otherwise, if a trace is already present, replace it with UB.
   -/
   putTrace (es : Trace τ) : ExecM τ Unit :=
     modify fun
