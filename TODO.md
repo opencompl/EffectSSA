@@ -25,7 +25,7 @@
     sure if we want to do so
 
 - [ ] Figure out how to compose the semantics functions into semantics of a particular program
-  - [ ] On the whiteboard
+  - [X] On the whiteboard
   - [ ] In markdown
   - [ ] In Lean
 
