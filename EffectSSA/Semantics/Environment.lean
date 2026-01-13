@@ -44,14 +44,25 @@ structure Semantics.Environment τ [MemoryModel τ] (n : Nat) where
 variable {τ}
 
 /-! ### Val API -/
-namespace Ty.Val
 
 /-! Traces, pointers and plain data values can be coerced into a generic value. -/
+namespace Ty.Val
 instance : Coe (Trace τ) τ.Val where coe := (⟨.eff, .eff ·⟩)
 instance : Coe τ.Ptr τ.Val where coe := (⟨.ptr, .ptr ·⟩)
 instance : CoeOut (τ.DVal t) τ.Val where coe := (⟨.data t, .data ·⟩)
-
 end Ty.Val
+
+/-!
+Similarly, a typed value of the respective concrete type may be coerced into a
+trace, pointer or plain data value, as appropriate.
+-/
+namespace Ty.TVal
+instance : Coe (τ.TVal .eff) (Trace τ) where coe := fun (.eff e) => e
+instance : Coe (τ.TVal .ptr) τ.Ptr where coe := fun (.ptr p) => p
+instance : Coe (τ.TVal <| .data t) (τ.DVal t) where coe := fun (.data x) => x
+end Ty.TVal
+
+
 
 /-! ### Environment API -/
 namespace Semantics.Environment
@@ -74,6 +85,16 @@ See also `Environment.getAs?`, which returns none instead.
 -/
 def getAs (env : Environment τ n) (v : Var n) (t : τ.Typ) : ExecM τ (τ.TVal t) :=
   StateT.lift (env.getAs? v t)
+
+/-- Retrieve a pointer via `getAs`. -/
+def getPtr (env : Environment τ n) (v : Var n) : ExecM τ τ.Ptr := env.getAs v .ptr
+
+/-- Retrieve an effect trace via `getAs`. -/
+def getEff (env : Environment τ n) (v : Var n) : ExecM τ (Trace τ) := env.getAs v .eff
+
+/-- Retrieve a data value via `getAs`. -/
+def getData (env : Environment τ n) (v : Var n) (t : τ.DType) : ExecM τ (τ.DVal t) :=
+  env.getAs v (.data t)
 
 /--
 Create a new environment by prepending a value to the front of an environment.

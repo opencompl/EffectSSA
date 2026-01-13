@@ -26,49 +26,49 @@ by `i` removed.
 -/
 def Instruction.exec (env : Environment τ n) : (i : Instruction τ n) → ExecM τ (Environment τ i.results)
   | .loadI t p => do
-    let .ptr ptr_val ← env.getAs p .ptr
+    let ptr_val ← env.getPtr p
     let val ← modifyGetTrace (load t ptr_val)
     return env.cons val
   | .storeI t p x => do
-    let .ptr ptr_val ← env.getAs p .ptr
-    let .data x_val ← env.getAs x (.data t)
+    let ptr_val ← env.getPtr p
+    let x_val ← env.getData x t
     modifyTrace (store ptr_val x_val)
     return env
   | .allocI t p => do
-    let .ptr ptr_val ← env.getAs p .ptr
+    let ptr_val ← env.getPtr p
     modifyTrace (alloc t ptr_val)
     return env
   | .freeI t p => do
-    let .ptr ptr_val ← env.getAs p .ptr
+    let ptr_val ← env.getPtr p
     modifyTrace (free t ptr_val)
     return env
   | .loadE t eff p => do
-    let .eff eff_trace ← env.getAs eff .eff
-    let .ptr ptr_val ← env.getAs p .ptr
+    let eff_trace ← env.getEff eff
+    let ptr_val ← env.getPtr p
     let (val, trace) := load t ptr_val eff_trace
     setTrace trace
     return env.cons val
   | .storeE t eff p x => do
-    let .eff eff_trace ← env.getAs eff .eff
-    let .ptr ptr_val ← env.getAs p .ptr
-    let .data x_val ← env.getAs x (.data t)
+    let eff_trace ← env.getEff eff
+    let ptr_val ← env.getPtr p
+    let x_val ← env.getData x t
     setTrace (store ptr_val x_val eff_trace)
     return env
   | .allocE t eff p => do
-    let .eff eff_trace ← env.getAs eff .eff
-    let .ptr ptr_val ← env.getAs p .ptr
+    let eff_trace ← env.getEff eff
+    let ptr_val ← env.getPtr p
     setTrace (alloc t ptr_val eff_trace)
     return env
   | .freeE t eff p => do
-    let .eff eff_trace ← env.getAs eff .eff
-    let .ptr ptr_val ← env.getAs p .ptr
+    let eff_trace ← env.getEff eff
+    let ptr_val ← env.getPtr p
     setTrace (free t ptr_val eff_trace)
     return env
   | .createEff => do
     let trace ← getTrace
     return env.cons trace
   | .consumeEff e => do
-    let .eff trace ← env.getAs e .eff
+    let trace ← env.getEff e
     setTrace trace
     return env.remove e
 where
