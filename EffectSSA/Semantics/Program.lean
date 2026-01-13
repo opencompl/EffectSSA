@@ -25,51 +25,39 @@ environment with the results of `i` added to it, and any linear values consumed
 by `i` removed.
 -/
 def Instruction.exec (env : Environment τ n) : (i : Instruction τ n) → ExecM τ (Environment τ i.results)
+  -- Implicit (i.e, side-effecting) memory operations
   | .loadI t p => do
-    let ptr_val ← env.getPtr p
-    let val ← modifyGetTrace (load t ptr_val)
-    return env.cons val
+    let val ← modifyGetTrace <| load t (←env.getPtr p)
+    return env.snoc val
   | .storeI t p x => do
-    let ptr_val ← env.getPtr p
-    let x_val ← env.getData x t
-    modifyTrace (store ptr_val x_val)
+    modifyTrace <| store (←env.getPtr p) (←env.getData x t)
     return env
   | .allocI t p => do
-    let ptr_val ← env.getPtr p
-    modifyTrace (alloc t ptr_val)
+    modifyTrace (alloc t (←env.getPtr p))
     return env
   | .freeI t p => do
-    let ptr_val ← env.getPtr p
-    modifyTrace (free t ptr_val)
+    modifyTrace (free t (←env.getPtr p))
     return env
+  -- EffectSSA memory operations
   | .loadE t eff p => do
-    let eff_trace ← env.getEff eff
-    let ptr_val ← env.getPtr p
-    let (val, trace) := load t ptr_val eff_trace
+    let (val, trace) := load t (←env.getPtr p) (←env.getEff eff)
     setTrace trace
-    return env.cons val
+    return env.snoc val
   | .storeE t eff p x => do
-    let eff_trace ← env.getEff eff
-    let ptr_val ← env.getPtr p
-    let x_val ← env.getData x t
-    setTrace (store ptr_val x_val eff_trace)
+    setTrace (store (←env.getPtr p) (←env.getData x t) (←env.getEff eff))
     return env
   | .allocE t eff p => do
-    let eff_trace ← env.getEff eff
-    let ptr_val ← env.getPtr p
-    setTrace (alloc t ptr_val eff_trace)
+    setTrace (alloc t (←env.getPtr p) (←env.getEff eff))
     return env
   | .freeE t eff p => do
-    let eff_trace ← env.getEff eff
-    let ptr_val ← env.getPtr p
-    setTrace (free t ptr_val eff_trace)
+    setTrace (free t (←env.getPtr p) (←env.getEff eff))
     return env
+  -- Effect state bookkeeping operations
   | .createEff => do
     let trace ← getTrace
-    return env.cons trace
+    return env.snoc trace
   | .consumeEff e => do
-    let trace ← env.getEff e
-    setTrace trace
+    setTrace (←env.getEff e)
     return env.remove e
 where
   /-- Modify the current trace in the state. -/

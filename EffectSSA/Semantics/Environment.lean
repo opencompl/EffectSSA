@@ -97,11 +97,10 @@ def getData (env : Environment τ n) (v : Var n) (t : τ.DType) : ExecM τ (τ.D
   env.getAs v (.data t)
 
 /--
-Create a new environment by prepending a value to the front of an environment.
+`env.snoc x` adds a new variable to environment `env` assigning value `x` to it.
 -/
-def cons (v : τ.Val) (env : Environment τ n) : Environment τ (n + 1) :=
-  -- Prepends `v` to the environment, making it the new variable 0
-  sorry
+def snoc (x : τ.Val) (env : Environment τ n) : Environment τ (n + 1) :=
+  ⟨env.toVec.cons x⟩
 
 /--
 Create a new environment by removing the variable at position `v` from the environment.
