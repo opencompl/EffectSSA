@@ -33,14 +33,14 @@ namespace Semantics
 Load a value of type `t` from the location pointed to by `p`,
 assuming `es` describes all previous events.
 -/
-def load (t : τ.DType) (p : τ.Ptr) (es : Trace τ) : τ.TVal t × Trace τ :=
+def load (t : τ.DType) (p : τ.Ptr) (es : Trace τ) : τ.DVal t × Trace τ :=
   (MemoryModel.read t p es, .load t p :ℓ> es)
 
 /--
 Store a value `x` of type `t` to the location pointed to by `p`,
 assuming `es` describes all previous events.
 -/
-def store {t} (p : τ.Ptr) (x : τ.TVal t) (es : Trace τ) : Trace τ :=
+def store {t} (p : τ.Ptr) (x : τ.DVal t) (es : Trace τ) : Trace τ :=
   .store p x :ℓ> es
 
 /--
