@@ -80,6 +80,7 @@ implement a bunch of API for it anyway.
 ## Definitions
 --------------------------------------------------------------------------------
 -/
+section Defs
 
 /--
 `p.results` gives the number of *live* free variables available after executing
