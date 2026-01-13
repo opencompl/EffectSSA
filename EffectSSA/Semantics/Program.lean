@@ -41,23 +41,23 @@ def Instruction.exec (env : Environment τ n) : (i : Instruction τ n) → ExecM
   -- EffectSSA memory operations
   | .loadE t eff p => do
     let (val, trace) := load t (←env.getPtr p) (←env.getEff eff)
-    return (env.snoc trace |>.snoc val).remove eff
+    return (env.snoc trace |>.snoc val).eraseVar eff
   | .storeE t eff p x => do
     let trace := store (←env.getPtr p) (←env.getData x t) (←env.getEff eff)
-    return (env.snoc trace).remove eff
+    return (env.snoc trace).eraseVar eff
   | .allocE t eff p => do
     let trace := alloc t (←env.getPtr p) (←env.getEff eff)
-    return (env.snoc trace).remove eff
+    return (env.snoc trace).eraseVar eff
   | .freeE t eff p => do
     let trace := free t (←env.getPtr p) (←env.getEff eff)
-    return (env.snoc trace).remove eff
+    return (env.snoc trace).eraseVar eff
   -- Effect state bookkeeping operations
   | .createEff => do
     let trace ← takeTrace
     return env.snoc trace
   | .consumeEff e => do
     putTrace (←env.getEff e)
-    return env.remove e
+    return env.eraseVar e
 where
   /--
   Modify the current trace in the state and return a value computed from the original trace.

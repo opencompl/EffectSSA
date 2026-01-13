@@ -103,9 +103,7 @@ def snoc (x : τ.Val) (env : Environment τ n) : Environment τ (n + 1) :=
   ⟨env.toVec.cons x⟩
 
 /--
-Create a new environment by removing the variable at position `v` from the environment.
-The result type matches `Instruction.results` for `consumeEff`.
+`env.eraseVar v` removes a variable `v` from an environment `env`.
 -/
-def remove (env : Environment τ n) (v : Var n) : Environment τ (n - 1) :=
-  -- Removes the variable at position `v`, shifting all subsequent variables down
-  sorry
+def eraseVar (env : Environment τ n) (v : Var n) : Environment τ (n - 1) :=
+  ⟨env.toVec.eraseIdx v.toFin⟩
