@@ -16,7 +16,7 @@ variable (τ : Ty) [MemoryModel τ]
 -/
 
 /-- `ExecM` is the monad in which programs are executed. -/
-def ExecM := StateT (Trace τ) TypeErrM
+def ExecM := StateT (Option <| Trace τ) TypeErrM
   where
     /-- `TypeErrM α` represents either a type-error, or a value of type `α`. -/
     TypeErrM := Option
@@ -30,8 +30,8 @@ def ExecM := StateT (Trace τ) TypeErrM
 section Monad
 instance : Monad (ExecM τ) := by unfold ExecM ExecM.TypeErrM; infer_instance
 instance : LawfulMonad (ExecM τ) := by unfold ExecM ExecM.TypeErrM; infer_instance
-instance : MonadState (Trace τ) (ExecM τ) := by unfold ExecM ExecM.TypeErrM; infer_instance
-instance : MonadStateOf (Trace τ) (ExecM τ) := by unfold ExecM ExecM.TypeErrM; infer_instance
+instance : MonadState (Option <| Trace τ) (ExecM τ) := by unfold ExecM ExecM.TypeErrM; infer_instance
+instance : MonadStateOf (Option <| Trace τ) (ExecM τ) := by unfold ExecM ExecM.TypeErrM; infer_instance
 
 instance : Monad (ExecM.TypeErrM) := by unfold ExecM.TypeErrM; infer_instance
 end Monad

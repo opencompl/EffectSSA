@@ -41,33 +41,57 @@ def Instruction.exec (env : Environment τ n) : (i : Instruction τ n) → ExecM
   -- EffectSSA memory operations
   | .loadE t eff p => do
     let (val, trace) := load t (←env.getPtr p) (←env.getEff eff)
-    setTrace trace
-    return env.snoc val
+    return (env.snoc trace |>.snoc val).remove eff
   | .storeE t eff p x => do
-    setTrace (store (←env.getPtr p) (←env.getData x t) (←env.getEff eff))
-    return env
+    let trace := store (←env.getPtr p) (←env.getData x t) (←env.getEff eff)
+    return (env.snoc trace).remove eff
   | .allocE t eff p => do
-    setTrace (alloc t (←env.getPtr p) (←env.getEff eff))
-    return env
+    let trace := alloc t (←env.getPtr p) (←env.getEff eff)
+    return (env.snoc trace).remove eff
   | .freeE t eff p => do
-    setTrace (free t (←env.getPtr p) (←env.getEff eff))
-    return env
+    let trace := free t (←env.getPtr p) (←env.getEff eff)
+    return (env.snoc trace).remove eff
   -- Effect state bookkeeping operations
   | .createEff => do
-    let trace ← getTrace
+    let trace ← takeTrace
     return env.snoc trace
   | .consumeEff e => do
-    setTrace (←env.getEff e)
-    return env.remove e
+    putTrace (←env.getEff e)
+    return cast sorry <| env.remove e
+    -- FIXME: ^^ we should get rid of this cast
 where
-  /-- Modify the current trace in the state. -/
-  modifyTrace : (f : Trace τ → Trace τ) → ExecM τ Unit := modify
-  /-- Modify the current trace in the state and return a value computed from the original trace. -/
-  modifyGetTrace {α} : (f : Trace τ → α × Trace τ) → ExecM τ α := modifyGet
-  /-- Get the current trace from the state. -/
-  getTrace : ExecM τ (Trace τ) := get
-  /-- Set the current trace in the state. -/
-  setTrace : (es : Trace τ) → ExecM τ Unit := set
+  /--
+  Modify the current trace in the state and return a value computed from the original trace.
+  If the state is absent, execute `f` as if the state was UB, and
+    store the resulting state.
+  -/
+  modifyGetTrace {α} (f : Trace τ → α × Trace τ) : ExecM τ α :=
+    modifyGet fun (es? : Option _) =>
+      let ⟨x, es⟩ := f (es?.getD .ub)
+      (x, some es)
+  /--
+  Modify the current trace in the state.
+  If the state is absent, act as if the state was UB.
+  -/
+  modifyTrace (f : Trace τ → Trace τ) : ExecM τ Unit :=
+    modifyGetTrace (fun es => ((), f es))
+  /--
+  Take the current trace from the state, such that it is absent after.
+  If the trace is already absent, modify the state to be UB,
+  and return a UB trace
+  -/
+  takeTrace : ExecM τ (Trace τ) :=
+    modifyGet fun
+      | none => (.ub, some .ub)
+      | some es => (es, none)
+  /--
+  Set the current trace in the state, assuming it was absent.
+  If a state is already present, replace it with UB.
+  -/
+  putTrace (es : Trace τ) : ExecM τ Unit :=
+    modify fun
+      | none => some es
+      | some _ => some .ub
 
 
 /-- Execute all instructions in a program sequentially, threading the environment through. -/

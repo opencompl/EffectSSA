@@ -24,7 +24,12 @@ def Var n := Fin n
 -/
 namespace Var
 
+/-- Return the underlying index of a variable. -/
 def toFin (v : Var n) : Fin n := v
+/-- Construct a variable from its index. -/
 def ofFin (i : Fin n) : Var n := i
+
+/-- The bound on a variable `Var n` may implicitly be weakened to `n + 1`. -/
+instance : Coe (Var n) (Var <| n + 1) where coe := Fin.succ
 
 end Var
