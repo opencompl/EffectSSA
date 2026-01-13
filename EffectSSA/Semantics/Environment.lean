@@ -73,8 +73,11 @@ variable `v`, and then attempts to coerce this to be a typed value of type `t`.
 Returns `none` if `v` has a type different from `t`.
 -/
 def getAs? (env : Environment τ n) (v : Var n) (t : τ.Typ) : Option (τ.TVal t) :=
-  -- TODO: generate
-  sorry
+  let val := env.toVec[v.toFin]
+  if h : val.1 = t then
+    some <| h ▸ val.2
+  else
+    none
 
 /--
 `env.getAs v t` retrieves the value environment `env` associates with a

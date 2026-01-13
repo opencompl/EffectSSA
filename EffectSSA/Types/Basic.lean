@@ -20,6 +20,7 @@ inductive Ty.Typ (τ : Ty)
   | eff
   /-- Plain data types. -/
   | data (d : τ.DType)
+  deriving DecidableEq
 
 /-!
 ## Definitions
