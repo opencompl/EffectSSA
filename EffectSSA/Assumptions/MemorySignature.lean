@@ -29,14 +29,17 @@ class MemorySignature where
   [instDecidableEqPtr : DecidableEq Ptr]
 
   /-- Semantic domain of plain data types. -/
-  TVal : τ.DType → Type
-  [instDecidableEqTVal : ∀ t, DecidableEq (TVal t)]
+  DVal : τ.DType → Type
+  [instDecidableEqTVal : ∀ t, DecidableEq (DVal t)]
 
 namespace Ty
 variable [MemorySignature τ]
 
+/-- `τ.Ptr` is a pointer value. -/
 abbrev Ptr : Type := MemorySignature.Ptr τ
-abbrev TVal : τ.DType → Type := MemorySignature.TVal
+
+/-- `τ.DVal t` is a plain data value of type `t : τ.DType`. -/
+abbrev DVal : τ.DType → Type := MemorySignature.DVal
 
 attribute [instance] Ty.instDecidableEqDType
 attribute [instance] MemorySignature.instDecidableEqPtr

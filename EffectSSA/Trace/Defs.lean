@@ -21,7 +21,7 @@ inductive Event where
   /-- A value of type `t` was loaded from location `p`. -/
   | load (t : τ.DType) (p : τ.Ptr)
   /-- The value `x` of type `t` was stored to location `p`. -/
-  | store {t} (p : τ.Ptr) (x : τ.TVal t)
+  | store {t} (p : τ.Ptr) (x : τ.DVal t)
   /-- Location `p` was allocated, with type `t`. -/
   | alloc (t : τ.DType) (p : τ.Ptr)
   /-- Location `p` was freed -/

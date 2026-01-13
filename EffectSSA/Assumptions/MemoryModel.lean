@@ -19,7 +19,7 @@ class MemoryModel τ extends MemorySignature τ where
 
   If this read is illegal, `read` may return an arbitrary value.
   -/
-  read : (t : τ.DType) → τ.Ptr → Trace τ → τ.TVal t
+  read : (t : τ.DType) → τ.Ptr → Trace τ → τ.DVal t
 
   /--
   `LegalTrace` is a (decidable) predicate to identify which traces of events are

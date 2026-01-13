@@ -1,2 +1,3 @@
-import EffectSSA.Assumptions.MemorySignature
+import EffectSSA.Assumptions.LawfulMemoryModel
 import EffectSSA.Assumptions.MemoryModel
+import EffectSSA.Assumptions.MemorySignature
