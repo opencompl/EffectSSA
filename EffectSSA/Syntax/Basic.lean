@@ -37,10 +37,18 @@ inductive Instruction (τ : Ty) (n : Nat) where
   | consumeEff (e : Var n)
 
 /--
-`i.results` returns the number of new variables bound by instruction `i`,
-minus the number of *linear* variables consumed by `i`.
+`i.results` gives the number of (live) free variables available after executing
+an instruction `i`, taking into account free variables available to `i`.
+
+Here, live means that any linear variables consumed by `i` are excluded.
 -/
-def Instruction.netResults : Instruction τ n → Int
+def Instruction.results (i : Instruction τ n) : Nat := (n + delta i).toNat
+where
+  /--
+  `delta i` is the number of new variables bound by instruction `i`,
+  minus the number of *linear* variables consumed by `i`.
+  -/
+  delta : Instruction τ n → Int
   | loadI .. => 1
   | storeI .. => 0
   | allocI .. => 0
@@ -52,9 +60,14 @@ def Instruction.netResults : Instruction τ n → Int
   | createEff => 1
   | consumeEff .. => -1
 
+/--
+A program is a (possibly empty) sequence of instructions.
+It is thus morally similar to a `List (Instruction ..)`, except that `Program`
+additionally tracks the bound on free variables available to each instruction.
+-/
 inductive Program (τ : Ty) : Nat → Type where
   | nil : Program τ n
-  | cons : (i : Instruction τ n) → Program τ (n + i.netResults).toNat → Program τ n
+  | cons : (i : Instruction τ n) → Program τ i.results → Program τ n
 
 /-
 FIXME: I wonder if I'm not getting the worst of both worlds by doing intrinsically
@@ -62,3 +75,19 @@ tracked de Bruijn indices but extrinsically typed. To track the indices, `Progra
 has become a custom inductive, instead of just a `List`, so I'm going to have to
 implement a bunch of API for it anyway.
 -/
+
+/-!
+## Definitions
+--------------------------------------------------------------------------------
+-/
+
+/--
+`p.results` gives the number of *live* free variables available after executing
+program `p`.
+
+Here, live means that any linear variables that have already been
+consumed during the execution of `p` are explicitly excluded.
+-/
+def Program.results : Program τ n → Nat
+  | nil => n
+  | cons _ p => results p
