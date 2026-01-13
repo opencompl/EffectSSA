@@ -42,23 +42,17 @@ an instruction `i`, taking into account free variables available to `i`.
 
 Here, live means that any linear variables consumed by `i` are excluded.
 -/
-def Instruction.results (i : Instruction τ n) : Nat := (n + delta i).toNat
-where
-  /--
-  `delta i` is the number of new variables bound by instruction `i`,
-  minus the number of *linear* variables consumed by `i`.
-  -/
-  delta : Instruction τ n → Int
-  | loadI .. => 1
-  | storeI .. => 0
-  | allocI .. => 0
-  | freeI .. => 0
-  | loadE .. => 1
-  | storeE .. => 0
-  | allocE .. => 0
-  | freeE .. => 0
-  | createEff => 1
-  | consumeEff .. => -1
+def Instruction.results : Instruction τ n → Nat
+  | loadI .. => n + 1
+  | storeI .. => n
+  | allocI .. => n
+  | freeI .. => n
+  | loadE .. => n + 1
+  | storeE .. => n
+  | allocE .. => n
+  | freeE .. => n
+  | createEff => n + 1
+  | consumeEff .. => n - 1
 
 /--
 A program is a (possibly empty) sequence of instructions.

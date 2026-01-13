@@ -57,8 +57,7 @@ def Instruction.exec (env : Environment τ n) : (i : Instruction τ n) → ExecM
     return env.snoc trace
   | .consumeEff e => do
     putTrace (←env.getEff e)
-    return cast sorry <| env.remove e
-    -- FIXME: ^^ we should get rid of this cast
+    return env.remove e
 where
   /--
   Modify the current trace in the state and return a value computed from the original trace.
