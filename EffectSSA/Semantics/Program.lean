@@ -51,6 +51,13 @@ def Instruction.exec (env : Environment τ n) : (i : Instruction τ n) → ExecM
   | .freeE t eff p => do
     let trace := free t (←env.getPtr p) (←env.getEff eff)
     return (env.snoc trace).eraseVar eff
+  -- Split / Merge
+  | .split eff => do
+    let trace := Semantics.split (← env.getEff eff)
+    return (env.snoc trace |>.snoc trace).eraseVar eff
+  | .merge eff₁ eff₂ => do
+    let trace := Semantics.merge (← env.getEff eff₁) (← env.getEff eff₂)
+    return (env.snoc trace).eraseVar eff₁ |>.eraseVar eff₂
   -- Effect state bookkeeping operations
   | .createEff => do
     let trace ← takeTrace

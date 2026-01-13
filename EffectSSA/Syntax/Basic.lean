@@ -33,6 +33,8 @@ inductive Instruction (τ : Ty) (n : Nat) where
   | freeE (t : τ.DType) (eff : Var n) (p : Var n)
   -- FIXME: the draft also has stack address & constant value instruction
   -- Effect Bookkeeping
+  | split (eff : Var n)
+  | merge (eff₁ : Var n) (eff₂ : Var n)
   | createEff
   | consumeEff (e : Var n)
 
@@ -51,6 +53,8 @@ def Instruction.results : Instruction τ n → Nat
   | storeE .. => n
   | allocE .. => n
   | freeE .. => n
+  | split .. => n + 1
+  | merge .. => n - 1
   | createEff => n + 1
   | consumeEff .. => n - 1
 
