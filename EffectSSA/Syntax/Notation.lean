@@ -1,4 +1,5 @@
 import EffectSSA.Syntax.Basic
+import EffectSSA.Meta.Trace
 
 import Lean
 import Qq
@@ -44,17 +45,17 @@ end Instructions
 syntax program := ssa_instruction ("; " ssa_instruction)*
 
 /--
-`program[x₁, x₂, …]!( i₁; i₂; … )` elaborates the instructions `i₁`, `i₂`, etc
+`program!{x₁, x₂, …}( i₁; i₂; … )` elaborates the instructions `i₁`, `i₂`, etc
 into a `Program`, assuming `x₁`, `x₂`, etc are valid free variables.
 -/
-syntax "program![" ident,* "]" noWs "(" optional(program) ")" : term
+syntax "program!" noWs "{" ident,* "}" noWs "(" optional(program) ")" : term
 
 /--
 `program!( i₁; i₂; … )` elaborates the instructions `i₁`, `i₂`, etc
 into a *closed* `Program`, i.e., without free variables.
 -/
 macro "program!(" p:optional(program) ")" : term =>
-  `(program![]( $[$p:program]? ))
+  `(program!{}( $[$p:program]? ))
 
 /-!
 ## Elaboration
@@ -72,9 +73,20 @@ instance : MonadExceptOf Lean.Exception InstructionElabM := by unfold Instructio
 instance : Lean.MonadRef InstructionElabM := by unfold InstructionElabM; infer_instance
 instance : MonadStateOf (List Lean.Ident) InstructionElabM := by unfold InstructionElabM; infer_instance
 
---FIXME: generate a succinct docstring
-def run (x : InstructionElabM α) (s : List Lean.Ident) : TermElabM α :=
-  StateT.run' x s
+/--
+Run an `x : InstructionElabM α` given a list of initial free variables `s`.
+Returns the result of `x` as well as the list of free variables *after*
+executing `x`. -/
+def run (x : InstructionElabM α) (s : List Lean.Ident) : TermElabM (α × List Lean.Ident) :=
+  StateT.run x s
+
+/--
+Trace the context of free variables.
+FIXME: make this docstring better
+-/
+def traceContext (header : String := "context: ") : InstructionElabM Unit := do
+  let ctx ← get
+  trace[EffectSSA] "{header}{ctx}"
 
 end InstructionElabM
 
@@ -88,7 +100,11 @@ macro_rules
 open Lean in
 def elabInstruction (τ : Q(Ty)) (i : Lean.TSyntax `ssa_instruction) :
      InstructionElabM (Σ (n : Nat), Q(Instruction $τ $n)) :=
-  withRef i <| match i with
+  withRef i <| do
+  trace[EffectSSA] "Elaborating instruction: {i}"
+  InstructionElabM.traceContext "Context before elaboration:"
+  match i with
+  -- Basic memory ops with implicit effects
   | `(ssa_instruction| $x:ident := loadI[$t:term]($p:ident)) => do
         let t ← parseDType t
         let ⟨n, p⟩ ← lookupVar p
@@ -108,6 +124,7 @@ def elabInstruction (τ : Q(Ty)) (i : Lean.TSyntax `ssa_instruction) :
         let t ← parseDType t
         let ⟨n, p⟩ ← lookupVar p
         return ⟨n, q(.freeI $t $p)⟩
+  -- Basic memory ops in EffectSSA form
   | `(ssa_instruction| $e1:ident, $x:ident := loadE[$t:term]($e0:ident, $p:ident)) => do
         let t ← parseDType t
         let ⟨n, vs⟩ ← lookupVars !#[e0, p]
@@ -142,6 +159,21 @@ def elabInstruction (τ : Q(Ty)) (i : Lean.TSyntax `ssa_instruction) :
         eraseVar e0
         addVar e1
         return ⟨n, q(.freeE $t $e0' $p')⟩
+  -- Effect Bookkeeping
+  | `(ssa_instruction| $e1:ident, $e2:ident := split($e:ident)) => do
+        let ⟨n, e'⟩ ← lookupVar e
+        eraseVar e
+        addVar e1
+        addVar e2
+        return ⟨n, q(.split $e')⟩
+  | `(ssa_instruction| $e:ident := merge($e1:ident, $e2:ident)) => do
+        let ⟨n, es⟩ ← lookupVars !#[e1, e2]
+        let e1' : Var n := es[0]
+        let e2' : Var n := es[1]
+        eraseVar e1
+        eraseVar e2
+        addVar e
+        return ⟨n, q(.merge $e1' $e2')⟩
   | `(ssa_instruction| $e:ident := createEff) => do
         let n : Nat ← getVarBound
         addVar e
@@ -196,18 +228,65 @@ def elabInstruction.asExpr (τ : Q(Ty)) (i : Lean.TSyntax `ssa_instruction) :
   return (n, i)
 
 macro_rules
-  | `(program![]()) => `(Program.nil)
+  | `(program!{$vs:ident,*}()) =>
+      let n := Lean.quote vs.getElems.size
+      `(Program.nil (n := $n))
 
 open Lean in
 elab_rules : term
-  | `(program![$vs:ident,*]( $i:ssa_instruction $[; $is:ssa_instruction]* )) => do
+  | `(program!{$vs:ident,*}( $i:ssa_instruction $[; $is:ssa_instruction]* )) => do
       let τ ← mkFreshExprMVarQ q(Ty)
       let is := is.push i
-      let iExprs ← InstructionElabM.run (s := vs.getElems.toList) <|
+      let (iExprs, ctx) ← InstructionElabM.run (s := vs.getElems.toList) <|
         is.mapM (elabInstruction.asExpr τ)
+      trace[EffectSSA] "Final context: {ctx}"
 
-      let n0 : Nat := (iExprs.back?.map Prod.fst).getD 0
+      let n0 : Nat := ctx.length
       let nil := q(@Program.nil $τ $n0)
       let mkProgram := fun (n, i) =>
         mkApp4 (mkConst ``Program.cons) τ (toExpr n) i
       return iExprs.foldr mkProgram nil
+
+/-!
+## Tests
+--------------------------------------------------------------------------------
+-/
+namespace Tests
+
+inductive DType
+  | u8
+  deriving DecidableEq, Repr
+open DType
+
+def TestTy : Ty := { DType := DType }
+
+/-- info: Program.nil : Program ?m.1 0 -/
+#guard_msgs in #check program!()
+/-- info: Program.nil : Program ?m.1 0 -/
+#guard_msgs in #check program!{}()
+/-- info: Program.nil : Program ?m.1 3 -/
+#guard_msgs in #check program!{x, y, z}()
+
+-- set_option trace.EffectSSA true
+
+/--
+info: have this :=
+  Program.cons (Instruction.loadI u8 (Var.ofFin 0)) (Program.cons (Instruction.loadI u8 (Var.ofFin 1)) Program.nil);
+this : Program TestTy 1
+-/
+#guard_msgs in
+#check show Program TestTy _ from program!{p}(
+  x := loadI[u8](p);
+  y := loadI[u8](p)
+)
+
+/--
+info: have this := Program.cons (Instruction.split (Var.ofFin 0)) Program.nil;
+this : Program TestTy 1
+-/
+#guard_msgs in
+#check show Program TestTy _ from program!{e}(
+  e1, e2 := split(e)
+)
+
+end Tests

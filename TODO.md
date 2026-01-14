@@ -18,6 +18,11 @@
       track a bound on the DeBruijn index, meaning my program still is not just a
       list. It remains to be seen if that was the right choice, or whether I should
       just use plain `Nat`s for variables.
+  - [ ] Custom embedded program syntax
+    - [X] Initial notation elaboration setup
+    - [ ] Fix the issue with variable counts not being propagated properly
+    - [ ] Print the syntax (with proper variable tracking)
+    - [ ] Have at least some test cases
 
 - [X] Type system
   - For now, I just have a `WellTyped` predicate. We could expand this to
