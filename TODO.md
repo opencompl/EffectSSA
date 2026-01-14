@@ -21,8 +21,9 @@
   - [ ] Custom embedded program syntax
     - [X] Initial notation elaboration setup
     - [X] Fix the issue with variable counts not being propagated properly
-    - [ ] Print the syntax (with proper variable tracking)
-    - [ ] Have at least some test cases
+    - [X] Print the syntax
+    - [X] Have at least some test cases
+    - [ ] Refactor the printer to print correct variable names
 
 - [X] Type system
   - For now, I just have a `WellTyped` predicate. We could expand this to

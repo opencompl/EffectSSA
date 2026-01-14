@@ -9,11 +9,39 @@ namespace EffectSSA
 variable {τ : Ty} [Repr τ.DType]
 open Std (Format)
 
+/-!
+## VarPrintM
+We first define a monad which keeps track of which variable names are currently
+in scope: this is needed to properly translate de bruijn indices to consistent
+names, while taking into account linear variables which have been consumed.
+-/
+
+def VarPrintM := StateM (List String)
+
+/-! Boilerplate -/
+namespace VarPrintM
+
+instance : Monad VarPrintM := by unfold VarPrintM; infer_instance
+instance : MonadStateOf (List String) VarPrintM := by unfold VarPrintM; infer_instance
+
+end VarPrintM
+
+/-! ### printVar -/
+
+def printVar (v : Var n) : VarPrintM String := do
+  let vs ← get
+  return match vs[v.toNat]? with
+  | some x => x
+  | none => "{failed to print variable}"
+
+def printResults (n : Nat) : VarPrintM Format := do
+
+
 /-! ## printWith -/
 
-def Instruction.printWith (printVar : Nat → String) : Instruction τ n → Format
+def Instruction.printWith : Instruction τ n → VarPrintM Format
   -- Basic memory ops with implicit effects
-  | loadI t p => f!"{printVar 0} := loadI[{repr t}]({printVar p.toNat})"
+  | loadI t p => f!"{printVar 0} := loadI[{repr t}]({printVar p})"
   | storeI t p x => f!"storeI[{repr t}]({printVar p.toNat}, {printVar x.toNat})"
   | allocI t p => f!"allocI[{repr t}]({printVar p.toNat})"
   | freeI t p => f!"freeI[{repr t}]({printVar p.toNat})"
