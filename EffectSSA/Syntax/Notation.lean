@@ -44,10 +44,13 @@ end Instructions
 syntax program := ssa_instruction ("; " ssa_instruction)*
 
 /--
-`program!( i₁; i₂; … )` elaborates into a *closed* `Program` with instructions
-  `i₁`, `i₂`, etc.
+`program[x₁, x₂, …]!( i₁; i₂; … )` elaborates the instructions `i₁`, `i₂`, etc
+into a `Program`, assuming `x₁`, `x₂`, etc are valid free variables.
+
+`program!(…)` elaborates the instructions into a *closed* `Program`
+.
 -/
-syntax "program!(" optional(program) ")" : term
+syntax "program!" optional("[" ident,* "]") "(" optional(program) ")" : term
 
 /-!
 ## Elaboration
@@ -66,8 +69,8 @@ instance : Lean.MonadRef InstructionElabM := by unfold InstructionElabM; infer_i
 instance : MonadStateOf (List Lean.Ident) InstructionElabM := by unfold InstructionElabM; infer_instance
 
 --FIXME: generate a succinct docstring
-def run (x : InstructionElabM α) : TermElabM α :=
-  StateT.run' x []
+def run (x : InstructionElabM α) (s : List Lean.Ident) : TermElabM α :=
+  StateT.run' x s
 
 end InstructionElabM
 
@@ -189,14 +192,15 @@ def elabInstruction.asExpr (τ : Q(Ty)) (i : Lean.TSyntax `ssa_instruction) :
   return (n, i)
 
 macro_rules
-  | `(program!()) => `(Program.nil)
+  | `(program![]()) => `(Program.nil)
+  | `(program!( $p:program )) => `(program![]($p))
 
 open Lean in
 elab_rules : term
-  | `(program!( $i:ssa_instruction $[; $is:ssa_instruction]* )) => do
+  | `(program![$vs:ident,*]( $i:ssa_instruction $[; $is:ssa_instruction]* )) => do
       let τ ← mkFreshExprMVarQ q(Ty)
       let is := is.push i
-      let iExprs ← InstructionElabM.run <|
+      let iExprs ← InstructionElabM.run (s := vs.getElems.toList) <|
         is.mapM (elabInstruction.asExpr τ)
 
       let n0 : Nat := (iExprs.back?.map Prod.fst).getD 0
