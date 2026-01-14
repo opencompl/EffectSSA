@@ -1,3 +1,4 @@
+import Lean
 
 /-!
 # Variables
@@ -31,5 +32,19 @@ def ofFin (i : Fin n) : Var n := i
 
 /-- The bound on a variable `Var n` may implicitly be weakened to `n + 1`. -/
 instance : Coe (Var n) (Var <| n + 1) where coe := Fin.succ
+
+/--
+A placeholder variable, used for prototyping when we don't care about the
+specific variable index.
+-/
+def placeholder {n : Nat} : Var (n + 1) := (0 : Fin _)
+
+/-!
+### Metaprogramming API
+-/
+
+instance : Lean.ToExpr (Var n) where
+  toExpr := sorry
+  toTypeExpr := sorry
 
 end Var
