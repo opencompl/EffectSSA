@@ -1,4 +1,5 @@
 import Lean
+import Qq
 
 /-!
 # Variables
@@ -42,9 +43,15 @@ def placeholder {n : Nat} : Var (n + 1) := (0 : Fin _)
 /-!
 ### Metaprogramming API
 -/
+section Meta
+open Lean Qq
 
 instance : Lean.ToExpr (Var n) where
-  toExpr := sorry
-  toTypeExpr := sorry
+  toExpr v :=
+    let i : Q(Fin $n) := toExpr v.toFin
+    q(Var.ofFin $i)
+  toTypeExpr := q(Var $n)
+
+end Meta
 
 end Var
