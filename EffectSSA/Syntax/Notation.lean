@@ -41,13 +41,13 @@ syntax "consumeEff" "(" ident ")" : ssa_instruction
 end Instructions
 
 /-- Syntax of EffectSSA Programs. -/
-syntax program := ssa_instruction ";"*
+syntax program := ssa_instruction ("; " ssa_instruction)*
 
 /--
 `program!( i₁; i₂; … )` elaborates into a *closed* `Program` with instructions
   `i₁`, `i₂`, etc.
 -/
-syntax "program!(" program ")" : term
+syntax "program!(" optional(program) ")" : term
 
 /-!
 ## Elaboration
@@ -63,6 +63,12 @@ instance : Monad InstructionElabM := by unfold InstructionElabM; infer_instance
 instance : MonadLift TermElabM InstructionElabM := by unfold InstructionElabM; infer_instance
 instance : MonadExceptOf Lean.Exception InstructionElabM := by unfold InstructionElabM; infer_instance
 instance : Lean.MonadRef InstructionElabM := by unfold InstructionElabM; infer_instance
+instance : MonadStateOf (List Lean.Ident) InstructionElabM := by unfold InstructionElabM; infer_instance
+
+--FIXME: generate a succinct docstring
+def run (x : InstructionElabM α) : TermElabM α := do
+  sorry
+
 end InstructionElabM
 
 /-- (Local) Syntax for `Vector α n` literals. -/
@@ -143,58 +149,58 @@ def elabInstruction (τ : Q(Ty)) (i : Lean.TSyntax `ssa_instruction) :
     Parse a Lean term into a Lean expression of type `τ.DType`
     -/
     parseDType (t : Lean.Term) : TermElabM Q(($τ).DType) := withRef t <| do
-      sorry
+      elabTermEnsuringTypeQ t q(($τ).DType)
     /--
     Look up the index of multiple variables in the context, statically showing
     that the returned variables all have the same (dynamic) bound `n` in their
     index, which corresponds to the number of variables in the current context.
     -/
     lookupVars {m} (vs : Vector Lean.Ident m) : InstructionElabM (Σ n, (Vector (Var n) m)) := do
-      sorry
+      let ctx ← get
+      let vs ← vs.mapM fun v =>
+        ctx.findFinIdx? (· == v)
+        |>.getDM (throwError "Unknown variable {v}")
+      return ⟨ctx.length,  vs⟩
     /-- Look up the index of a single variable in the context. -/
     lookupVar (v : Lean.Ident) : InstructionElabM (Σ n, Var n) := do
-      -- use `lookupVar` with a 1-element vector
-      sorry
+      let ⟨n, vs⟩ ← lookupVars !#[v]
+      return ⟨n, vs[0]⟩
     /--
     Add a new variable to the context.
     NOTE: This should generally be done *after* `lookupVar`, to ensure the
     latter gets the right bounds.
     -/
     addVar (v : Lean.Ident) : InstructionElabM Unit := do
-      sorry
+      modify (v :: ·)
     /--
     Erase a (linear) variable from the context.
     NOTE: This should generally be done *after* `lookupVar`, to ensure the
     latter gets the right bounds.
     -/
     eraseVar (v : Lean.Ident) : InstructionElabM Unit := do
-      sorry
+      modify (·.erase v)
     /-- Return the number of variables currently in the context. -/
     getVarBound : InstructionElabM Nat := do
-      sorry
+      return (← get).length
 
--- macro_rules
---   | `(ssa_instruction| $x:ident := loadI [ $t ] ( $p:ident )) => `(Instruction.loadI $t Var.placeholder)
---   | `(ssa_instruction| storeI [ $t ] ( $p:ident , $x:ident )) => `(Instruction.storeI $t Var.placeholder Var.placeholder)
---   | `(ssa_instruction| allocI [ $t ] ( $p:ident )) => `(Instruction.allocI $t Var.placeholder)
---   | `(ssa_instruction| freeI [ $t ] ( $p:ident )) => `(Instruction.freeI $t Var.placeholder)
---   | `(ssa_instruction| $e1:ident , $e2:ident := loadE [ $t ] ( $e0:ident , $p:ident )) => `(Instruction.loadE $t Var.placeholder Var.placeholder)
---   | `(ssa_instruction| $e1:ident := storeE [ $t ] ( $e0:ident , $p:ident , $x:ident )) => `(Instruction.storeE $t Var.placeholder Var.placeholder Var.placeholder)
---   | `(ssa_instruction| $e1:ident := allocE [ $t ] ( $e0:ident , $p:ident )) => `(Instruction.allocE $t Var.placeholder Var.placeholder)
---   | `(ssa_instruction| $e1:ident := freeE [ $t ] ( $e0:ident , $p:ident )) => `(Instruction.freeE $t Var.placeholder Var.placeholder)
---   | `(ssa_instruction| $e1:ident , $e2:ident := split ( $e:ident )) => `(Instruction.split Var.placeholder)
---   | `(ssa_instruction| $e:ident := merge ( $e1:ident , $e2:ident )) => `(Instruction.merge Var.placeholder Var.placeholder)
---   | `(ssa_instruction| $e:ident := createEff) => `(Instruction.createEff)
---   | `(ssa_instruction| consumeEff ( $e:ident )) => `(Instruction.consumeEff Var.placeholder)
+def elabInstruction.asExpr (τ : Q(Ty)) (i : Lean.TSyntax `ssa_instruction) :
+    InstructionElabM (Nat × Lean.Expr) := do
+  let ⟨n, i⟩ ← elabInstruction τ i
+  return (n, i)
 
+macro_rules
+  | `(program!()) => `(Program.nil)
 
--- macro_rules
---   | `(program! $[$ops:ssa_instruction $[;]?]*) => do
---     let nil ← `(Program.nil)
---     let p : Lean.TSyntax `term ← ops.foldrM (fun op (rest : Lean.TSyntax `term) => `(Program.cons (instruction! $op) $rest)) nil
---     return p
+open Lean in
+elab_rules : term
+  | `(program!( $i:ssa_instruction $[; $is:ssa_instruction]* )) => do
+      let τ ← mkFreshExprMVarQ q(Ty)
+      let is := is.push i
+      let iExprs ← InstructionElabM.run <|
+        is.mapM (elabInstruction.asExpr τ)
 
-
-/-!
-Then, please use the InstructionElabM to keep track of all variables that got introduced. That is, add any newly bound variables to it, but also remove any linear variables (that is, variables of type Trace) that were consumed. Please consult the type rules in #file:WellTyped.lean or the semantics in #file:Program.lean to confirm which variables are considered linear
--/
+      let n0 : Nat := (iExprs.back?.map Prod.fst).getD 0
+      let nil := q(@Program.nil $τ $n0)
+      let mkProgram := fun (n, i) =>
+        mkApp4 (mkConst ``Program.cons) τ (toExpr n) i
+      return iExprs.foldr mkProgram nil
