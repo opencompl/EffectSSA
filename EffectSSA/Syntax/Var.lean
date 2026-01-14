@@ -30,6 +30,8 @@ namespace Var
 def toFin (v : Var n) : Fin n := v
 /-- Construct a variable from its index. -/
 def ofFin (i : Fin n) : Var n := i
+/-- Return the underlying index of a variable. -/
+def toNat (v : Var n) : Nat := v.toFin.val
 
 /-- The bound on a variable `Var n` may implicitly be weakened to `n + 1`. -/
 instance : Coe (Var n) (Var <| n + 1) where coe := Fin.succ

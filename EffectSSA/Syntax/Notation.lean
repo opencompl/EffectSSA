@@ -46,11 +46,15 @@ syntax program := ssa_instruction ("; " ssa_instruction)*
 /--
 `program[x₁, x₂, …]!( i₁; i₂; … )` elaborates the instructions `i₁`, `i₂`, etc
 into a `Program`, assuming `x₁`, `x₂`, etc are valid free variables.
-
-`program!(…)` elaborates the instructions into a *closed* `Program`
-.
 -/
-syntax "program!" optional("[" ident,* "]") "(" optional(program) ")" : term
+syntax "program![" ident,* "]" noWs "(" optional(program) ")" : term
+
+/--
+`program!( i₁; i₂; … )` elaborates the instructions `i₁`, `i₂`, etc
+into a *closed* `Program`, i.e., without free variables.
+-/
+macro "program!(" p:optional(program) ")" : term =>
+  `(program![]( $[$p:program]? ))
 
 /-!
 ## Elaboration
@@ -193,7 +197,6 @@ def elabInstruction.asExpr (τ : Q(Ty)) (i : Lean.TSyntax `ssa_instruction) :
 
 macro_rules
   | `(program![]()) => `(Program.nil)
-  | `(program!( $p:program )) => `(program![]($p))
 
 open Lean in
 elab_rules : term
