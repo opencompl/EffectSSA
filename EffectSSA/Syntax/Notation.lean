@@ -61,17 +61,83 @@ def InstructionElabM := StateT (List Lean.Ident) TermElabM
 namespace InstructionElabM
 instance : Monad InstructionElabM := by unfold InstructionElabM; infer_instance
 instance : MonadLift TermElabM InstructionElabM := by unfold InstructionElabM; infer_instance
+instance : MonadExceptOf Lean.Exception InstructionElabM := by unfold InstructionElabM; infer_instance
+instance : Lean.MonadRef InstructionElabM := by unfold InstructionElabM; infer_instance
 end InstructionElabM
 
+/-- (Local) Syntax for `Vector α n` literals. -/
+local syntax (name := «term!#[_,]») "!#[" withoutPosition(term,*,?) "]" : term
+macro_rules
+  | `(!#[ $elems,* ]) =>
+      let n := Lean.quote elems.getElems.size
+      `(Vector.mk (n:=$n) #[ $elems,* ] (by rfl))
+
 open Lean in
-def elabInstruction (τ : Q(Ty)) :
-    Lean.TSyntax `ssa_instruction → InstructionElabM (Σ (n : Nat), Q(Instruction $τ $n))
+def elabInstruction (τ : Q(Ty)) (i : Lean.TSyntax `ssa_instruction) :
+     InstructionElabM (Σ (n : Nat), Q(Instruction $τ $n)) :=
+  withRef i <| match i with
   | `(ssa_instruction| $x:ident := loadI[$t]($p:ident)) => do
         let t ← parseDType t
         let ⟨n, p⟩ ← lookupVar p
         addVar x
         return ⟨n, q(.loadI $t $p)⟩
-  | _ => sorry
+  | `(ssa_instruction| storeI[$t]($p:ident, $x:ident)) => do
+        let t ← parseDType t
+        let ⟨n, vs⟩ ← lookupVars !#[p, x]
+        let p : Var n := vs[0]
+        let x : Var n := vs[1]
+        return ⟨n, q(.storeI $t $p $x)⟩
+  | `(ssa_instruction| allocI[$t]($p:ident)) => do
+        let t ← parseDType t
+        let ⟨n, p⟩ ← lookupVar p
+        return ⟨n, q(.allocI $t $p)⟩
+  | `(ssa_instruction| freeI[$t]($p:ident)) => do
+        let t ← parseDType t
+        let ⟨n, p⟩ ← lookupVar p
+        return ⟨n, q(.freeI $t $p)⟩
+  | `(ssa_instruction| $e1:ident, $x:ident := loadE[$t]($e0:ident, $p:ident)) => do
+        let t ← parseDType t
+        let ⟨n, vs⟩ ← lookupVars !#[e0, p]
+        let e0' : Var n := vs[0]
+        let p' : Var n := vs[1]
+        eraseVar e0
+        addVar e1
+        addVar x
+        return ⟨n, q(.loadE $t $e0' $p')⟩
+  | `(ssa_instruction| $e1:ident := storeE[$t]($e0:ident, $p:ident, $x:ident)) => do
+        let t ← parseDType t
+        let ⟨n, vs⟩ ← lookupVars !#[e0, p, x]
+        let e0' : Var n := vs[0]
+        let p'  : Var n := vs[1]
+        let x' : Var n := vs[2]
+        eraseVar e0
+        addVar e1
+        return ⟨n, q(.storeE $t $e0' $p' $x')⟩
+  | `(ssa_instruction| $e1:ident := allocE[$t]($e0:ident, $p:ident)) => do
+        let t ← parseDType t
+        let ⟨n, vs⟩ ← lookupVars !#[e0, p]
+        let e0' : Var n := vs[0]
+        let p'  : Var n := vs[1]
+        eraseVar e0
+        addVar e1
+        return ⟨n, q(.allocE $t $e0' $p')⟩
+  | `(ssa_instruction| $e1:ident := freeE[$t]($e0:ident, $p:ident)) => do
+        let t ← parseDType t
+        let ⟨n, vs⟩ ← lookupVars !#[e0, p]
+        let e0' : Var n := vs[0]
+        let p'  : Var n := vs[1]
+        eraseVar e0
+        addVar e1
+        return ⟨n, q(.freeE $t $e0' $p')⟩
+  | `(ssa_instruction| $e:ident := createEff) => do
+        let n : Nat ← getVarBound
+        addVar e
+        return ⟨n, q(@Instruction.createEff $τ $n)⟩
+  | `(ssa_instruction| consumeEff ( $e:ident )) => do
+        let ⟨n, e'⟩ ← lookupVar e
+        eraseVar e
+        return ⟨n, q(.consumeEff $e')⟩
+  | _ => Elab.throwUnsupportedSyntax
   where
     /--
     Parse a Lean term into a Lean expression of type `τ.DType`
@@ -102,6 +168,9 @@ def elabInstruction (τ : Q(Ty)) :
     latter gets the right bounds.
     -/
     eraseVar (v : Lean.Ident) : InstructionElabM Unit := do
+      sorry
+    /-- Return the number of variables currently in the context. -/
+    getVarBound : InstructionElabM Nat := do
       sorry
 
 -- macro_rules
