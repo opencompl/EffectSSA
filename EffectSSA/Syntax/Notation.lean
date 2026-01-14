@@ -66,8 +66,8 @@ instance : Lean.MonadRef InstructionElabM := by unfold InstructionElabM; infer_i
 instance : MonadStateOf (List Lean.Ident) InstructionElabM := by unfold InstructionElabM; infer_instance
 
 --FIXME: generate a succinct docstring
-def run (x : InstructionElabM α) : TermElabM α := do
-  sorry
+def run (x : InstructionElabM α) : TermElabM α :=
+  StateT.run' x []
 
 end InstructionElabM
 
