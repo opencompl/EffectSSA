@@ -236,9 +236,8 @@ open Lean in
 elab_rules : term
   | `(program!{$vs:ident,*}( $i:ssa_instruction $[; $is:ssa_instruction]* )) => do
       let τ ← mkFreshExprMVarQ q(Ty)
-      let is := is.push i
-      let (iExprs, ctx) ← InstructionElabM.run (s := vs.getElems.toList) <|
-        is.mapM (elabInstruction.asExpr τ)
+      let ⟨iExprs, ctx⟩ ← InstructionElabM.run (s := vs.getElems.toList) <|
+        (#[i] ++ is).mapM (elabInstruction.asExpr τ)
       trace[EffectSSA] "Final context: {ctx}"
 
       let n0 : Nat := ctx.length

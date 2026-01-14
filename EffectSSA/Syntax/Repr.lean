@@ -52,6 +52,6 @@ instance : Repr (Program τ n) where reprPrec p _ :=
   let vs := (List.range n).map printVar
   let vs := Format.joinSep vs (";" ++ Format.line)
   let p := p.print
-  f!"program\{{vs}}(" ++ Format.line ++ Format.nest 1 p ++ Format.line ++ ")"
+  f!"program\{{vs}}(" ++ Format.line ++ Format.nest 2 p ++ Format.line ++ ")"
 
 end EffectSSA

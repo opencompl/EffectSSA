@@ -62,6 +62,9 @@ def Instruction.results : Instruction τ n → Nat
 A program is a (possibly empty) sequence of instructions.
 It is thus morally similar to a `List (Instruction ..)`, except that `Program`
 additionally tracks the bound on free variables available to each instruction.
+
+Programs grow upwards, such that `cons i p` represents `i ; p`,
+first executing instruction `i` and then the rest of the program `p`.
 -/
 inductive Program (τ : Ty) : Nat → Type where
   | nil : Program τ n

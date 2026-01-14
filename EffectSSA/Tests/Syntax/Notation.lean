@@ -32,13 +32,14 @@ parser in isolation from the printing code.
 
 /--
 info: have this :=
-  Program.cons (Instruction.loadI u8 (Var.ofFin 0)) (Program.cons (Instruction.loadI u8 (Var.ofFin 1)) Program.nil);
+  Program.cons (Instruction.loadI u8 (Var.ofFin 0))
+    (Program.cons (Instruction.storeI u8 (Var.ofFin 1) (Var.ofFin 0)) Program.nil);
 this : Program TestTy 1
 -/
 #guard_msgs in
 #check show Program TestTy _ from program!{p}(
   x := loadI[u8](p);
-  y := loadI[u8](p)
+  storeI[u8](p, x)
 )
 
 /--
@@ -61,15 +62,21 @@ instance, for increased legibility of the test output.
 /--
 info: program{x_0}(
 x_0 := loadI[EffectSSA.Tests.MyDType.u8](x_0)
- x_0 := loadI[EffectSSA.Tests.MyDType.u8](x_1)
- ⏎
+  x_0 := loadI[EffectSSA.Tests.MyDType.u8](x_1)
+  storeI[EffectSSA.Tests.MyDType.u8](x_2, x_0)
+  ⏎
 )
 -/
 #guard_msgs in
 #eval show Program TestTy _ from program!{p}(
   x := loadI[u8](p);
-  y := loadI[u8](p)
+  y := loadI[u8](p);
+  storeI[u8](p, y)
 )
+
+-- FIXME: the indentation of the example above is a bit wonky:
+--        all instructions should start printing on the same line, and there
+--        is currently an extra newline at the end that should not be there.
 
 #exit
 
