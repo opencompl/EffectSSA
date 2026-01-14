@@ -20,7 +20,7 @@
       just use plain `Nat`s for variables.
   - [ ] Custom embedded program syntax
     - [X] Initial notation elaboration setup
-    - [ ] Fix the issue with variable counts not being propagated properly
+    - [X] Fix the issue with variable counts not being propagated properly
     - [ ] Print the syntax (with proper variable tracking)
     - [ ] Have at least some test cases
 
