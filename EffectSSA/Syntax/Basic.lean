@@ -93,3 +93,19 @@ consumed during the execution of `p` are explicitly excluded.
 def Program.results : Program τ n → Nat
   | nil => n
   | cons _ p => results p
+
+/--
+`i ;> p` is the preferred spelling for adding an instruction to the
+front of a program.
+-/
+infixl:67 " ;> " => Program.cons
+
+/--
+`p.append q` concatenates two programs.
+
+NOTE: we cannot use standard `++` notation for this, as the type of `q`
+depends on `p`.
+-/
+def Program.append : (p : Program τ n) → Program τ p.results → Program τ n
+  | .nil, q => q
+  | i ;> p, q => i ;> (p.append q)
