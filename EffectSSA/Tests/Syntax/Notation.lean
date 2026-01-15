@@ -61,9 +61,9 @@ instance, for increased legibility of the test output.
 
 /--
 info: program{x_0}(
-x_0 := loadI[EffectSSA.Tests.MyDType.u8](x_0)
-  x_0 := loadI[EffectSSA.Tests.MyDType.u8](x_1)
-  storeI[EffectSSA.Tests.MyDType.u8](x_2, x_0)
+x_1 := loadI[EffectSSA.Tests.MyDType.u8](x_0)
+  x_2 := loadI[EffectSSA.Tests.MyDType.u8](x_0)
+  storeI[EffectSSA.Tests.MyDType.u8](x_0, x_2)
   ⏎
 )
 -/
