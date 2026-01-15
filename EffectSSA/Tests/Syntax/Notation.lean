@@ -59,6 +59,10 @@ Now comes the main body of tests, using `#eval`, thus relying on the `Repr`
 instance, for increased legibility of the test output.
 -/
 
+-- FIXME: the indentation of these test results is wrong:
+--        all instructions should start printing on the same line, and there
+--        is currently an extra newline at the end that should not be there.
+
 /--
 info: program{x_0}(
 x_1 := loadI[EffectSSA.Tests.MyDType.u8](x_0)
@@ -74,55 +78,68 @@ x_1 := loadI[EffectSSA.Tests.MyDType.u8](x_0)
   storeI[u8](p, y)
 )
 
--- FIXME: the indentation of the example above is a bit wonky:
---        all instructions should start printing on the same line, and there
---        is currently an extra newline at the end that should not be there.
-
-#exit
 
 /--
-info: ["storeI EffectSSA.Tests.u8 0 1"]
+info: program{x_0,x_1}(
+storeI[EffectSSA.Tests.MyDType.u8](x_1, x_0)
+  ⏎
+)
 -/
 #guard_msgs in
-#eval show Program TestTy 2 from program! [p, v] (
+#eval show Program TestTy 2 from program!{p, v}(
   storeI[u8](p, v)
 )
 
 -- Test implicit side effect op
 /--
-info: ["allocI EffectSSA.Tests.u8 0"]
+info: program{x_0}(
+allocI[EffectSSA.Tests.MyDType.u8](x_0)
+  ⏎
+)
 -/
 #guard_msgs in
-#eval show Program TestTy 1 from program! [p] (
-  x := allocI[u8](p)
+#eval show Program TestTy 1 from program!{p}(
+  allocI[u8](p)
 )
 
 -- Test explicit side effect op
 /--
-info: ["loadE EffectSSA.Tests.u8 0 1"]
+info: program{x_0,x_1}(
+x_2,x_3 := loadE[EffectSSA.Tests.MyDType.u8](x_1, x_0)
+  ⏎
+)
 -/
 #guard_msgs in
-#eval show Program TestTy 2 from program! [e, p] (
+#eval show Program TestTy 2 from program!{e, p}(
   e', x := loadE[u8](e, p)
 )
 
 -- Test complex program
 /--
-info: ["allocI EffectSSA.Tests.u8 0", "storeI EffectSSA.Tests.u8 0 1", "freeI EffectSSA.Tests.u8 0"]
+info: program{x_0,x_1}(
+allocI[EffectSSA.Tests.MyDType.u8](x_1)
+  storeI[EffectSSA.Tests.MyDType.u8](x_1, x_0)
+  freeI[EffectSSA.Tests.MyDType.u8](x_1)
+  ⏎
+)
 -/
 #guard_msgs in
-#eval show Program TestTy 1 from program! [p] (
-  x := allocI[u8](p);
+#eval show Program TestTy _ from program!{p, x}(
+  allocI[u8](p);
   storeI[u8](p, x);
   freeI[u8](p)
 )
 
 -- Test effect bookkeeping
 /--
-info: ["createEff", "consumeEff 0"]
+info: program{}(
+x_0 := createEff
+  consumeEff(x_0)
+  ⏎
+)
 -/
 #guard_msgs in
-#eval show Program TestTy 0 from program! [] (
+#eval show Program TestTy 0 from program!{}(
   e := createEff;
   consumeEff(e)
 )
