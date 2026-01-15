@@ -35,7 +35,7 @@ def Ty.Val : Type := Σ t, τ.TVal t
 -- FIXME: maybe `Ty.Val` ought to be a structure? We'll evaluate later.
 
 structure Semantics.Environment τ [MemoryModel τ] (n : Nat) where
-  toVec : List.Vector τ.Val n
+  ofVector :: toVec : List.Vector τ.Val n
 
 /-!
 ## Definitions
@@ -67,13 +67,22 @@ end Ty.TVal
 /-! ### Environment API -/
 namespace Semantics.Environment
 
+/-! #### Environment Getters -/
+
 /--
-`env.getAs? v t` retrieves the value environment `env` associates with a
+`env.get v` retrieves the (untyped) value environment `env` associates with
+the variable `v`.
+-/
+def get (env : Environment τ n) (v : Var n) : τ.Val :=
+  env.toVec[v.toFin]
+
+/--
+`env.getAs? v t` retrieves the value environment `env` associates with the
 variable `v`, and then attempts to coerce this to be a typed value of type `t`.
 Returns `none` if `v` has a type different from `t`.
 -/
 def getAs? (env : Environment τ n) (v : Var n) (t : τ.Typ) : Option (τ.TVal t) :=
-  let val := env.toVec[v.toFin]
+  let val := env.get v
   if h : val.1 = t then
     some <| h ▸ val.2
   else
@@ -99,11 +108,15 @@ def getEff (env : Environment τ n) (v : Var n) : ExecM τ (Trace τ) := env.get
 def getData (env : Environment τ n) (v : Var n) (t : τ.DType) : ExecM τ (τ.DVal t) :=
   env.getAs v (.data t)
 
+/-! #### Environment Constructors -/
+
 /--
 `env.snoc x` adds a new variable to environment `env` assigning value `x` to it.
 -/
 def snoc (x : τ.Val) (env : Environment τ n) : Environment τ (n + 1) :=
   ⟨env.toVec.cons x⟩
+
+/-! #### Environment Modification -/
 
 /--
 `env.eraseVar v` removes a variable `v` from an environment `env`.

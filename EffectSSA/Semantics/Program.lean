@@ -14,10 +14,7 @@ for whole programs.
 -/
 namespace EffectSSA
 open Semantics
-variable (τ : Ty) [MemoryModel τ]
-
--- From here on, `τ` will be implicit
-variable {τ}
+variable {τ : Ty} [MemoryModel τ]
 
 /--
 Execute a single instruction `i` in a specific environment, returning a new
