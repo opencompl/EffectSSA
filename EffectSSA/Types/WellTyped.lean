@@ -58,6 +58,8 @@ inductive Instruction.WellTyped : Context τ n → Instruction τ n → Context 
       ---------------------------------
       WellTyped Γ (.consumeEff e) (Γ.eraseVar e)
 
+open Instruction.WellTyped in
+attribute [grind ←] loadI storeI loadE storeE createEff consumeEff
 
 /--
 `WellTypedWith Γ p Δ` holds when the instruction in program `p` are welltyped under
@@ -65,7 +67,7 @@ inductive Instruction.WellTyped : Context τ n → Instruction τ n → Context 
 
 NOTE: linearity is not yet checked
 -/
-@[grind]
+@[grind cases]
 inductive Program.WellTypedWith : Context τ n → Program τ n → Context τ m → Prop
   /--
   An empty program does not change the context.
@@ -101,30 +103,54 @@ def Program.WellTyped (Γ : Context τ n) (p : Program τ n) : Prop :=
 -/
 
 inductive Instruction.TypeCheckResult (Γ : Context τ n) (i : Instruction τ n) where
-  | isTrue (Δ : Context τ i.results) (h : WellTyped Γ i Δ)
-  | isFalse (h : ∀ {m} (Δ : Context τ m), ¬WellTyped Γ i Δ)
+  | isTrue (Δ : Context τ i.results) (h : WellTyped Γ i Δ := by grind)
+  | isFalse (h : ∀ {m} (Δ : Context τ m), ¬WellTyped Γ i Δ := by grind)
 
-def Instruction.typeCheck (Γ : Context τ n) : (i : Instruction τ n) → i.TypeCheckResult Γ :=
-  -- TODO: write the typechecker
-  sorry
+def Instruction.typeCheck (Γ : Context τ n) : (i : Instruction τ n) → i.TypeCheckResult Γ
+  | .loadI t p =>
+      if h : Γ[p] = .ptr then
+        .isTrue _ (by apply WellTyped.loadI <;> grind)
+      else .isFalse
+  | .storeI t p x =>
+      if h : Γ[p] = .ptr ∧ Γ[x] = t then
+        .isTrue _ (by apply WellTyped.storeI <;> grind)
+      else .isFalse
+  | .loadE t e p =>
+      if h : Γ[p] = .ptr then
+        .isTrue _ (by apply WellTyped.loadE <;> grind)
+      else .isFalse
+  | .storeE t e p x =>
+      if h : Γ[p] = .ptr then
+        .isTrue _ (by apply WellTyped.storeE <;> grind)
+      else .isFalse
+  | .merge e₁ e₂ => .isFalse
+  | .split e => .isFalse
+  | .createEff =>
+      if h : Γ.isUnrestricted then
+        .isTrue _ (by apply WellTyped.createEff <;> grind)
+      else .isFalse
+  | .consumeEff e => sorry
 
 inductive Program.TypeCheckResult (Γ : Context τ n) (p : Program τ n) where
-  | isTrue (Δ : Context τ p.results) (h₁ : WellTypedWith Γ p Δ) (h₂ : Δ.isUnrestricted)
-  | isFalse (h : ∀ {m} (Δ : Context τ m), ¬WellTypedWith Γ p Δ ∨ ¬Δ.isUnrestricted)
+  | isTrue (Δ : Context τ p.results)
+            (h₁ : WellTypedWith Γ p Δ := by grind) (h₂ : Δ.isUnrestricted := by grind)
+  | isFalse (h : ∀ {m} (Δ : Context τ m), ¬WellTypedWith Γ p Δ ∨ ¬Δ.isUnrestricted := by grind)
+
+#exit
 
 def Program.typeCheck (Γ : Context τ n) : (p : Program τ n) → p.TypeCheckResult Γ
   | .nil =>
     if h₂ : Γ.isUnrestricted then
       .isTrue Γ .nil h₂
     else
-      .isFalse (by grind)
+      .isFalse
   | i ;> p =>
     match i.typeCheck Γ with
-    | .isFalse h => .isFalse (by grind)
+    | .isFalse h => .isFalse
     | .isTrue Δ hᵢ =>
       match p.typeCheck Δ with
-      | .isFalse h => .isFalse (by grind)
-      | .isTrue Δ' h₁ h₂ => .isTrue Δ' (by grind) (by grind)
+      | .isFalse h => .isFalse
+      | .isTrue Δ' h₁ h₂ => .isTrue Δ'
 
 instance : Decidable (Program.WellTyped Γ p) :=
   match p.typeCheck Γ with
