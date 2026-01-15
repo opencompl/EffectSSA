@@ -33,6 +33,9 @@ We write `Γ[v]` to indicate the type that context `Γ` assigned to variable `v`
 -/
 instance : GetElem (Context τ n) (Var n) (τ.Typ) (fun _ _ => True) where
   getElem Γ v _ := Γ.vec[v.val]
+instance : GetElem? (Context τ n) Nat (τ.Typ) (fun _ i => i < n) where
+  getElem Γ i h := Γ[Var.ofFin ⟨i, h⟩]
+  getElem? Γ i := Γ.vec[i]?
 
 /--
 `Γ <: t` is the context `Γ` expanded with a new variable of type `t`.

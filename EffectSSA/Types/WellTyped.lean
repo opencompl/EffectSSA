@@ -57,23 +57,36 @@ inductive Instruction.WellTyped : Context τ n → Instruction τ n → Context 
       WellTyped Γ (.consumeEff e) (Γ.eraseVar e)
 
 
+/--
+`WellTypedWith Γ p Δ` holds when the instruction in program `p` are welltyped under
+`Γ`, and result in a final context `Δ` after execution.
 
-inductive Program.WellTyped : Context τ n → Program τ n → Prop
+NOTE: linearity is not yet checked
+-/
+inductive Program.WellTypedWith : Context τ n → Program τ n → Context τ m → Prop
   /--
-  An empty program is welltyped under `Γ` only if `Γ` is unrestricted.
+  An empty program does not change the context.
 
-  This enforces that linear variables must be used *at least* once.
+  NOTE: This does *not* yet enforce that linear variables must be used.
   -/
-  | nil :
-      Γ.isUnrestricted →
-      ---------------------------------
-      WellTyped Γ .nil
+  | nil : WellTypedWith Γ .nil Γ
   /--
   A program is welltyped if it's instructions are welltyped, under appropriately
   adjusted contexts.
   -/
   | cons :
       Instruction.WellTyped Γ i Δ →
-      WellTyped Δ p →
+      WellTypedWith Δ p Ξ →
       ---------------------------------
-      WellTyped Γ (.cons i p)
+      WellTypedWith Γ (.cons i p) Ξ
+
+/--
+`WellTyped Γ p` holds when program `p` is welltyped under `Γ`, *and* the
+resulting context is unrestricted.
+
+This enforces that linear variables must be used *at least* once.
+-/
+inductive Program.WellTyped (Γ : Context τ n) (p : Program τ n) : Prop where
+  | mk {m : Nat} {Δ : Context τ m}
+      (welltyped : WellTypedWith Γ p Δ)
+      (unrestricted : Δ.isUnrestricted)
