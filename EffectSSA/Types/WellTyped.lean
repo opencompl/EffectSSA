@@ -12,10 +12,12 @@ namespace EffectSSA
 variable {τ} [MemorySignature τ]
 
 /-!
-## WellTyped
+## WellTyped Predicate
+--------------------------------------------------------------------------------
 -/
 open Ty.Typ (ptr eff)
 
+@[grind]
 inductive Instruction.WellTyped : Context τ n → Instruction τ n → Context τ m → Prop
   | loadI :
       Γ[p] = ptr →
@@ -63,6 +65,7 @@ inductive Instruction.WellTyped : Context τ n → Instruction τ n → Context 
 
 NOTE: linearity is not yet checked
 -/
+@[grind]
 inductive Program.WellTypedWith : Context τ n → Program τ n → Context τ m → Prop
   /--
   An empty program does not change the context.
@@ -86,7 +89,44 @@ resulting context is unrestricted.
 
 This enforces that linear variables must be used *at least* once.
 -/
-inductive Program.WellTyped (Γ : Context τ n) (p : Program τ n) : Prop where
-  | mk {m : Nat} {Δ : Context τ m}
-      (welltyped : WellTypedWith Γ p Δ)
-      (unrestricted : Δ.isUnrestricted)
+@[grind]
+def Program.WellTyped (Γ : Context τ n) (p : Program τ n) : Prop :=
+  ∃ (Δ : Context τ p.results),
+      WellTypedWith Γ p Δ
+      ∧ Δ.isUnrestricted
+
+/-!
+## Decidability of type checking
+--------------------------------------------------------------------------------
+-/
+
+inductive Instruction.TypeCheckResult (Γ : Context τ n) (i : Instruction τ n) where
+  | isTrue (Δ : Context τ i.results) (h : WellTyped Γ i Δ)
+  | isFalse (h : ∀ {m} (Δ : Context τ m), ¬WellTyped Γ i Δ)
+
+def Instruction.typeCheck (Γ : Context τ n) : (i : Instruction τ n) → i.TypeCheckResult Γ :=
+  -- TODO: write the typechecker
+  sorry
+
+inductive Program.TypeCheckResult (Γ : Context τ n) (p : Program τ n) where
+  | isTrue (Δ : Context τ p.results) (h₁ : WellTypedWith Γ p Δ) (h₂ : Δ.isUnrestricted)
+  | isFalse (h : ∀ {m} (Δ : Context τ m), ¬WellTypedWith Γ p Δ ∨ ¬Δ.isUnrestricted)
+
+def Program.typeCheck (Γ : Context τ n) : (p : Program τ n) → p.TypeCheckResult Γ
+  | .nil =>
+    if h₂ : Γ.isUnrestricted then
+      .isTrue Γ .nil h₂
+    else
+      .isFalse (by grind)
+  | i ;> p =>
+    match i.typeCheck Γ with
+    | .isFalse h => .isFalse (by grind)
+    | .isTrue Δ hᵢ =>
+      match p.typeCheck Δ with
+      | .isFalse h => .isFalse (by grind)
+      | .isTrue Δ' h₁ h₂ => .isTrue Δ' (by grind) (by grind)
+
+instance : Decidable (Program.WellTyped Γ p) :=
+  match p.typeCheck Γ with
+  | .isTrue Δ h₁ h₂ => .isTrue <| by use Δ
+  | .isFalse h => .isFalse <| by grind
