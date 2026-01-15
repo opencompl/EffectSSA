@@ -38,6 +38,11 @@ instance : GetElem? (Context τ n) Nat (τ.Typ) (fun _ i => i < n) where
   getElem? Γ i := Γ.vec[i]?
 
 /--
+`∅` is the empty context.
+-/
+instance : EmptyCollection (Context τ 0) where emptyCollection := ⟨⟨[], rfl⟩⟩
+
+/--
 `Γ <: t` is the context `Γ` expanded with a new variable of type `t`.
 -/
 def snoc (Γ : Context τ n) (t : τ.Typ) : Context τ (n + 1) :=

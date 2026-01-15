@@ -57,6 +57,12 @@ into a *closed* `Program`, i.e., without free variables.
 macro "program!(" p:optional(program) ")" : term =>
   `(program!{}( $[$p:program]? ))
 
+/--
+`var!(n)` gives the variable with de Bruijn index `n`,
+using `grind` to prove this index is valid.
+-/
+macro "var!(" n:term ")" : term => `(Var.ofFin ⟨$n, by grind⟩)
+
 /-!
 ## Elaboration
 --------------------------------------------------------------------------------
