@@ -24,8 +24,16 @@ open Program in attribute [grind →]
 --------------------------------------------------------------------------------
 -/
 
+theorem Instruction.WellTyped.unique
+    {i : Instruction τ n} {Δ : Context τ m} {Δ' : Context τ m'}
+    (h₁ : i.WellTyped Γ Δ) (h₂ : i.WellTyped Γ Δ') :
+      ∃ (h : m = m'), Δ = h ▸ Δ' := by
+  grind
+
 theorem Program.WellTyped.unique
     {p : Program τ n} {Δ : Context τ m} {Δ' : Context τ m'}
     (h₁ : p.WellTypedWith Γ Δ) (h₂ : p.WellTypedWith Γ Δ') :
       ∃ (h : m = m'), Δ = h ▸ Δ' := by
-  sorry
+  induction p <;> (cases h₁; cases h₂)
+  · use rfl
+  · grind
