@@ -5,7 +5,20 @@ import EffectSSA.Types.WellTyped
 -/
 namespace EffectSSA
 
-/-! ### `grind` annotation of the constructors -/
+/-!
+## `grind` annotations
+--------------------------------------------------------------------------------
+-/
+
+@[simp, grind =]
+theorem Program.wellTyped_nil_iff {Γ : Context τ n} {Δ : Context τ m} :
+    WellTypedWith Γ (.nil) Δ ↔ ∃ (h : n = m), h ▸ Γ = Δ := by
+  grind [Program.WellTypedWith]
+
+@[simp, grind =]
+theorem Program.wellTyped_cons_iff (i : Instruction τ n) (p : Program τ i.results) :
+    WellTypedWith Γ (i ;> p) Ξ ↔ (∃ Δ, i.WellTyped Γ Δ ∧ p.WellTypedWith Δ Ξ) := by
+  grind [Program.WellTypedWith]
 
 open Instruction in attribute [grind ←]
   WellTyped.loadI
@@ -18,6 +31,9 @@ open Instruction in attribute [grind ←]
 open Program in attribute [grind →]
   -- WellTypedWith.nil
   WellTypedWith.cons
+
+-- WellTypedWith ?_ (.nil) ?_
+-- WellTypedWith ?_ (.cons ?_ ?_) ?_
 
 /-!
 ## Uniqueness of out contexts

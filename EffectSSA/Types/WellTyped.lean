@@ -65,7 +65,7 @@ inductive Instruction.WellTyped : Context τ n → Instruction τ n → Context 
 
 NOTE: linearity is not yet checked
 -/
-@[grind cases]
+-- @[grind cases]
 inductive Program.WellTypedWith : Context τ n → Program τ n → Context τ m → Prop
   /--
   An empty program does not change the context.

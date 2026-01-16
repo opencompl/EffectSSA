@@ -50,7 +50,7 @@ def Instruction.typeCheck (Γ : Context τ n) : (i : Instruction τ n) → i.Typ
   | .split e => .isFalse
   | .createEff =>
       if h : Γ.isUnrestricted then
-        .isTrue _ (by apply WellTyped.createEff; grind)
+        .isTrue (Γ <: .eff)
       else .isFalse
   | .consumeEff e =>
       let Γ' := Γ.eraseVar e
@@ -76,7 +76,8 @@ def Program.typeCheck (Γ : Context τ n) : (p : Program τ n) → p.TypeCheckRe
     | .isFalse h => .isFalse
     | .isTrue Δ hᵢ (Eq.refl _) =>
       match p.typeCheck Δ with
-      | .isFalse h => .isFalse
+      | .isFalse h => .isFalse <| by
+          grind
       | .isTrue Δ' h₁ h₂ hm => .isTrue Δ'
 
 /-!
