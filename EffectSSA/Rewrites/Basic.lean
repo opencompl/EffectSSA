@@ -16,6 +16,7 @@ namespace EffectSSA
 A program fragment is simply a program with some designated return variables
 at the end of said program.
 -/
+@[grind]
 structure ProgramFragment τ n where
   program : Program τ n
   returnVars : List (Var program.results)
@@ -23,6 +24,7 @@ structure ProgramFragment τ n where
 /--
 A rewrite consists of two program fragments.
 -/
+@[grind]
 structure Rewrite τ n where
   src : ProgramFragment τ n
   tgt : ProgramFragment τ n
@@ -64,6 +66,7 @@ and with the same expected return types.
 def Rewrite.WellFormed (Γ : Context τ n) (r : Rewrite τ n) : Prop :=
   ∃ ts, WellTyped Γ r.src ts ∧ WellTyped Γ r.tgt ts
 
+/-! ### Welltypedness of a `ProgramFragment` is decidable -/
 instance (p : ProgramFragment τ n) : Decidable (p.WellTyped Γ ts) :=
   match p.program.typeCheck Γ with
   | .isFalse h => .isFalse <| by grind
@@ -71,11 +74,12 @@ instance (p : ProgramFragment τ n) : Decidable (p.WellTyped Γ ts) :=
       if h : ∀ (i : Fin p.externalResults), Δ[p.returnVars[i].toNat]? = ts[i]? then
         .isTrue (by grind)
       else
-        .isFalse (by
-          subst hm;
-          simp [ProgramFragment.WellTyped]
+        .isFalse <| by
+          simp only [ProgramFragment.WellTyped, ProgramFragment.externalResults, Fin.getElem_fin,
+            Fin.getElem?_fin, not_exists, not_and, not_forall]
+          intro m Δ' h'
+          rcases Program.WellTyped.unique h' h₁ with ⟨rfl, rfl⟩
           grind
-        )
 
 /-!
 ## Semantics Correctness Constraints

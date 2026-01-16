@@ -18,3 +18,14 @@ open Instruction in attribute [grind ←]
 open Program in attribute [grind →]
   -- WellTypedWith.nil
   WellTypedWith.cons
+
+/-!
+## Uniqueness of out contexts
+--------------------------------------------------------------------------------
+-/
+
+theorem Program.WellTyped.unique
+    {p : Program τ n} {Δ : Context τ m} {Δ' : Context τ m'}
+    (h₁ : p.WellTypedWith Γ Δ) (h₂ : p.WellTypedWith Γ Δ') :
+      ∃ (h : m = m'), Δ = h ▸ Δ' := by
+  sorry

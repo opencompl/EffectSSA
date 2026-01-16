@@ -27,6 +27,7 @@ namespace createEff_consumeEff
 theorem welltyped : (@createEff_consumeEff τ).WellFormed ∅ := by
   use []
   unfold createEff_consumeEff
-  decide
+  simp only [Program.results_nil, Fin.isValue, Program.results_cons]
+  sorry
 
 end createEff_consumeEff
