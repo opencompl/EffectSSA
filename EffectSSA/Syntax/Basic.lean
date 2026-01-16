@@ -44,6 +44,7 @@ an instruction `i`, taking into account free variables available to `i`.
 
 Here, live means that any linear variables consumed by `i` are excluded.
 -/
+@[grind =]
 def Instruction.results : Instruction τ n → Nat
   | loadI .. => n + 1
   | storeI .. => n

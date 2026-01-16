@@ -38,22 +38,22 @@ namespace Program
 
 /-! ### `results` -/
 
-@[simp]
+@[simp, grind =]
 theorem results_nil (n : Nat) :
     (.nil : Program τ n).results = n := by
   rfl
 
-@[simp]
+@[simp, grind =]
 theorem results_cons {i : Instruction τ n} {p : Program τ i.results} :
     (i ;> p).results = p.results := by
   simp [results]
 
-@[simp]
+@[simp, grind =]
 theorem results_append {p : Program τ n} {q : Program τ p.results} :
     (p.append q).results = q.results := by
   induction p <;> simp_all [append]
 
-@[simp]
+@[simp, grind =]
 theorem results_cast (h : n = m) (p : Program τ n) :
     (p.cast h).results = p.results := by
   induction p generalizing m <;> simp_all [cast]
