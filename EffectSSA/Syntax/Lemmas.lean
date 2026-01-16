@@ -40,13 +40,11 @@ namespace Program
 
 @[simp, grind =]
 theorem results_nil (n : Nat) :
-    (.nil : Program τ n).results = n := by
-  rfl
+    (.nil : Program τ n).results = n := rfl
 
 @[simp, grind =]
 theorem results_cons {i : Instruction τ n} {p : Program τ i.results} :
-    (i ;> p).results = p.results := by
-  simp [results]
+    (i ;> p).results = p.results := rfl
 
 @[simp, grind =]
 theorem results_append {p : Program τ n} {q : Program τ p.results} :

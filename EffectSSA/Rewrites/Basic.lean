@@ -28,10 +28,19 @@ structure Rewrite τ n where
   tgt : ProgramFragment τ n
 
 /-!
+## Structural Lemmas
+--------------------------------------------------------------------------------
+-/
+
+@[simp /-, grind = -/]
+theorem ProgramFragment.program_mk : (mk p vs).program = p := rfl
+
+/-!
 ## Wellformedness Constraints
 --------------------------------------------------------------------------------
 -/
 
+@[simp, grind =]
 def ProgramFragment.externalResults (p : ProgramFragment τ n) : Nat := p.returnVars.length
 
 /--
@@ -39,6 +48,7 @@ A program fragment is welltyped, for a given set of return types, when
 (a) the program is welltyped, producing an output context `Δ`, and
 (b) each return variable is assigned the expected return type in `Δ`.
 -/
+@[grind =]
 def ProgramFragment.WellTyped (Γ : Context τ n) (p : ProgramFragment τ n)
     (returnTypes : List τ.Typ) : Prop :=
   ∃ (m : _) (Δ : Context τ m),
@@ -50,8 +60,22 @@ open ProgramFragment (WellTyped) in
 A rewrite is wellformed, if both fragments are welltyped, under the same context
 and with the same expected return types.
 -/
+@[grind =]
 def Rewrite.WellFormed (Γ : Context τ n) (r : Rewrite τ n) : Prop :=
   ∃ ts, WellTyped Γ r.src ts ∧ WellTyped Γ r.tgt ts
+
+instance (p : ProgramFragment τ n) : Decidable (p.WellTyped Γ ts) :=
+  match p.program.typeCheck Γ with
+  | .isFalse h => .isFalse <| by grind
+  | .isTrue (m:=m) Δ h₁ h₂ hm =>
+      if h : ∀ (i : Fin p.externalResults), Δ[p.returnVars[i].toNat]? = ts[i]? then
+        .isTrue (by grind)
+      else
+        .isFalse (by
+          subst hm;
+          simp [ProgramFragment.WellTyped]
+          grind
+        )
 
 /-!
 ## Semantics Correctness Constraints
