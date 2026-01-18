@@ -18,30 +18,29 @@ namespace EffectSSA
 ## `typeCheck`
 --------------------------------------------------------------------------------
 -/
+attribute [local grind] Instruction.WellTyped
 
-inductive Instruction.TypeCheckResult (Γ : Context τ n) (i : Instruction τ n) where
-  | isTrue {m} (Δ : Context τ m) (h : WellTyped Γ i Δ := by grind) (hm : m = i.results := by grind)
-  | isFalse (h : ∀ {m} (Δ : Context τ m), ¬WellTyped Γ i Δ := by grind)
+inductive Instruction.TypeCheckResult (Γ : Context τ) (i : Instruction τ) where
+  | isTrue (Δ : Context τ) (h : WellTyped Γ i Δ := by grind)
+  | isFalse (h : ∀ (Δ : Context τ), ¬WellTyped Γ i Δ := by grind)
 
-def Instruction.typeCheck (Γ : Context τ n) : (i : Instruction τ n) → i.TypeCheckResult Γ
+def Instruction.typeCheck (Γ : Context τ) : (i : Instruction τ) → i.TypeCheckResult Γ
   | .loadI t p =>
-      if h : Γ[p] = .ptr then
+      if h : Γ[p]? = some .ptr then
         .isTrue (Γ <: t)
       else .isFalse
   | .storeI t p x =>
-      if h : Γ[p] = .ptr ∧ Γ[x] = t then
+      if h : Γ[p]? = some .ptr ∧ Γ[x]? = some t then
         .isTrue Γ
       else .isFalse
   | .allocI .. | .freeI .. => .isFalse
   -- FIXME: these should have type rules also!
   | .loadE t e p =>
-      if h : Γ[e] = .eff ∧ Γ[p] = .ptr then
-        have := e.toFin.isLt
+      if h : Γ[e]? = some .eff ∧ Γ[p]? = some .ptr then
         .isTrue (Γ.eraseVar e <: .eff <: t)
       else .isFalse
   | .storeE t e p x =>
-      if h : Γ[e] = .eff ∧ Γ[p] = .ptr ∧ Γ[x] = t then
-        have := e.toFin.isLt
+      if h : Γ[e]? = some .eff ∧ Γ[p]? = some .ptr ∧ Γ[x]? = some t then
         .isTrue (Γ.eraseVar e <: .eff)
       else .isFalse
   | .allocE .. | .freeE .. => .isFalse
@@ -54,31 +53,29 @@ def Instruction.typeCheck (Γ : Context τ n) : (i : Instruction τ n) → i.Typ
       else .isFalse
   | .consumeEff e =>
       let Γ' := Γ.eraseVar e
-      if h : Γ[e] = .eff ∧ Γ'.isUnrestricted then
+      if h : Γ[e]? = some .eff ∧ Γ'.isUnrestricted then
         .isTrue Γ'
       else .isFalse
 
-inductive Program.TypeCheckResult (Γ : Context τ n) (p : Program τ n) where
-  | isTrue {m} (Δ : Context τ m)
+inductive Program.TypeCheckResult (Γ : Context τ) (p : Program τ) where
+  | isTrue (Δ : Context τ)
             (h₁ : WellTypedWith Γ p Δ := by grind)
             (h₂ : Δ.isUnrestricted := by grind)
-            (hm : m = p.results := by grind)
-  | isFalse (h : ∀ {m} (Δ : Context τ m), ¬WellTypedWith Γ p Δ ∨ ¬Δ.isUnrestricted := by grind)
+  | isFalse (h : ∀ (Δ : Context τ), ¬WellTypedWith Γ p Δ ∨ ¬Δ.isUnrestricted := by grind)
 
-def Program.typeCheck (Γ : Context τ n) : (p : Program τ n) → p.TypeCheckResult Γ
-  | .nil =>
+def Program.typeCheck (Γ : Context τ) : (p : Program τ) → p.TypeCheckResult Γ
+  | nil =>
     if h₂ : Γ.isUnrestricted then
-      .isTrue Γ .nil h₂
+      .isTrue Γ (.nil rfl) h₂
     else
       .isFalse
   | i ;> p =>
     match i.typeCheck Γ with
-    | .isFalse h => .isFalse
-    | .isTrue Δ hᵢ (Eq.refl _) =>
-      match p.typeCheck Δ with
-      | .isFalse h => .isFalse <| by
-          grind
-      | .isTrue Δ' h₁ h₂ hm => .isTrue Δ'
+      | .isFalse h => .isFalse
+      | .isTrue Δ hᵢ =>
+        match p.typeCheck Δ with
+        | .isFalse h => .isFalse <| by grind
+        | .isTrue Δ' h₁ h₂ => .isTrue Δ'
 
 /-!
 ## `Decidable` instance
@@ -87,5 +84,5 @@ def Program.typeCheck (Γ : Context τ n) : (p : Program τ n) → p.TypeCheckRe
 
 instance : Decidable (Program.WellTyped Γ p) :=
   match p.typeCheck Γ with
-  | .isTrue Δ h₁ h₂ (Eq.refl _) => .isTrue <| by use Δ
+  | .isTrue Δ h₁ h₂ => .isTrue <| by use Δ
   | .isFalse h => .isFalse <| by grind

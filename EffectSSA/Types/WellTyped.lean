@@ -15,18 +15,17 @@ variable {τ} [MemorySignature τ]
 ## WellTyped Predicate
 --------------------------------------------------------------------------------
 -/
-open Ty.Typ (ptr eff)
+open Ty.Typ (ptr eff data)
 
-@[grind]
-inductive Instruction.WellTyped : Context τ n → Instruction τ n → Context τ m → Prop
+inductive Instruction.WellTyped : Context τ → Instruction τ → Context τ → Prop
   | loadI :
-      Γ[p] = ptr →
+      Γ[p]? = some ptr →
       ---------------------------------
       WellTyped Γ (.loadI t p) (Γ <: t)
 
   | storeI :
-      Γ[p] = ptr →
-      Γ[x] = .data t →
+      Γ[p]? = some ptr →
+      Γ[x]? = some (data t) →
       -- FIXME: I would prefer writing `Γ[x] = t` here, but then Lean searches
       --   for (and fails to find) a `GetElem` instance with `τ.DType` as the
       --   return value, instead of the intended `τ.Typ` return value to which
@@ -35,15 +34,15 @@ inductive Instruction.WellTyped : Context τ n → Instruction τ n → Context 
       WellTyped Γ (.storeI t p x) Γ
 
   | loadE :
-      Γ[e] = eff →
-      Γ[p] = ptr →
+      Γ[e]? = some eff →
+      Γ[p]? = some ptr →
       ---------------------------------
       WellTyped Γ (.loadE t e p) (Γ.eraseVar e <: eff <: t)
 
   | storeE :
-      Γ[e] = eff →
-      Γ[p] = ptr →
-      Γ[x] = .data t →
+      Γ[e]? = some eff →
+      Γ[p]? = some ptr →
+      Γ[x]? = some (data t) →
       ---------------------------------
       WellTyped Γ (.storeE t e p x) (Γ.eraseVar e <: eff)
 
@@ -53,7 +52,7 @@ inductive Instruction.WellTyped : Context τ n → Instruction τ n → Context 
       WellTyped Γ .createEff (Γ <: eff)
 
   | consumeEff :
-      Γ[e] = .eff →
+      Γ[e]? = some eff →
       (Γ.eraseVar e).isUnrestricted →
       ---------------------------------
       WellTyped Γ (.consumeEff e) (Γ.eraseVar e)
@@ -65,14 +64,13 @@ inductive Instruction.WellTyped : Context τ n → Instruction τ n → Context 
 
 NOTE: linearity is not yet checked
 -/
--- @[grind cases]
-inductive Program.WellTypedWith : Context τ n → Program τ n → Context τ m → Prop
+inductive Program.WellTypedWith : Context τ → Program τ → Context τ → Prop
   /--
   An empty program does not change the context.
 
   NOTE: This does *not* yet enforce that linear variables must be used.
   -/
-  | nil : WellTypedWith Γ .nil Γ
+  | nil (h : Γ = Δ) : WellTypedWith Γ .nil Δ
   /--
   A program is welltyped if it's instructions are welltyped, under appropriately
   adjusted contexts.
@@ -89,8 +87,6 @@ resulting context is unrestricted.
 
 This enforces that linear variables must be used *at least* once.
 -/
-@[grind]
-def Program.WellTyped (Γ : Context τ n) (p : Program τ n) : Prop :=
-  ∃ (Δ : Context τ p.results),
-      WellTypedWith Γ p Δ
-      ∧ Δ.isUnrestricted
+@[grind =]
+def Program.WellTyped (Γ : Context τ) (p : Program τ) : Prop :=
+  ∃ (Δ : Context τ), WellTypedWith Γ p Δ ∧ Δ.isUnrestricted

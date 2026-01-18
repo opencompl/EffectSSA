@@ -21,7 +21,7 @@ Execute a single instruction `i` in a specific environment, returning a new
 environment with the results of `i` added to it, and any linear values consumed
 by `i` removed.
 -/
-def Instruction.exec (env : Environment τ n) : (i : Instruction τ n) → ExecM τ (Environment τ i.results)
+def Instruction.exec (env : Environment τ) : (i : Instruction τ) → ExecM τ (Environment τ)
   -- Implicit (i.e, side-effecting) memory operations
   | .loadI t p => do
     let val ← modifyGetTrace <| load t (←env.getPtr p)
@@ -98,8 +98,5 @@ where
 
 
 /-- Execute all instructions in a program sequentially, threading the environment through. -/
-def Program.exec (env : Environment τ n) : (p : Program τ n) → ExecM τ (Environment τ p.results)
-  | .nil => return env
-  | .cons i p => do
-    let env' ← i.exec env
-    p.exec env'
+def Program.exec (env : Environment τ) (p : Program τ) : ExecM τ (Environment τ) :=
+  p.foldlM Instruction.exec env

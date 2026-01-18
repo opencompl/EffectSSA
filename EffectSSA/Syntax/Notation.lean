@@ -105,7 +105,7 @@ macro_rules
 
 open Lean in
 def elabInstruction (τ : Q(Ty)) (i : Lean.TSyntax `ssa_instruction) :
-     InstructionElabM (Σ (n : Nat), Q(Instruction $τ $n)) :=
+     InstructionElabM (Q(Instruction $τ)) :=
   withRef i <| do
   trace[EffectSSA] "Elaborating instruction: {i}"
   InstructionElabM.traceContext "Context before elaboration:"
@@ -113,81 +113,74 @@ def elabInstruction (τ : Q(Ty)) (i : Lean.TSyntax `ssa_instruction) :
   -- Basic memory ops with implicit effects
   | `(ssa_instruction| $x:ident := loadI[$t:term]($p:ident)) => do
         let t ← parseDType t
-        let ⟨n, p⟩ ← lookupVar p
+        let p : Var ← lookupVar p
         addVar x
-        return ⟨n, q(.loadI $t $p)⟩
+        return q(.loadI $t $p)
   | `(ssa_instruction| storeI[$t:term]($p:ident, $x:ident)) => do
         let t ← parseDType t
-        let ⟨n, vs⟩ ← lookupVars !#[p, x]
-        let p : Var n := vs[0]
-        let x : Var n := vs[1]
-        return ⟨n, q(.storeI $t $p $x)⟩
+        let p : Var ← lookupVar p
+        let x : Var ← lookupVar x
+        return q(.storeI $t $p $x)
   | `(ssa_instruction| allocI[$t:term]($p:ident)) => do
         let t ← parseDType t
-        let ⟨n, p⟩ ← lookupVar p
-        return ⟨n, q(.allocI $t $p)⟩
+        let p : Var ← lookupVar p
+        return q(.allocI $t $p)
   | `(ssa_instruction| freeI[$t:term]($p:ident)) => do
         let t ← parseDType t
-        let ⟨n, p⟩ ← lookupVar p
-        return ⟨n, q(.freeI $t $p)⟩
+        let p : Var ← lookupVar p
+        return q(.freeI $t $p)
   -- Basic memory ops in EffectSSA form
   | `(ssa_instruction| $e1:ident, $x:ident := loadE[$t:term]($e0:ident, $p:ident)) => do
         let t ← parseDType t
-        let ⟨n, vs⟩ ← lookupVars !#[e0, p]
-        let e0' : Var n := vs[0]
-        let p' : Var n := vs[1]
+        let e0' : Var ← lookupVar e0
+        let p : Var ← lookupVar p
         eraseVar e0
         addVar e1
         addVar x
-        return ⟨n, q(.loadE $t $e0' $p')⟩
+        return q(.loadE $t $e0' $p)
   | `(ssa_instruction| $e1:ident := storeE[$t:term]($e0:ident, $p:ident, $x:ident)) => do
         let t ← parseDType t
-        let ⟨n, vs⟩ ← lookupVars !#[e0, p, x]
-        let e0' : Var n := vs[0]
-        let p'  : Var n := vs[1]
-        let x' : Var n := vs[2]
+        let e0' : Var ← lookupVar e0
+        let p'  : Var ← lookupVar p
+        let x' : Var ← lookupVar x
         eraseVar e0
         addVar e1
-        return ⟨n, q(.storeE $t $e0' $p' $x')⟩
+        return q(.storeE $t $e0' $p' $x')
   | `(ssa_instruction| $e1:ident := allocE[$t:term]($e0:ident, $p:ident)) => do
         let t ← parseDType t
-        let ⟨n, vs⟩ ← lookupVars !#[e0, p]
-        let e0' : Var n := vs[0]
-        let p'  : Var n := vs[1]
+        let e0' : Var ← lookupVar e0
+        let p'  : Var ← lookupVar p
         eraseVar e0
         addVar e1
-        return ⟨n, q(.allocE $t $e0' $p')⟩
+        return q(.allocE $t $e0' $p')
   | `(ssa_instruction| $e1:ident := freeE[$t:term]($e0:ident, $p:ident)) => do
         let t ← parseDType t
-        let ⟨n, vs⟩ ← lookupVars !#[e0, p]
-        let e0' : Var n := vs[0]
-        let p'  : Var n := vs[1]
+        let e0' : Var ← lookupVar e0
+        let p'  : Var ← lookupVar p
         eraseVar e0
         addVar e1
-        return ⟨n, q(.freeE $t $e0' $p')⟩
+        return q(.freeE $t $e0' $p')
   -- Effect Bookkeeping
   | `(ssa_instruction| $e1:ident, $e2:ident := split($e:ident)) => do
-        let ⟨n, e'⟩ ← lookupVar e
+        let e' : Var ← lookupVar e
         eraseVar e
         addVar e1
         addVar e2
-        return ⟨n, q(.split $e')⟩
+        return q(.split $e')
   | `(ssa_instruction| $e:ident := merge($e1:ident, $e2:ident)) => do
-        let ⟨n, es⟩ ← lookupVars !#[e1, e2]
-        let e1' : Var n := es[0]
-        let e2' : Var n := es[1]
+        let e1' : Var ← lookupVar e1
+        let e2' : Var ← lookupVar e2
         eraseVar e1
         eraseVar e2
         addVar e
-        return ⟨n, q(.merge $e1' $e2')⟩
+        return q(.merge $e1' $e2')
   | `(ssa_instruction| $e:ident := createEff) => do
-        let n : Nat ← getVarBound
         addVar e
-        return ⟨n, q(@Instruction.createEff $τ $n)⟩
+        return q(@Instruction.createEff $τ)
   | `(ssa_instruction| consumeEff ( $e:ident )) => do
-        let ⟨n, e'⟩ ← lookupVar e
+        let e' : Var ← lookupVar e
         eraseVar e
-        return ⟨n, q(.consumeEff $e')⟩
+        return q(.consumeEff $e')
   | _ => Elab.throwUnsupportedSyntax
   where
     /--
@@ -195,21 +188,10 @@ def elabInstruction (τ : Q(Ty)) (i : Lean.TSyntax `ssa_instruction) :
     -/
     parseDType (t : Lean.Term) : TermElabM Q(($τ).DType) := withRef t <| do
       elabTermEnsuringTypeQ t q(($τ).DType)
-    /--
-    Look up the index of multiple variables in the context, statically showing
-    that the returned variables all have the same (dynamic) bound `n` in their
-    index, which corresponds to the number of variables in the current context.
-    -/
-    lookupVars {m} (vs : Vector Lean.Ident m) : InstructionElabM (Σ n, (Vector (Var n) m)) := do
+    /-- Look up the index of a variable in the context. -/
+    lookupVar (v : Lean.Ident) : InstructionElabM Var := do
       let ctx ← get
-      let vs ← vs.mapM fun v =>
-        ctx.findFinIdx? (· == v)
-        |>.getDM (throwError "Unknown variable {v}")
-      return ⟨ctx.length,  vs⟩
-    /-- Look up the index of a single variable in the context. -/
-    lookupVar (v : Lean.Ident) : InstructionElabM (Σ n, Var n) := do
-      let ⟨n, vs⟩ ← lookupVars !#[v]
-      return ⟨n, vs[0]⟩
+      ctx.idxOf? v |>.getDM (throwError "Unknown variable {v}")
     /--
     Add a new variable to the context.
     NOTE: This should generally be done *after* `lookupVar`, to ensure the
@@ -224,30 +206,17 @@ def elabInstruction (τ : Q(Ty)) (i : Lean.TSyntax `ssa_instruction) :
     -/
     eraseVar (v : Lean.Ident) : InstructionElabM Unit := do
       modify (·.erase v)
-    /-- Return the number of variables currently in the context. -/
-    getVarBound : InstructionElabM Nat := do
-      return (← get).length
-
-def elabInstruction.asExpr (τ : Q(Ty)) (i : Lean.TSyntax `ssa_instruction) :
-    InstructionElabM (Nat × Lean.Expr) := do
-  let ⟨n, i⟩ ← elabInstruction τ i
-  return (n, i)
 
 macro_rules
-  | `(program!{$vs:ident,*}()) =>
-      let n := Lean.quote vs.getElems.size
-      `(Program.nil (n := $n))
+  | `(program!{$_vs:ident,*}()) => `(Program.nil)
 
 open Lean in
 elab_rules : term
   | `(program!{$vs:ident,*}( $i:ssa_instruction $[; $is:ssa_instruction]* )) => do
       let τ ← mkFreshExprMVarQ q(Ty)
       let ⟨iExprs, ctx⟩ ← InstructionElabM.run (s := vs.getElems.toList) <|
-        (#[i] ++ is).mapM (elabInstruction.asExpr τ)
+        (#[i] ++ is).mapM (elabInstruction τ)
       trace[EffectSSA] "Final context: {ctx}"
 
-      let n0 : Nat := ctx.length
-      let nil := q(@Program.nil $τ $n0)
-      let mkProgram := fun (n, i) =>
-        mkApp4 (mkConst ``Program.cons) τ (toExpr n) i
-      return iExprs.foldr mkProgram nil
+      let cons := mkApp3 (mkConst ``Program.cons) τ
+      return iExprs.foldr cons q(@Program.nil $τ)

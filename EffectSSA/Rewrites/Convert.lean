@@ -9,7 +9,7 @@ namespace EffectSSA
 namespace Rewrites
 variable {τ}
 
-def createEff_consumeEff : Rewrite τ 0 where
+def createEff_consumeEff : Rewrite τ where
   src := {
     program := program!()
     returnVars := []

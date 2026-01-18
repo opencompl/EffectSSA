@@ -16,62 +16,69 @@ namespace EffectSSA
 -/
 
 /--
-A `Context τ n` is a mapping from `n` variables to their types.
+A `Context τ` is a mapping from `n` variables to their types.
 -/
-structure Context (τ : Ty) n where
-  vec : List.Vector τ.Typ n
+structure Context (τ : Ty) where
+  toList : List τ.Typ
 
 /-!
 ## Definitions
 --------------------------------------------------------------------------------
 -/
 
+def Context.size (Γ : Context τ) : Nat := Γ.toList.length
+
+@[grind =]
+def Var.InBounds (Γ : Context τ) (v : Var) : Prop := v.toNat < Γ.size
+
 namespace Context
 
 /--
 We write `Γ[v]` to indicate the type that context `Γ` assigned to variable `v`.
 -/
-instance : GetElem (Context τ n) (Var n) (τ.Typ) (fun _ _ => True) where
-  getElem Γ v _ := Γ.vec[v.val]
-instance : GetElem? (Context τ n) Nat (τ.Typ) (fun _ i => i < n) where
-  getElem Γ i h := Γ[Var.ofFin ⟨i, h⟩]
-  getElem? Γ i := Γ.vec[i]?
+instance : GetElem? (Context τ) (Var) (τ.Typ) (fun Γ v => v.InBounds Γ) where
+  getElem Γ v _ := Γ.toList[v.toNat]
+  getElem? Γ v := Γ.toList[v.toNat]?
 
 /--
 `∅` is the empty context.
 -/
-instance : EmptyCollection (Context τ 0) where emptyCollection := ⟨⟨[], rfl⟩⟩
+instance : EmptyCollection (Context τ) where emptyCollection := ⟨[]⟩
 
 /--
 `Γ <: t` is the context `Γ` expanded with a new variable of type `t`.
 -/
-def snoc (Γ : Context τ n) (t : τ.Typ) : Context τ (n + 1) :=
-  ⟨Γ.vec.cons t⟩
+def snoc (Γ : Context τ) (t : τ.Typ) : Context τ :=
+  ⟨Γ.toList.cons t⟩
 @[inherit_doc] infixl:67 " <: " => snoc
 
 /--
 A context is unrestricted if *all* contained types are unrestricted.
 -/
-def isUnrestricted (Γ : Context τ n) : Prop :=
-  ∀ (v : Var n), Γ[v].isUnrestricted
+def isUnrestricted (Γ : Context τ) : Prop :=
+  ∀ (v : Var), (h : v.InBounds Γ) → Γ[v].isUnrestricted
 
 /--
 Unrestrictedness of a context is decidable.
 -/
-instance {Γ : Context τ n} : Decidable (isUnrestricted Γ) := by
-  unfold isUnrestricted Var; infer_instance
+instance {Γ : Context τ} : Decidable (isUnrestricted Γ) :=
+  decidable_of_iff (
+      List.range Γ.size |>.attach |>.all fun ⟨x, hx⟩ =>
+        let v := Var.ofNat x
+        have : v.InBounds Γ := by simpa using hx
+        Γ[v].isUnrestricted
+      ) <| by
+    simp only [List.all_eq_true, List.mem_attach, forall_const, Subtype.forall, List.mem_range,
+      isUnrestricted, Var.InBounds]
+    constructor
+    <;> (intro h v hv; apply h v hv)
 
 /-! ### vars -/
 
 /--
 `Γ.eraseVar v` removes variable `v` from the context.
 -/
-def eraseVar (v : Var n) (Γ : Context τ n) : Context τ (n - 1) :=
-  ⟨Γ.vec.eraseIdx v.toFin⟩
+def eraseVar (v : Var) (Γ : Context τ) : Context τ :=
+  ⟨Γ.toList.eraseIdx v.toNat⟩
 
 end Context
-
-/-!
-## Lemmas
---------------------------------------------------------------------------------
--/

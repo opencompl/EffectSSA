@@ -17,6 +17,7 @@ names, while taking into account linear variables which have been consumed.
 -/
 
 structure VarPrintM.State where
+  freeVars : List String := []
   vars : List String := []
   nextIndex : Nat := 0
 
@@ -34,17 +35,31 @@ end VarPrintM
 
 /-! ### printVar -/
 
-def printVar (v : Var n) : VarPrintM String := do
-  let vs ← get
-  -- dbg_trace "Printing variable {v.toNat} with state {vs.vars}"
-  return match vs.vars[v.toNat]? with
-  | some x => x
-  | none => "{failed to print variable}"
+def freshVarName : VarPrintM String := do
+  modifyGet (fun (s : VarPrintM.State) =>
+      let v := s!"x_{s.nextIndex}"
+      (v, {s with
+        nextIndex := s.nextIndex + 1
+      })
+    )
 
-def forgetVar (v : Var n) : VarPrintM Unit := do
-  modify (fun s => {s with
-    vars := s.vars.eraseIdx v.toFin
-  })
+def printVar (v : Var) : VarPrintM String := do
+  let { vars, .. } ← get
+  let v := v.toNat
+  if h : v < vars.length then
+    return vars[v]
+  else
+    let newVars ← List.range (v - vars.length + 1)
+      |>.mapM (fun _ => freshVarName)
+    let newVars := newVars.reverse
+    modify (fun s => {s with
+      freeVars := s.freeVars ++ newVars
+      vars := s.vars ++ newVars
+    })
+    return newVars.getLast!
+
+def forgetVar (v : Var) : VarPrintM Unit := do
+  modify (fun s => {s with vars := s.vars.eraseIdx v.toNat})
 
 /-!
 Add `n` new variables to the context, returning the user-facing names of these
@@ -52,18 +67,14 @@ new variables in a comma-seperated list.
 -/
 def printNewVars (n : Nat) : VarPrintM Format := do
   let vs ← (List.range n).mapM fun _ => do
-    modifyGet (fun (s : VarPrintM.State) =>
-      let v := s!"x_{s.nextIndex}"
-      (v, {s with
-        vars := v :: s.vars,
-        nextIndex := s.nextIndex + 1
-      })
-    )
+    let v ← freshVarName
+    modify (fun s => {s with vars := v :: s.vars})
+    return v
   return f!",".joinSep vs
 
 /-! ## printWith -/
 
-def Instruction.printM : Instruction τ n → VarPrintM Format
+def Instruction.printM : Instruction τ → VarPrintM Format
   -- Basic memory ops with implicit effects
   | loadI t p => do
     let p ← printVar p
@@ -118,22 +129,16 @@ def Instruction.printM : Instruction τ n → VarPrintM Format
     let e ← printVar e
     return f!"consumeEff({e})"
 
-def Program.printM : Program τ n → VarPrintM Format
-  | .nil => return Format.nil
-  | .cons i p => do
-    return (← i.printM) ++ Format.line ++ (← p.printM)
+def Program.printM (p : Program τ) : VarPrintM Format :=
+  p.foldlM (fun f i => do return f ++ (← i.printM) ++ Format.line) Format.nil
 
 /-! ## print -/
 
-def Instruction.print (i : Instruction τ n) : Format :=
-  VarPrintM.run <| do
-    let _ ← printNewVars n
-    i.printM
+def Instruction.print (i : Instruction τ) : Format :=
+  VarPrintM.run <| i.printM
 
-def Program.print (p : Program τ n) : Format :=
-  VarPrintM.run <| do
-    let _ ← printNewVars n
-    p.printM
+def Program.print (p : Program τ) : Format :=
+  VarPrintM.run <| p.printM
 
 -- TODO: generate docstrings for printWith and print functions
 --       the former should be more extensive, whereas the print may be more
@@ -143,10 +148,11 @@ def Program.print (p : Program τ n) : Format :=
 ## Repr
 `Repr` instances are derived from the `print` functions.
 -/
-instance : Repr (Program τ n) where reprPrec p _ :=
+instance : Repr (Program τ) where reprPrec p _ :=
   VarPrintM.run <| do
-    let vs ← printNewVars n
     let p ← p.printM
+    let { freeVars, .. } ← get
+    let vs := f!",".joinSep freeVars
     return f!"program\{{vs}}(" ++ Format.line ++ Format.nest 2 p ++ Format.line ++ f!")"
 
 end EffectSSA

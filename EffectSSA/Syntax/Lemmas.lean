@@ -7,53 +7,52 @@ namespace EffectSSA
 variable {τ : Ty} -- [MemorySignature τ]
 
 /-!
-## Casting
---------------------------------------------------------------------------------
--/
-
-/--
-Change the bound of an instruction to a provably equal bound.
--/
-def Instruction.cast (h : n = m) : Instruction τ n → Instruction τ m
-  -- TODO: generate this function
-  | _ => sorry
-
-@[simp]
-theorem Instruction.results_cast (h : n = m) (i : Instruction τ n) :
-    (i.cast h).results = i.results := by
-  sorry
-
-/--
-Change the bound of a program to a provably equal bound.
--/
-def Program.cast (h : n = m) : Program τ n → Program τ m
-  | .nil => .nil
-  | i ;> p => (i.cast h) ;> (p.cast <| by simp)
-
-/-!
 ## Program Lemmas
 --------------------------------------------------------------------------------
 -/
 namespace Program
+variable {i : Instruction τ} {p q : Program τ}
+
+/-! ### toList -/
+
+@[simp, grind =] theorem toList_nil : (@nil τ).toList = [] := rfl
+@[simp, grind =] theorem toList_cons : (i ;> p).toList = i :: p.toList := rfl
+
+theorem toList_inj : p.toList = q.toList ↔ p = q := by
+  induction p generalizing q <;> cases q <;> grind
+
+/-! ### mk -/
+
+@[simp, grind =] theorem ofList_nil : @ofList τ [] = nil := rfl
+@[simp, grind =] theorem ofList_cons : ofList (i :: is) = i ;> ofList is := rfl
+
+/-! ### append -/
+
+@[simp, grind =] theorem append_eq : p.append q = p ++ q := rfl
+
+@[simp, grind =] theorem nil_append : nil ++ p = p := rfl
+@[simp, grind =] theorem cons_append : (cons i p) ++ q = cons i (p ++ q) := rfl
+
+@[simp, grind =] theorem append_nil : p ++ nil = p := by
+  induction p <;> grind
+
+@[simp, grind =]
+theorem toList_append : (p ++ q).toList = p.toList ++ q.toList := by
+  induction p generalizing q <;> cases q <;> grind
 
 /-! ### `results` -/
 
 @[simp, grind =]
 theorem results_nil (n : Nat) :
-    (.nil : Program τ n).results = n := rfl
+    (.nil : Program τ).results n = n := rfl
 
 @[simp, grind =]
-theorem results_cons {i : Instruction τ n} {p : Program τ i.results} :
-    (i ;> p).results = p.results := rfl
+theorem results_cons {i : Instruction τ} {p : Program τ} :
+    (i ;> p).results n = p.results (i.results n) := rfl
 
 @[simp, grind =]
-theorem results_append {p : Program τ n} {q : Program τ p.results} :
-    (p.append q).results = q.results := by
-  induction p <;> simp_all [append]
-
-@[simp, grind =]
-theorem results_cast (h : n = m) (p : Program τ n) :
-    (p.cast h).results = p.results := by
-  induction p generalizing m <;> simp_all [cast]
+theorem results_append {p q : Program τ} :
+    (p ++ q).results n = q.results (p.results n) := by
+  induction p generalizing n <;> grind
 
 end Program
