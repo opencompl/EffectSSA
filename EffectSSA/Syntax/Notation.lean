@@ -191,7 +191,9 @@ def elabInstruction (τ : Q(Ty)) (i : Lean.TSyntax `ssa_instruction) :
     /-- Look up the index of a variable in the context. -/
     lookupVar (v : Lean.Ident) : InstructionElabM Var := do
       let ctx ← get
-      ctx.idxOf? v |>.getDM (throwError "Unknown variable {v}")
+      let some i := ctx.idxOf? v
+        | throwError "Unknown variable {v}"
+      return ⟨i⟩
     /--
     Add a new variable to the context.
     NOTE: This should generally be done *after* `lookupVar`, to ensure the

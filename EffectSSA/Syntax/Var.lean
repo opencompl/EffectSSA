@@ -18,7 +18,10 @@ namespace EffectSSA
 `Var` is a de Bruijn index representing a variable, given an upper bound `n`
 on the number of available variables.
 -/
-def Var := Nat
+@[grind]
+structure Var where
+  ofNat :: toNat : Nat
+  deriving DecidableEq
 
 /-!
 ## Definitions
@@ -26,15 +29,27 @@ def Var := Nat
 -/
 namespace Var
 
-/-- Return the underlying index of a variable. -/
-def toNat (v : Var) : Nat := v
-/-- Construct a variable from its index. -/
-def ofNat (i : Nat) : Var := i
+instance : HAdd Var Nat Var where
+  hAdd v n := Var.ofNat (v.toNat + n)
+instance : HSub Var Nat Var where
+  hSub v n := Var.ofNat (v.toNat - n)
 
-def succ (v : Var) : Var := ofNat (v.toNat + 1)
 
 /-!
-### Metaprogramming API
+## Lemmas
+--------------------------------------------------------------------------------
+-/
+
+@[simp] theorem toNat_ofNat (i : Nat) : (Var.ofNat i).toNat = i := rfl
+@[simp, grind =] theorem toNat_add (v : Var) (n : Nat) : (v + n).toNat = v.toNat + n := rfl
+@[simp, grind =] theorem toNat_sub (v : Var) (n : Nat) : (v - n).toNat = v.toNat - n := rfl
+
+@[simp, grind =] theorem ofNat_add (i n : Nat) : Var.ofNat (i + n) = (Var.ofNat i) + n := rfl
+@[simp, grind =] theorem ofNat_sub (i n : Nat) : Var.ofNat (i - n) = (Var.ofNat i) - n := rfl
+
+/-!
+## Metaprogramming API
+--------------------------------------------------------------------------------
 -/
 section Meta
 open Lean Qq

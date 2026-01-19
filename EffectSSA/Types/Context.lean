@@ -68,10 +68,9 @@ instance {Γ : Context τ} : Decidable (isUnrestricted Γ) :=
         have : v.InBounds Γ := by simpa using hx
         Γ[v].isUnrestricted
       ) <| by
-    simp only [List.all_eq_true, List.mem_attach, forall_const, Subtype.forall, List.mem_range,
-      isUnrestricted, Var.InBounds]
-    constructor
-    <;> (intro h v hv; apply h v hv)
+    simp [isUnrestricted, Var.InBounds]
+    grind
+
 
 /-! ### vars -/
 

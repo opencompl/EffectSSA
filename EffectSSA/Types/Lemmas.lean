@@ -60,9 +60,6 @@ theorem Program.WellTyped.unique
 -/
 namespace Var
 
-@[simp, grind =] theorem toNat_ofNat (i : Nat) : (Var.ofNat i).toNat = i := rfl
-@[simp, grind =] theorem toNat_succ (v : Var) : v.succ.toNat = v.toNat + 1 := rfl
-
 @[simp, grind =]
 theorem inBounds_iff {v : Var} : v.InBounds Γ ↔ v.toNat < Γ.size := by rfl
 
@@ -84,7 +81,18 @@ variable {Γ : Context τ} {v : Var}
 
 @[simp, grind =] theorem getElem_cons_zero : (Γ <: t)[Var.ofNat 0]'h = t := rfl
 @[simp, grind =] theorem getElem_cons_succ :
-    (Γ <: t)[v.succ]'h = Γ[v]'(by grind) := rfl
+    (Γ <: t)[v + 1]'h = Γ[v]'(by simp_all) := rfl
+
+@[grind =]
+theorem getElem_cons_eq :
+    (Γ <: t)[v]'h =
+      if hz : v = Var.ofNat 0 then
+        t
+      else
+        Γ[v - 1]'(by simp_all; grind) := by
+  match v with
+  | .ofNat 0 => grind
+  | .ofNat (i + 1) => simp; grind
 
 /-! ### isUnrestricted -/
 
@@ -98,15 +106,15 @@ variable {Γ : Context τ} {v : Var}
   · intro h
     and_intros
     · intro v
-      have := h v.succ
+      have := h (v + 1)
       grind
     · have := h (Var.ofNat 0)
       grind
   · intro h v hv
-    have : (v = Var.ofNat 0) ∨ (∃ (v' : Var), v = v'.succ) := by
-      rcases v with _|i
+    have : (v = Var.ofNat 0) ∨ (∃ (v' : Var), v = v' + 1) := by
+      rcases v with _ | i
       · left; rfl
-      · right; use i; rfl
-    rcases this with ⟨rfl, ⟨v, rfl⟩⟩ <;> grind
+      · right; use Var.ofNat i; rfl
+    grind
 
 end Context
