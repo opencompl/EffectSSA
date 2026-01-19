@@ -24,10 +24,20 @@ def createEff_consumeEff : Rewrite τ where
 
 namespace createEff_consumeEff
 
+macro "typecheck" : tactic => `(tactic|(
+  simp -failIfUnchanged only [
+    typecheck,
+    ProgramFragment.WellTyped, Program.WellTyped,
+    Context.isUnrestricted_empty,
+    List.length_nil,
+    ↓existsAndEq, and_true, true_and,
+  ]
+  grind
+))
+
 theorem welltyped : (@createEff_consumeEff τ).WellFormed ∅ := by
   use []
   unfold createEff_consumeEff
-  simp only [Program.results_nil, Fin.isValue, Program.results_cons]
-  sorry
+  typecheck
 
 end createEff_consumeEff

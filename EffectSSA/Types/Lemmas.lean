@@ -1,4 +1,5 @@
 import EffectSSA.Types.WellTyped
+import EffectSSA.Types.Simpset
 
 /-!
 # Lemmas about the typesystem
@@ -10,30 +11,66 @@ namespace EffectSSA
 --------------------------------------------------------------------------------
 -/
 
-@[simp, grind =]
-theorem Program.wellTyped_nil_iff {Γ Δ : Context τ} :
+/-! ### Program -/
+namespace Program
+
+@[simp, typecheck, grind =]
+theorem wellTyped_nil_iff {Γ Δ : Context τ} :
     WellTypedWith Γ .nil Δ ↔ Γ = Δ := by
   grind [WellTypedWith]
 
-@[simp, grind =]
-theorem Program.wellTyped_cons_iff (i : Instruction τ) (p : Program τ) :
+@[simp, typecheck, grind =]
+theorem wellTyped_cons_iff (i : Instruction τ) (p : Program τ) :
     WellTypedWith Γ (i ;> p) Ξ ↔ (∃ Δ, i.WellTyped Γ Δ ∧ p.WellTypedWith Δ Ξ) := by
   grind [WellTypedWith]
 
-@[simp, grind =]
-theorem Program.WellTyped_nil_iff {Γ : Context τ} :
+@[simp, typecheck, grind =]
+theorem WellTyped_nil_iff {Γ : Context τ} :
     WellTyped Γ .nil ↔ Γ.isUnrestricted := by
   simp [Program.WellTyped]
 
+end Program
 
-open Instruction in attribute [grind ←]
-  WellTyped.loadI
-  WellTyped.storeI
-  WellTyped.loadE
-  WellTyped.storeE
-  WellTyped.createEff
-  WellTyped.consumeEff
+/-! ### Program -/
+namespace Instruction
+open Ty.Typ (ptr eff data)
+variable {Γ Δ : Context τ}
 
+@[simp, typecheck, grind =]
+theorem wellTyped_loadI_iff :
+    WellTyped Γ (.loadI t p) Δ ↔ (Γ[p]? = some ptr ∧ Δ = Γ <: t) := by
+  grind [WellTyped]
+
+@[simp, typecheck, grind =]
+theorem wellTyped_storeI_iff :
+    WellTyped Γ (.storeI t p x) Δ
+    ↔ (Γ[p]? = some ptr ∧ Γ[x]? = some (data t) ∧ Δ = Γ) := by
+  grind [WellTyped]
+
+@[simp, typecheck, grind =]
+theorem wellTyped_loadE_iff :
+    WellTyped Γ (.loadE t e p) Δ
+    ↔ (Γ[e]? = some eff ∧ Γ[p]? = some ptr ∧ Δ = Γ.eraseVar e <: eff <: t) := by
+  grind [WellTyped]
+
+@[simp, typecheck, grind =]
+theorem wellTyped_storeE_iff :
+    WellTyped Γ (.storeE t e p x) Δ
+    ↔ (Γ[e]? = some eff ∧ Γ[p]? = some ptr ∧ Γ[x]? = some (data t) ∧ Δ = Γ.eraseVar e <: eff) := by
+  grind [WellTyped]
+
+@[simp, typecheck, grind =]
+theorem wellTyped_createEff_iff :
+    WellTyped Γ .createEff Δ ↔ (Γ.isUnrestricted ∧ Δ = Γ <: eff) := by
+  grind [WellTyped]
+
+@[simp, typecheck, grind =]
+theorem wellTyped_consumeEff_iff :
+    WellTyped Γ (.consumeEff e) Δ
+    ↔ (Γ[e]? = some eff ∧ (Γ.eraseVar e).isUnrestricted ∧ Δ = Γ.eraseVar e) := by
+  grind [WellTyped]
+
+end Instruction
 
 /-!
 ## Uniqueness of out contexts
@@ -94,12 +131,17 @@ theorem getElem_cons_eq :
   | .ofNat 0 => grind
   | .ofNat (i + 1) => simp; grind
 
+@[simp, typecheck, grind =]
+theorem getElem?_cons_zero : (Γ <: t)[Var.ofNat 0]? = some t := rfl
+@[simp, typecheck, grind =]
+theorem getElem?_cons_succ : (Γ <: t)[v + 1]? = Γ[v]? := rfl
+
 /-! ### isUnrestricted -/
 
-@[simp, grind .] theorem isUnrestricted_empty : @isUnrestricted τ ∅ := by
+@[simp, typecheck, grind .] theorem isUnrestricted_empty : @isUnrestricted τ ∅ := by
   grind [isUnrestricted]
 
-@[simp, grind =] theorem isUnrestricted_cons :
+@[simp, typecheck, grind =] theorem isUnrestricted_cons :
     (Γ <: t).isUnrestricted ↔ Γ.isUnrestricted ∧ t.isUnrestricted  := by
   unfold isUnrestricted Var.InBounds
   constructor
@@ -116,5 +158,13 @@ theorem getElem_cons_eq :
       · left; rfl
       · right; use Var.ofNat i; rfl
     grind
+
+/-! ### eraseVar -/
+
+@[simp, typecheck, grind =]
+theorem eraseVar_zero : (Γ <: t).eraseVar (Var.ofNat 0) = Γ := rfl
+
+@[simp, typecheck, grind =]
+theorem eraseVar_succ : (Γ <: t).eraseVar (v + 1) = Γ.eraseVar v <: t := rfl
 
 end Context
