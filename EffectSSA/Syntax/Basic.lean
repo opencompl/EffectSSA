@@ -80,12 +80,6 @@ def ofList : List (Instruction τ) → Program τ
   | [] => .nil
   | i :: p => i ;> ofList p
 
--- @[match_pattern]
--- def Program.nil : Program τ := Program.mk []
--- @[match_pattern]
--- def Program.cons (i : Instruction τ) (p : Program τ) : Program τ :=
---   Program.mk (i :: p.toList)
-
 /-! ### Folds -/
 
 @[inherit_doc List.foldl]
