@@ -34,4 +34,5 @@ instance : MonadState (Option <| Trace τ) (ExecM τ) := by unfold ExecM ExecM.T
 instance : MonadStateOf (Option <| Trace τ) (ExecM τ) := by unfold ExecM ExecM.TypeErrM; infer_instance
 
 instance : Monad (ExecM.TypeErrM) := by unfold ExecM.TypeErrM; infer_instance
+instance : LawfulMonad (ExecM.TypeErrM) := by unfold ExecM.TypeErrM; infer_instance
 end Monad

@@ -108,12 +108,15 @@ def getAs (env : Environment τ) (v : Var) (t : τ.Typ) : ExecM τ (τ.TVal t) :
   StateT.lift (env.getAs? v t)
 
 /-- Retrieve a pointer via `getAs`. -/
+@[simp, grind =]
 def getPtr (env : Environment τ) (v : Var) : ExecM τ τ.Ptr := env.getAs v .ptr
 
 /-- Retrieve an effect trace via `getAs`. -/
+@[simp, grind =]
 def getEff (env : Environment τ) (v : Var) : ExecM τ (Trace τ) := env.getAs v .eff
 
 /-- Retrieve a data value via `getAs`. -/
+@[simp, grind =]
 def getData (env : Environment τ) (v : Var) (t : τ.DType) : ExecM τ (τ.DVal t) :=
   env.getAs v (.data t)
 
