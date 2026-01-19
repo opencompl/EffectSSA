@@ -87,12 +87,23 @@ def ProgramFragment.exec (env : Environment τ) (p : ProgramFragment τ) :
   let env ← p.program.exec env
   p.returnVars.mapM env.get
 
+-- TODO: ProgramFragment.append
+-- TODO: ProgramFragment.execClosed
+
 /--
 A rewrite is correct, if the source and target fragments compute the same values
 for the return variables (given the same environment).
 -/
-def Rewrite.Correct (r : Rewrite τ) : Prop :=
+inductive Rewrite.Correct (r : Rewrite τ) : Prop where
+  | mk
+    {Δ : Context τ} {ts}
+    (wt_src : r.src.WellTyped Δ ts)
+    (wt_tgt : r.tgt.WellTyped Δ ts)
+    (exec_eq_exec :
+      ∀ (C : ProgramFragment τ), C.WellTyped ∅ Δ.toList →
+          (C ++ r.src).execClosed = (C ++ r.tgt).execClosed
+    )
   -- FIXME: this is actually too granular, as it looks for strict equality of
   --        of traces, whereas we want to consider something a bit looser, e.g.
   --        to disregard the specific order of load events.
-  ∀ {env} {Γ}, env.WellTyped Γ → r.src.exec env = r.tgt.exec env
+  -- ∀ {env} {Γ}, env.WellTyped Γ → r.src.exec env = r.tgt.exec env
