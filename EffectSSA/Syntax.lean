@@ -3,3 +3,4 @@ import EffectSSA.Syntax.Var
 import EffectSSA.Syntax.Repr
 import EffectSSA.Syntax.Notation
 import EffectSSA.Syntax.Lemmas
+import EffectSSA.Syntax.Substitute

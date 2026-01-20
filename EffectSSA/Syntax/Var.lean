@@ -40,6 +40,10 @@ instance : HSub Var Nat Var where
 --------------------------------------------------------------------------------
 -/
 
+@[ext]
+theorem toNat_ext {v w : Var} (h : v.toNat = w.toNat) : v = w := by
+  cases v; cases w; simpa using h
+
 @[simp] theorem toNat_ofNat (i : Nat) : (Var.ofNat i).toNat = i := rfl
 @[simp, grind =] theorem toNat_add (v : Var) (n : Nat) : (v + n).toNat = v.toNat + n := rfl
 @[simp, grind =] theorem toNat_sub (v : Var) (n : Nat) : (v - n).toNat = v.toNat - n := rfl
