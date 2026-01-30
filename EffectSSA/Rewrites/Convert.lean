@@ -2,6 +2,8 @@ import EffectSSA.Syntax
 import EffectSSA.Semantics
 import EffectSSA.Rewrites.Basic
 
+import EffectSSA.Tactic
+
 /-!
 # Implicit to EffectSSA conversion rewrites
 -/
@@ -11,11 +13,11 @@ variable {τ}
 
 def createEff_consumeEff : Rewrite τ where
   src := {
-    program := program!()
+    instructions := program!()
     returnVars := []
   }
   tgt := {
-    program := program!(
+    instructions := program!(
       e := createEff;
       consumeEff(e)
     )
@@ -24,16 +26,6 @@ def createEff_consumeEff : Rewrite τ where
 
 namespace createEff_consumeEff
 
-macro "typecheck" : tactic => `(tactic|(
-  simp -failIfUnchanged only [
-    typecheck,
-    ProgramFragment.WellTyped, Program.WellTyped,
-    Context.isUnrestricted_empty,
-    List.length_nil,
-    ↓existsAndEq, and_true, true_and,
-  ]
-  grind
-))
 
 theorem welltyped : (@createEff_consumeEff τ).WellFormed ∅ := by
   unfold createEff_consumeEff
