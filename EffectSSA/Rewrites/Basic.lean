@@ -13,46 +13,19 @@ namespace EffectSSA
 -/
 
 /--
-A program fragment is simply a program with some designated return variables
-at the end of said program.
--/
-structure ProgramFragment τ where
-  program : Program τ
-  returnVars : List Var
-
-/--
 A rewrite consists of two program fragments.
 -/
 structure Rewrite τ where
-  src : ProgramFragment τ
-  tgt : ProgramFragment τ
-
-/-!
-## Structural Lemmas
---------------------------------------------------------------------------------
--/
-
-@[simp /-, grind = -/]
-theorem ProgramFragment.program_mk : (mk p vs).program = p := rfl
+  src : Program τ
+  tgt : Program τ
 
 /-!
 ## Wellformedness Constraints
 --------------------------------------------------------------------------------
 -/
 
-/--
-A program fragment is welltyped, for a given set of return types, when
-(a) the program is welltyped, producing an output context `Δ`, and
-(b) each return variable is assigned the expected return type in `Δ`.
--/
-@[grind =]
-def ProgramFragment.WellTyped (Γ : Context τ) (p : ProgramFragment τ)
-    (returnTypes : List τ.Typ) : Prop :=
-  ∃ (Δ : Context τ),
-    Program.WellTypedWith Γ p.program Δ ∧ Δ.isUnrestricted
-    ∧ (∀ (i : Fin p.returnVars.length), Δ[p.returnVars[i]]? = returnTypes[i]?)
+open Program (WellTyped)
 
-open ProgramFragment (WellTyped) in
 /--
 A rewrite is wellformed, if both fragments are welltyped, under the same context
 and with the same expected return types.
@@ -61,31 +34,11 @@ and with the same expected return types.
 def Rewrite.WellFormed (Γ : Context τ) (r : Rewrite τ) : Prop :=
   ∃ ts, WellTyped Γ r.src ts ∧ WellTyped Γ r.tgt ts
 
-/-! ### Welltypedness of a `ProgramFragment` is decidable -/
-instance (p : ProgramFragment τ) : Decidable (p.WellTyped Γ ts) :=
-  match p.program.typeCheck Γ with
-  | .isFalse h => .isFalse <| by grind
-  | .isTrue Δ h₁ h₂ =>
-      if h : ∀ (i : Fin p.returnVars.length), Δ[p.returnVars[i]]? = ts[i]? then
-        .isTrue (by grind)
-      else
-        .isFalse (by grind)
-
 /-!
 ## Semantics Correctness Constraints
 --------------------------------------------------------------------------------
 -/
 variable {τ} [MemoryModel τ]
-
-open Semantics in
-/--
-Execute all instructions in a program fragment sequentially,
-but return only the values computed for the designated return variables.
--/
-def ProgramFragment.exec (env : Environment τ) (p : ProgramFragment τ) :
-    ExecM τ (List τ.Val) := do
-  let env ← p.program.exec env
-  p.returnVars.mapM env.get
 
 -- TODO: ProgramFragment.append
 -- TODO: ProgramFragment.execClosed
@@ -100,8 +53,8 @@ inductive Rewrite.Correct (r : Rewrite τ) : Prop where
     (wt_src : r.src.WellTyped Δ ts)
     (wt_tgt : r.tgt.WellTyped Δ ts)
     (exec_eq_exec :
-      ∀ (C : ProgramFragment τ), C.WellTyped ∅ Δ.toList →
-          (C ++ r.src).execClosed = (C ++ r.tgt).execClosed
+      ∀ (C : Program τ), C.WellTyped ∅ Δ.toList →
+          (C ++ r.src).execClosed? = (C ++ r.tgt).execClosed?
     )
   -- FIXME: this is actually too granular, as it looks for strict equality of
   --        of traces, whereas we want to consider something a bit looser, e.g.

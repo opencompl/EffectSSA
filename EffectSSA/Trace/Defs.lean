@@ -55,9 +55,13 @@ end Event
 /-! ## Trace API -/
 namespace Trace
 
-/- A list of `Event`s may be implicitly coerced to a `Trace`. -/
+/-- A list of `Event`s may be implicitly coerced to a `Trace`. -/
 instance : Coe (List (Event τ)) (Trace τ) where
   coe := .seq
+
+/-- `∅` is the empty (non-UB) trace, without any events. -/
+instance : EmptyCollection (Trace τ) where
+  emptyCollection := .seq []
 
 /--
 Add a new event to the front of a trace,

@@ -59,12 +59,12 @@ inductive Instruction.WellTyped : Context τ → Instruction τ → Context τ �
 
 
 /--
-`WellTypedWith Γ p Δ` holds when the instruction in program `p` are welltyped under
-`Γ`, and result in a final context `Δ` after execution.
+`WellTypedWith Γ p Δ` holds when the instruction in sequence `p` are welltyped
+under `Γ`, and result in a final context `Δ` after execution.
 
 NOTE: linearity is not yet checked
 -/
-inductive Program.WellTypedWith : Context τ → Program τ → Context τ → Prop
+inductive InstructionSeq.WellTypedWith : Context τ → InstructionSeq τ → Context τ → Prop
   /--
   An empty program does not change the context.
 
@@ -82,11 +82,18 @@ inductive Program.WellTypedWith : Context τ → Program τ → Context τ → P
       WellTypedWith Γ (.cons i p) Ξ
 
 /--
-`WellTyped Γ p` holds when program `p` is welltyped under `Γ`, *and* the
-resulting context is unrestricted.
+`WellTyped Γ p ts` holds for a program `p`, when the constituent instruction
+sequence `p` is welltyped under `Γ`, returning an *unrestricted* context `Δ`
+such that the i-th return variable of `p` is assigned the respective type
+`ts[i]` in context `Δ`
 
-This enforces that linear variables must be used *at least* once.
+NOTE: The requirement that `Δ` is unrestricted enforces that linear variables
+must be used *at least* once.
 -/
 @[grind =]
-def Program.WellTyped (Γ : Context τ) (p : Program τ) : Prop :=
-  ∃ (Δ : Context τ), WellTypedWith Γ p Δ ∧ Δ.isUnrestricted
+def Program.WellTyped (Γ : Context τ) (p : Program τ) (ts : List τ.Typ) : Prop :=
+  ∃ (Δ : Context τ),
+    InstructionSeq.WellTypedWith Γ p.instructions Δ
+    ∧ Δ.isUnrestricted
+    ∧ ∀ (i : Nat), p.returnVars[i]? >>= (Δ[·]?) = ts[i]?
+    -- ∧ ∀ vi ∈ p.returnVars.zipIdx, Δ[vi.1]? = ts[vi.2]?

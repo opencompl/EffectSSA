@@ -5,6 +5,11 @@ import EffectSSA.Syntax.Basic
 -/
 namespace EffectSSA
 
+/-!
+## Definition of Substitution
+--------------------------------------------------------------------------------
+-/
+
 structure Substitution where
   apply : Var → Var
 
@@ -55,13 +60,36 @@ def Substitution.offsetFor (σ : Substitution) : Instruction τ → Substitution
   | .consumeEff ..  => σ
 
 /--
-`p.substitute σ` substitutes free variables in a program `p` along a
-substitution `σ`, such that a free variable with index `j` is replaced with the
-variable `σ j`.
+`p.substitute σ` substitutes free variables in an instruction sequence `p` along
+a substitution `σ`, such that a free variable with index `j` is replaced with
+the variable `σ j`.
 -/
-def Program.substitute (σ : Substitution) : Program τ → Program τ
+def InstructionSeq.substitute (σ : Substitution) : InstructionSeq τ → InstructionSeq τ
   | .nil    => .nil
   | i ;> p  => i.substitute σ ;> p.substitute (σ.offsetFor i)
+
+/-!
+## Program Concatenation
+--------------------------------------------------------------------------------
+-/
+
+-- TODO: we likely need something akin to the following to implement Program.append
+-- def Program.shiftVars (p : Program τ) (n : Nat) : Program τ := sorry
+
+/-!
+Program concatenation, written `p ++ q`, is defined as concatenating the
+instructions of `p` and `q`, where the return variables of `p` are substituted
+for the respective free variable of `q`.
+
+NOTE: The number of free variables in `p ++ q` is thus
+  `fvars(p) + (fvars(q) - retvars(p))`
+where the subtraction bottoms out at 0.
+
+-/
+def Program.append (p : Program τ) (q : Program τ) : Program τ :=
+  -- TODO: implement
+  sorry
+instance : Append (Program τ) where append := Program.append
 
 /-!
 ## Lemmas
@@ -90,12 +118,12 @@ theorem offsetFor_id : id.offsetFor i = id := by
 end Substitution
 
 /-! ### Structural Program Lemmas -/
-namespace Program
+namespace InstructionSeq
 
 @[simp, grind =]
 theorem substitute_nil : (@nil τ).substitute σ = nil := rfl
 
-end Program
+end InstructionSeq
 
 /-! ### substitute_id -/
 
@@ -104,5 +132,5 @@ theorem Instruction.substitute_id (i : Instruction τ) : i.substitute .id = i :=
   cases i <;> simp [substitute]
 
 @[simp, grind =]
-theorem Program.substitute_id (p : Program τ) : p.substitute .id = p := by
+theorem InstructionSeq.substitute_id (p : InstructionSeq τ) : p.substitute .id = p := by
   induction p <;> simp [substitute, *]

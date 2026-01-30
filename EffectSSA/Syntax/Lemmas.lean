@@ -7,11 +7,11 @@ namespace EffectSSA
 variable {τ : Ty} -- [MemorySignature τ]
 
 /-!
-## Program Lemmas
+## InstructionSeq Lemmas
 --------------------------------------------------------------------------------
 -/
-namespace Program
-variable {i : Instruction τ} {p q : Program τ}
+namespace InstructionSeq
+variable {i : Instruction τ} {p q : InstructionSeq τ}
 
 /-! ### toList -/
 
@@ -40,19 +40,4 @@ theorem toList_inj : p.toList = q.toList ↔ p = q := by
 theorem toList_append : (p ++ q).toList = p.toList ++ q.toList := by
   induction p generalizing q <;> cases q <;> grind
 
-/-! ### `results` -/
-
-@[simp, grind =]
-theorem results_nil (n : Nat) :
-    (.nil : Program τ).results n = n := rfl
-
-@[simp, grind =]
-theorem results_cons {i : Instruction τ} {p : Program τ} :
-    (i ;> p).results n = p.results (i.results n) := rfl
-
-@[simp, grind =]
-theorem results_append {p q : Program τ} :
-    (p ++ q).results n = q.results (p.results n) := by
-  induction p generalizing n <;> grind
-
-end Program
+end InstructionSeq

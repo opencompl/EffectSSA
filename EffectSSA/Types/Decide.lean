@@ -57,13 +57,13 @@ def Instruction.typeCheck (Γ : Context τ) : (i : Instruction τ) → i.TypeChe
         .isTrue Γ'
       else .isFalse
 
-inductive Program.TypeCheckResult (Γ : Context τ) (p : Program τ) where
+inductive InstructionSeq.TypeCheckResult (Γ : Context τ) (p : InstructionSeq τ) where
   | isTrue (Δ : Context τ)
             (h₁ : WellTypedWith Γ p Δ := by grind)
             (h₂ : Δ.isUnrestricted := by grind)
   | isFalse (h : ∀ (Δ : Context τ), ¬WellTypedWith Γ p Δ ∨ ¬Δ.isUnrestricted := by grind)
 
-def Program.typeCheck (Γ : Context τ) : (p : Program τ) → p.TypeCheckResult Γ
+def InstructionSeq.typeCheck (Γ : Context τ) : (p : InstructionSeq τ) → p.TypeCheckResult Γ
   | nil =>
     if h₂ : Γ.isUnrestricted then
       .isTrue Γ (.nil rfl) h₂
@@ -77,12 +77,31 @@ def Program.typeCheck (Γ : Context τ) : (p : Program τ) → p.TypeCheckResult
         | .isFalse h => .isFalse <| by grind
         | .isTrue Δ' h₁ h₂ => .isTrue Δ'
 
+inductive Program.TypeCheckResult (Γ : Context τ) (p : Program τ) (ts : List τ.Typ) where
+  | isTrue (Δ : Context τ) (h : Program.WellTyped Γ p ts := by grind)
+  | isFalse (h : ¬Program.WellTyped Γ p ts := by grind)
+
 /-!
-## `Decidable` instance
+## Program `Decidable` instance
 --------------------------------------------------------------------------------
 -/
 
-instance : Decidable (Program.WellTyped Γ p) :=
-  match p.typeCheck Γ with
-  | .isTrue Δ h₁ h₂ => .isTrue <| by use Δ
-  | .isFalse h => .isFalse <| by grind
+instance : Decidable (Program.WellTyped Γ p ts) :=
+  match p.instructions.typeCheck Γ with
+  | .isTrue Δ h₁ h₂ =>
+      let vs := p.returnVars
+      if hret : ∃ (i : Fin vs.length), vs[i]? >>= (Δ[·]?) ≠ ts[i]? then
+        .isFalse (by grind)
+      else if hlen : vs.length < ts.length then
+        have : ∃ (i : Nat), vs[i]? >>= (Δ[·]?) = none ∧ ts[i]?.isSome := by
+          use vs.length; grind
+        .isFalse (by grind)
+      else
+        have hret : ∀ (i : Fin vs.length), vs[i]? >>= (Δ[·]?) = ts[i]? := by grind
+        .isTrue ⟨Δ, h₁, h₂, by
+          intro i
+          by_cases hi : i < p.returnVars.length
+          · apply hret ⟨i, hi⟩
+          · grind
+        ⟩
+  | .isFalse h => .isFalse (by grind)

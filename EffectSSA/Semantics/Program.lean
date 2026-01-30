@@ -16,6 +16,11 @@ namespace EffectSSA
 open Semantics
 variable {τ : Ty} [MemoryModel τ]
 
+/-!
+## Instruction Semantics
+--------------------------------------------------------------------------------
+-/
+
 /--
 Execute a single instruction `i` in a specific environment, returning a new
 environment with the results of `i` added to it, and any linear values consumed
@@ -96,7 +101,36 @@ where
       | none => some es
       | some _ => some .ub
 
+/-!
+## Sequence & Program Semantics
+--------------------------------------------------------------------------------
+-/
 
-/-- Execute all instructions in a program sequentially, threading the environment through. -/
-def Program.exec (env : Environment τ) (p : Program τ) : ExecM τ (Environment τ) :=
+/--
+Return the environment after executing all instructions in sequence `p`,
+starting from environment `env`.
+-/
+def InstructionSeq.exec (env : Environment τ) (p : InstructionSeq τ) : ExecM τ (Environment τ) :=
   p.foldlM Instruction.exec env
+
+/--
+Return the value assigned to the return variables of a program (fragment) `p`,
+after executing the instruction sequence of `p` starting from environment `env`.
+-/
+def Program.exec (env : Environment τ) (p : Program τ) : ExecM τ (List τ.Val) := do
+  let env ← p.instructions.exec env
+  p.returnVars.mapM env.get
+
+/--
+Execute a complete *closed* program `p`, yielding the computed return values and
+the final trace of all events that happened during execution.
+
+This differs from `exec` in that execution starts with an empty environment and
+empty initial trace, since we assume `p` represents a complete computation.
+
+Returns `none` if execution threw a type-error, which is impossible when the
+program is well-typed (see `isSome_execClosed?`).
+-/
+def Program.execClosed? (p : Program τ) : Option (List τ.Val × Trace τ) := do
+  let ⟨ret, events?⟩ ← (p.exec ∅).run (some ∅)
+  return ⟨ret, events?.getD .ub⟩

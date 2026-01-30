@@ -39,97 +39,67 @@ inductive Instruction (τ : Ty) where
   | consumeEff (e : Var)
 
 /--
-A program is a (possibly empty) sequence of instructions.
-It is thus morally similar to a `List (Instruction ..)`, except that `Program`
-additionally tracks the bound on free variables available to each instruction.
+`InstructionSeq` is a (possibly empty) sequence of instructions.
+It is thus equivalent to a `List (Instruction ..)`, although we deliberately
+don't model it as such to retain a simple recursion principle.
 
-Programs grow upwards, such that `cons i p` represents `i ; p`,
-first executing instruction `i` and then the rest of the program `p`.
+Programs grow upwards, such that `cons i p` represents first executing
+instruction `i` before the rest of the program `p`.
 -/
-inductive Program (τ : Ty) : Type where
-  | nil : Program τ
-  | cons : Instruction τ → Program τ → Program τ
+inductive InstructionSeq (τ : Ty) : Type where
+  | nil : InstructionSeq τ
+  | cons : Instruction τ → InstructionSeq τ → InstructionSeq τ
   -- toList : List (Instruction τ)
 
-/-
-FIXME: I wonder if I'm not getting the worst of both worlds by doing intrinsically
-tracked de Bruijn indices but extrinsically typed. To track the indices, `Program`
-has become a custom inductive, instead of just a `List`, so I'm going to have to
-implement a bunch of API for it anyway.
+/--
+A `Program` is a sequence of instructions (`InstructionSeq`) together with
+designated return variables.
 -/
+@[grind cases]
+structure Program (τ : Ty) where
+  instructions : InstructionSeq τ
+  returnVars : List Var
 
 /-!
 ## Definitions
 --------------------------------------------------------------------------------
 -/
 section Defs
-namespace Program
+namespace InstructionSeq
 
 /-! ### Pseudo-constructors -/
 /--
 `i ;> p` is the preferred spelling for adding an instruction to the
 front of a program.
 -/
-infixl:67 " ;> " => Program.cons
+infixl:67 " ;> " => InstructionSeq.cons
 
-def toList : Program τ → List (Instruction τ)
+def toList : InstructionSeq τ → List (Instruction τ)
   | .nil => []
   | i ;> p => i :: p.toList
 
-def ofList : List (Instruction τ) → Program τ
+def ofList : List (Instruction τ) → InstructionSeq τ
   | [] => .nil
   | i :: p => i ;> ofList p
 
 /-! ### Folds -/
 
 @[inherit_doc List.foldl]
-def foldl (f : α → Instruction τ → α) (init : α) (p : Program τ) :=
+def foldl (f : α → Instruction τ → α) (init : α) (p : InstructionSeq τ) :=
   p.toList.foldl f init
 
 @[inherit_doc List.foldlM]
-def foldlM [Monad m] (f : α → Instruction τ → m α) (init : α) (p : Program τ) :=
+def foldlM [Monad m] (f : α → Instruction τ → m α) (init : α) (p : InstructionSeq τ) :=
   p.toList.foldlM f init
 
-end Program
-
-
-/-! ### Resulting variables -/
+/-! ### Append -/
 
 /--
-`i.results n` gives the number of (live) free variables available after executing
-an instruction `i`, assuming `i` has access to `n` free variables.
-
-Here, live means that any linear variables consumed by `i` are excluded.
+`p ++ q` concatenates two instruction sequences.
 -/
-@[grind =]
-def Instruction.results (n : Nat) : Instruction τ → Nat
-  | loadI .. => n + 1
-  | storeI .. => n
-  | allocI .. => n
-  | freeI .. => n
-  | loadE .. => n + 1
-  | storeE .. => n
-  | allocE .. => n
-  | freeE .. => n
-  | split .. => n + 1
-  | merge .. => n - 1
-  | createEff => n + 1
-  | consumeEff .. => n - 1
-
-/--
-`p.results n` gives the number of *live* free variables available after executing
-program `p`, assuming `p` has access to `n` free variables.
-
-Here, live means that any linear variables that have already been
-consumed during the execution of `p` are explicitly excluded.
--/
-def Program.results (n : Nat) (p : Program τ) : Nat :=
-  p.foldl Instruction.results n
-
-/--
-`p ++ q` concatenates two programs.
--/
-def Program.append : Program τ → Program τ → Program τ
+def append : InstructionSeq τ → InstructionSeq τ → InstructionSeq τ
   | nil, q => q
   | i ;> p, q => i ;> (p.append q)
-instance : Append (Program τ) where append := Program.append
+instance : Append (InstructionSeq τ) where append := InstructionSeq.append
+
+end InstructionSeq

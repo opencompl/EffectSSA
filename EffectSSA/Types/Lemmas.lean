@@ -11,27 +11,10 @@ namespace EffectSSA
 --------------------------------------------------------------------------------
 -/
 
-/-! ### Program -/
-namespace Program
 
-@[simp, typecheck, grind =]
-theorem wellTyped_nil_iff {Γ Δ : Context τ} :
-    WellTypedWith Γ .nil Δ ↔ Γ = Δ := by
-  grind [WellTypedWith]
-
-@[simp, typecheck, grind =]
-theorem wellTyped_cons_iff (i : Instruction τ) (p : Program τ) :
-    WellTypedWith Γ (i ;> p) Ξ ↔ (∃ Δ, i.WellTyped Γ Δ ∧ p.WellTypedWith Δ Ξ) := by
-  grind [WellTypedWith]
-
-@[simp, typecheck, grind =]
-theorem WellTyped_nil_iff {Γ : Context τ} :
-    WellTyped Γ .nil ↔ Γ.isUnrestricted := by
-  simp [Program.WellTyped]
-
-end Program
-
-/-! ### Program -/
+/-!
+### Instruction
+-/
 namespace Instruction
 open Ty.Typ (ptr eff data)
 variable {Γ Δ : Context τ}
@@ -73,6 +56,36 @@ theorem wellTyped_consumeEff_iff :
 end Instruction
 
 /-!
+### InstructionSeq
+-/
+namespace InstructionSeq
+
+@[simp, typecheck, grind =]
+theorem wellTyped_nil_iff {Γ Δ : Context τ} :
+    WellTypedWith Γ .nil Δ ↔ Γ = Δ := by
+  grind [WellTypedWith]
+
+@[simp, typecheck, grind =]
+theorem wellTyped_cons_iff (i : Instruction τ) (p : InstructionSeq τ) :
+    WellTypedWith Γ (i ;> p) Ξ ↔ (∃ Δ, i.WellTyped Γ Δ ∧ p.WellTypedWith Δ Ξ) := by
+  grind [WellTypedWith]
+
+end InstructionSeq
+
+/-!
+### Program
+-/
+namespace Program
+
+@[simp, typecheck, grind =]
+theorem wellTyped_nil_iff {Γ : Context τ} :
+    WellTyped Γ ⟨.nil, vs⟩ ts ↔
+      Γ.isUnrestricted ∧ ∀ (i : Nat), vs[i]? >>= (Γ[·]?) = ts[i]? := by
+  grind
+
+end Program
+
+/-!
 ## Uniqueness of out contexts
 --------------------------------------------------------------------------------
 -/
@@ -85,11 +98,23 @@ theorem Instruction.WellTyped.unique
   grind [WellTyped]
 
 @[grind →]
-theorem Program.WellTyped.unique
-    {p : Program τ} {Δ Δ' : Context τ}
+theorem InstructionSeq.WellTyped.unique
+    {p : InstructionSeq τ} {Δ Δ' : Context τ}
     (h₁ : p.WellTypedWith Γ Δ) (h₂ : p.WellTypedWith Γ Δ') :
       Δ = Δ' := by
   induction p generalizing Γ <;> grind
+
+@[grind →]
+theorem Program.WellTyped.unique {p : Program τ}
+    (h₁ : p.WellTyped Γ ts) (h₂ : p.WellTyped Γ us) :
+      ts = us := by
+  cases h₁
+  rcases p with ⟨is, vs⟩
+  induction is generalizing Γ
+  · apply List.ext_getElem?
+    grind
+  · grind
+
 
 /-!
 ## Var

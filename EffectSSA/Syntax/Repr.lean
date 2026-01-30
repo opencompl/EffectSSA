@@ -129,7 +129,7 @@ def Instruction.printM : Instruction τ → VarPrintM Format
     let e ← printVar e
     return f!"consumeEff({e})"
 
-def Program.printM (p : Program τ) : VarPrintM Format :=
+def InstructionSeq.printM (p : InstructionSeq τ) : VarPrintM Format :=
   p.foldlM (fun f i => do return f ++ (← i.printM) ++ Format.line) Format.nil
 
 /-! ## print -/
@@ -137,7 +137,7 @@ def Program.printM (p : Program τ) : VarPrintM Format :=
 def Instruction.print (i : Instruction τ) : Format :=
   VarPrintM.run <| i.printM
 
-def Program.print (p : Program τ) : Format :=
+def InstructionSeq.print (p : InstructionSeq τ) : Format :=
   VarPrintM.run <| p.printM
 
 -- TODO: generate docstrings for printWith and print functions
@@ -148,7 +148,7 @@ def Program.print (p : Program τ) : Format :=
 ## Repr
 `Repr` instances are derived from the `print` functions.
 -/
-instance : Repr (Program τ) where reprPrec p _ :=
+instance : Repr (InstructionSeq τ) where reprPrec p _ :=
   VarPrintM.run <| do
     let p ← p.printM
     let { freeVars, .. } ← get

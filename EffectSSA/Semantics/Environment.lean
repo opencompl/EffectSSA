@@ -67,6 +67,12 @@ end Ty.TVal
 /-! ### Environment API -/
 namespace Semantics.Environment
 
+/-!
+`∅` represents the empty environment, without any values.
+-/
+instance : EmptyCollection (Environment τ) where
+  emptyCollection := .ofList []
+
 /-! #### Environment Getters -/
 
 /--

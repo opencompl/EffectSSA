@@ -12,14 +12,14 @@ variable {τ} [MemoryModel τ]
 --------------------------------------------------------------------------------
 -/
 
-/-! ### Program -/
-namespace Program
-variable {p : Program τ}
+/-! ### InstructionSeq -/
+namespace InstructionSeq
+variable {p : InstructionSeq τ}
 
 @[simp, grind =] theorem exec_nil : exec env (@nil τ) = return env := rfl
 @[simp, grind =] theorem exec_cons : exec env (i ;> p) = i.exec env >>= p.exec := rfl
 
-end Program
+end InstructionSeq
 
 /-! ### Instruction -/
 namespace Instruction
