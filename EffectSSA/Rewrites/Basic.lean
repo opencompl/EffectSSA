@@ -47,15 +47,12 @@ variable {τ} [MemoryModel τ]
 A rewrite is correct, if the source and target fragments compute the same values
 for the return variables (given the same environment).
 -/
-inductive Rewrite.Correct (r : Rewrite τ) : Prop where
-  | mk
-    {Δ : Context τ} {ts}
-    (wt_src : r.src.WellTyped Δ ts)
-    (wt_tgt : r.tgt.WellTyped Δ ts)
-    (exec_eq_exec :
-      ∀ (C : Program τ), C.WellTyped ∅ Δ.toList →
+def Rewrite.Correct (r : Rewrite τ) : Prop :=
+  ∃ (Δ : Context τ) (ts : _),
+    r.src.WellTyped Δ ts
+    ∧ r.tgt.WellTyped Δ ts
+    ∧ ∀ (C : Program τ), C.WellTyped ∅ Δ.toList →
           (C ++ r.src).execClosed? = (C ++ r.tgt).execClosed?
-    )
   -- FIXME: this is actually too granular, as it looks for strict equality of
   --        of traces, whereas we want to consider something a bit looser, e.g.
   --        to disregard the specific order of load events.

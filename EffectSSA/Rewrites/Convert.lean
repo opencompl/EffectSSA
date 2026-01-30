@@ -50,8 +50,10 @@ not be welltyped.
 
 variable [MemoryModel τ]
 theorem correct : (@createEff_consumeEff τ).Correct := by
-  unfold createEff_consumeEff
-  intro env Γ wf
+  unfold createEff_consumeEff Rewrite.Correct
+  use ∅, []
+  and_intros <;> (try typecheck)
+  simp
   apply StateT.ext
   intro s
   have : ¬s.isNone := by
