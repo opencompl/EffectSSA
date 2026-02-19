@@ -16,8 +16,8 @@ variable {τ} [MemoryModel τ]
 namespace InstructionSeq
 variable {p : InstructionSeq τ}
 
-@[simp, grind =] theorem exec_nil : exec env (@nil τ) = return env := rfl
-@[simp, grind =] theorem exec_cons : exec env (i ;> p) = i.exec env >>= p.exec := rfl
+@[simp, grind =] theorem execM_nil : execM env (@nil τ) = return env := rfl
+@[simp, grind =] theorem execM_cons : execM env (i ;> p) = i.exec env >>= p.execM := rfl
 
 end InstructionSeq
 
