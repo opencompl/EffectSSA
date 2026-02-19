@@ -121,7 +121,7 @@ Executes against the trace in the mondic state.
 -/
 def Program.execM (env : Environment τ) (p : Program τ) : ExecM τ (List τ.Val) := do
   let env ← p.instructions.execM env
-  p.returnVars.mapM env.get
+  p.returnVars.mapM (env.get ·)
 
 /--
 Return the value assigned to the return variables of a program (fragment) `p`,

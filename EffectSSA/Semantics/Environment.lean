@@ -86,8 +86,8 @@ def get? (env : Environment τ) (v : Var) : Option τ.Val :=
 `env.get v` retrieves the (untyped) value environment `env` associates with
 the variable `v`. Throws a TypErr if the variable does not exist.
 -/
-def get (env : Environment τ) (v : Var) : ExecM τ τ.Val :=
-  StateT.lift (env.get? v)
+def get (env : Environment τ) (v : Var) : ExecM.TypeErrM τ.Val :=
+  env.get? v
 
 /--
 `env.getAs? v t` retrieves the value environment `env` associates with the
@@ -110,20 +110,20 @@ present in the environment.
 
 See also `Environment.getAs?`, which returns none instead.
 -/
-def getAs (env : Environment τ) (v : Var) (t : τ.Typ) : ExecM τ (τ.TVal t) :=
-  StateT.lift (env.getAs? v t)
+def getAs (env : Environment τ) (v : Var) (t : τ.Typ) : ExecM.TypeErrM (τ.TVal t) :=
+  env.getAs? v t
 
 /-- Retrieve a pointer via `getAs`. -/
 @[simp, grind =]
-def getPtr (env : Environment τ) (v : Var) : ExecM τ τ.Ptr := env.getAs v .ptr
+def getPtr (env : Environment τ) (v : Var) : ExecM.TypeErrM τ.Ptr := env.getAs v .ptr
 
 /-- Retrieve an effect trace via `getAs`. -/
 @[simp, grind =]
-def getEff (env : Environment τ) (v : Var) : ExecM τ (Trace τ) := env.getAs v .eff
+def getEff (env : Environment τ) (v : Var) : ExecM.TypeErrM (Trace τ) := env.getAs v .eff
 
 /-- Retrieve a data value via `getAs`. -/
 @[simp, grind =]
-def getData (env : Environment τ) (v : Var) (t : τ.DType) : ExecM τ (τ.DVal t) :=
+def getData (env : Environment τ) (v : Var) (t : τ.DType) : ExecM.TypeErrM (τ.DVal t) :=
   env.getAs v (.data t)
 
 /-! #### Environment Constructors -/
