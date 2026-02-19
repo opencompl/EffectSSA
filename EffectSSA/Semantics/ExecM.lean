@@ -25,6 +25,8 @@ def ExecM := StateT (Option <| Trace τ) TypeErrM
 ## Definitions
 --------------------------------------------------------------------------------
 -/
+namespace ExecM
+variable {τ}
 
 /-! Show that `ExecM` is in fact a (lawful) monad. -/
 section Monad
@@ -35,4 +37,26 @@ instance : MonadStateOf (Option <| Trace τ) (ExecM τ) := by unfold ExecM ExecM
 
 instance : Monad (ExecM.TypeErrM) := by unfold ExecM.TypeErrM; infer_instance
 instance : LawfulMonad (ExecM.TypeErrM) := by unfold ExecM.TypeErrM; infer_instance
+
+instance : MonadLift ExecM.TypeErrM (ExecM τ) := by unfold ExecM; infer_instance
 end Monad
+
+
+/--
+Run an `ExecM` by providing a possibly missing initial trace.
+
+This is assumed to represent a complete execution, so if a trace is not present
+in the state by the end, UB is returned instead.
+-/
+def run' (x : ExecM τ α) (es? : Option (Trace τ)) : ExecM.TypeErrM (α × Trace τ) := do
+  let ⟨ret, events?⟩ ← StateT.run x es?
+  return ⟨ret, events?.getD .ub⟩
+
+/--
+Run an `ExecM` by providing an initial trace.
+
+This is assumed to represent a complete execution, so if a trace is not present
+in the state by the end, UB is returned instead.
+-/
+def run (x : ExecM τ α) (es : Trace τ) : ExecM.TypeErrM (α × Trace τ) := do
+  run' x (some es)
