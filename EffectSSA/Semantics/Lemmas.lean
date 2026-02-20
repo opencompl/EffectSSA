@@ -44,18 +44,23 @@ variable {env : Environment τ}
 
 /-! ### Grind lemmas -/
 
-@[simp, grind =]
-theorem get?_snoc_zero : (env.snoc x).get? ⟨0⟩ = pure x := rfl
+@[simp, grind =] theorem get?_snoc_zero :
+    (env.snoc x).get? ⟨0⟩ = pure x := rfl
 
-@[simp, grind =]
-theorem getAs_snoc_zero : (env.snoc ⟨t, x⟩).getAs ⟨0⟩ t = pure x := by
+@[simp, grind =] theorem getAs_snoc_zero :
+    (env.snoc ⟨t, x⟩).getAs ⟨0⟩ t = pure x := by
   simp [getAs, getAs?]
+
+@[simp, grind =] theorem getAs?_empty : (∅ : Environment τ).getAs? v t = none := by rfl
 
 @[simp, grind =] theorem get?_ofList (env : List τ.Val) :
   (ofList env).get? x = env[x.toNat]? := by rfl
 
 /-! ### WellTyped lemmas -/
 variable {Γ : Context τ}
+
+@[simp, grind .]
+theorem wellTyped_empty : WellTyped (τ := τ) ∅ ∅ := by simp [WellTyped]
 
 /--
 If a context `env` is well-typed w.r.t. a context `Γ`, then `env` has precisely
@@ -125,7 +130,7 @@ section WellTypedExec
 open Semantics (Environment)
 variable {p : Program τ} {Γ ts}
 
-theorem isSome_exec_of_wellTyped {env : Environment τ}
+theorem Program.isSome_exec_of_wellTyped {env : Environment τ}
     (wt_p : p.WellTyped Γ ts)
     (wt_env : env.WellTyped Γ) :
     (p.exec env es).isSome := by
@@ -168,3 +173,8 @@ where
       cases f x
       · simp_all
       · cases hfx : (List.mapM f xs) <;> simp_all
+
+theorem Program.isSome_execClosed_of_wellTyped (wt : p.WellTyped ∅ ts) :
+    p.execClosed.isSome := by
+  apply isSome_exec_of_wellTyped wt
+  simp

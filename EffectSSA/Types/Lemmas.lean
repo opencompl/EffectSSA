@@ -145,6 +145,10 @@ variable (Γ : List τ.Typ) (v : Var)
 
 end OfList
 
+/-! ### empty -/
+
+@[simp, grind =] theorem getElem?_empty : (∅ : Context τ)[v]? = none := by rfl
+
 /-! ### size -/
 
 @[simp, grind =] theorem size_empty : size (∅ : Context τ) = 0 := rfl
