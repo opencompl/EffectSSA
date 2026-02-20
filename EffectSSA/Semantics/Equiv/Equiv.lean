@@ -1,5 +1,5 @@
 import EffectSSA.Syntax
-import EffectSSA.Semantics.Equiv.ClosingContext
+import EffectSSA.Semantics.Equiv.ProgramContext
 import EffectSSA.Semantics.Program
 import EffectSSA.Semantics.Lemmas
 
@@ -8,12 +8,12 @@ import EffectSSA.Semantics.Lemmas
 -/
 namespace EffectSSA
 namespace Program
+open Semantics (ProgramContext)
+variable {τ} [MemoryModel τ]
 
 @[grind =]
 def Equiv (p : Program τ) (q : Program τ) : Prop :=
-  -- TODO: this is just a placeholder, the actual definition should
-  -- refer to contexts
-  p = q
+  ∀ (C : ProgramContext τ), C.execProgram p = C.execProgram q
 
 instance : Setoid (Program τ) where
   r := Equiv
