@@ -80,7 +80,10 @@ namespace Program
 @[simp, typecheck, grind =]
 theorem wellTyped_nil_iff {Γ : Context τ} :
     WellTyped Γ ⟨.nil, vs⟩ ts ↔
-      Γ.isUnrestricted ∧ ∀ (i : Nat), vs[i]? >>= (Γ[·]?) = ts[i]? := by
+      ( Γ.isUnrestricted
+      ∧ vs.length = ts.length
+      ∧ ∀ (i) (hi : i < vs.length), ∃ t,
+          ts[i]? = some t ∧ Γ[vs[i]]? = some t) := by
   grind
 
 end Program
@@ -108,13 +111,12 @@ theorem InstructionSeq.WellTyped.unique
 theorem Program.WellTyped.unique {p : Program τ}
     (h₁ : p.WellTyped Γ ts) (h₂ : p.WellTyped Γ us) :
       ts = us := by
-  cases h₁
+  rcases h₁ with ⟨Δ₁, h₁, h_un₁, h_ts_len, h_ts⟩
   rcases p with ⟨is, vs⟩
   induction is generalizing Γ
   · apply List.ext_getElem?
     grind
   · grind
-
 
 /-!
 ## Var

@@ -95,5 +95,7 @@ def Program.WellTyped (Γ : Context τ) (p : Program τ) (ts : List τ.Typ) : Pr
   ∃ (Δ : Context τ),
     InstructionSeq.WellTypedWith Γ p.instructions Δ
     ∧ Δ.isUnrestricted
-    ∧ ∀ (i : Nat), p.returnVars[i]? >>= (Δ[·]?) = ts[i]?
-    -- ∧ ∀ vi ∈ p.returnVars.zipIdx, Δ[vi.1]? = ts[vi.2]?
+    -- And the returnVariables' types match `ts`
+    ∧ p.returnVars.length = ts.length
+    ∧ ∀ (i : Nat), (hi : i < p.returnVars.length) →
+        Δ[p.returnVars[i]]? = ts[i]?

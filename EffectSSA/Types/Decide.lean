@@ -90,18 +90,11 @@ instance : Decidable (Program.WellTyped Γ p ts) :=
   match p.instructions.typeCheck Γ with
   | .isTrue Δ h₁ h₂ =>
       let vs := p.returnVars
-      if hret : ∃ (i : Fin vs.length), vs[i]? >>= (Δ[·]?) ≠ ts[i]? then
+      if hlen : vs.length ≠ ts.length then
         .isFalse (by grind)
-      else if hlen : vs.length < ts.length then
-        have : ∃ (i : Nat), vs[i]? >>= (Δ[·]?) = none ∧ ts[i]?.isSome := by
-          use vs.length; grind
+      else if hret : ∃ (i : Fin vs.length), Δ[vs[i]]? ≠ ts[i]? then
         .isFalse (by grind)
       else
-        have hret : ∀ (i : Fin vs.length), vs[i]? >>= (Δ[·]?) = ts[i]? := by grind
-        .isTrue ⟨Δ, h₁, h₂, by
-          intro i
-          by_cases hi : i < p.returnVars.length
-          · apply hret ⟨i, hi⟩
-          · grind
-        ⟩
+        have hret : ∀ (i : Fin vs.length), Δ[vs[i]]? = ts[i]? := by grind
+        .isTrue ⟨Δ, h₁, h₂, by grind, fun i hi => hret ⟨i, hi⟩⟩
   | .isFalse h => .isFalse (by grind)
