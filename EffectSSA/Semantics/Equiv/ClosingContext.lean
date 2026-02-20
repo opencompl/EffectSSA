@@ -36,6 +36,15 @@ structure ClosingContext (Δ : Context τ) : Type where
     program.execClosed = some (env.toList, trace)
 
 /-!
+FIXME: the context as phrased above is not quite enough, as it only captures
+a program that has a hole at the very end. However, equivalence under this context
+does *not* say anything about the produced traces after execution.
+
+Thus, the context should be generalized to also have a "suffix" program.
+
+-/
+
+/-!
 ## API
 --------------------------------------------------------------------------------
 -/
@@ -52,3 +61,8 @@ def ofProgram (program : Program τ) (wt : Program.WellTyped ∅ program Δ.toLi
     wellTyped := wt
     exec_program := by simp
   }
+
+-- /--
+-- Execute a program under the given context.
+-- -/
+-- def execProgram
