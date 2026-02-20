@@ -14,10 +14,17 @@ variable {τ} [MemoryModel τ]
 
 /-! ### InstructionSeq -/
 namespace InstructionSeq
-variable {p : InstructionSeq τ}
+variable {is : InstructionSeq τ}
 
 @[simp, grind =] theorem execM_nil : execM env (@nil τ) = return env := rfl
-@[simp, grind =] theorem execM_cons : execM env (i ;> p) = i.execM env >>= p.execM := rfl
+@[simp, grind =] theorem execM_cons : execM env (i ;> is) = i.execM env >>= is.execM := rfl
+
+@[simp, grind =_ ] theorem run_execM : (execM env is).run = exec env is := by rfl
+
+@[simp, grind =] theorem exec_nil : exec env (@nil τ) es? = some (env, es?) := rfl
+@[simp, grind =] theorem exec_cons : exec env (i ;> is) es? =
+    (i.exec env es?).bind fun (env, es?) => is.exec env es? := by
+  simp [exec, -run_execM]; rfl
 
 end InstructionSeq
 
@@ -69,25 +76,24 @@ as many variables as `Γ` has types.
 @[grind →] theorem size_eq_of_wellTyped (wt : WellTyped Γ env) : env.size = Γ.size := by
   rcases env with ⟨env⟩
   rcases Γ with ⟨Γ⟩
-  simp [WellTyped, getAs?] at wt
-  simp [Environment.size, Context.size]
+  simp only [size, Context.size]
   induction Γ generalizing env
   case nil =>
     simp only [List.length_nil, List.length_eq_zero_iff]
     ext i
     specialize wt ⟨i⟩
-    simp_all
+    simp_all [getAs?]
   case cons t Γ ih =>
     show env.length = Γ.length + 1
     cases env
     case nil =>
-      exfalso; simpa using wt ⟨0⟩ t
+      exfalso; simpa [getAs?] using wt ⟨0⟩ t
     case cons x env =>
       suffices env.length = Γ.length by simpa
       apply ih
       intro v t
       specialize wt (v + 1) t
-      grind
+      grind [getAs?]
 
 @[grind →]
 theorem isSome_get?_of_wellTyped (wt : WellTyped Γ env) :
@@ -141,7 +147,7 @@ variable {p : Program τ} {Γ ts}
 --   case nil Γ _ h =>
 --     subst h
 --     simp_all only [InstructionSeq.execM_nil, pure_bind, ExecM.run'_some]
---     rw [mapM_liftM, ExecM.run_liftM, Option.map_eq_map, Option.isSome_map, isSome_mapM_iff]
+--     rw [mapM_liftM, ExecM.run'_liftM, Option.map_eq_map, Option.isSome_map, isSome_mapM_iff]
 --     intro x hx
 --     have : ∃ (i : _) (hi : i < returnVars.length), returnVars[i] = x := List.mem_iff_getElem.mp hx
 --     have : Γ[x]?.isSome := by grind

@@ -49,15 +49,8 @@ end Monad
 /--
 Run an `ExecM` by providing a possibly missing initial trace.
 -/
-def run' (x : ExecM τ α) (es? : Option (Trace τ)) : ExecM.TypeErrM (α × Option (Trace τ)) := do
-  let ⟨ret, events?⟩ ← StateT.run x es?
-  return ⟨ret, events?⟩
-
-/--
-Run an `ExecM` by providing an initial trace.
--/
-def run (x : ExecM τ α) (es : Trace τ) : ExecM.TypeErrM (α × Option (Trace τ)) := do
-  run' x (some es)
+def run (x : ExecM τ α) (es? : Option (Trace τ)) : ExecM.TypeErrM (α × Option (Trace τ)) := do
+  StateT.run x es?
 
 /-!
 ## Lemmas
@@ -66,10 +59,15 @@ def run (x : ExecM τ α) (es : Trace τ) : ExecM.TypeErrM (α × Option (Trace 
 section Lemmas
 
 @[simp, grind =]
-theorem run'_some (x : ExecM τ α) : run' x (some es) = run x es := by rfl
+theorem run_liftM (x : ExecM.TypeErrM α) (es?) :
+    run (τ:=τ) (liftM x) es? = (do
+      let a ← x
+      some (a, es?)) := by rfl
 
-theorem run_liftM (x : ExecM.TypeErrM α) (es) :
-    run (τ:=τ) (liftM x) es = (·, some es) <$> x := by
-  cases x <;> rfl
+@[simp, grind =]
+theorem run_bind (x : ExecM τ α) (es?) :
+    (x >>= f).run es? = (do
+      let p ← x.run es?
+      (f p.fst).run p.snd) := by rfl
 
 end Lemmas

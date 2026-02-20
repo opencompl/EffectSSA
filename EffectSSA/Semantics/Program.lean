@@ -102,7 +102,7 @@ where
       | some _ => some .ub
 
 @[inherit_doc Instruction.execM]
-def Instruction.exec (env : Environment τ) (i : Instruction τ) (es : Trace τ) :
+def Instruction.exec (env : Environment τ) (i : Instruction τ) (es : Option (Trace τ)) :
     Option (Environment τ × Option (Trace τ)) :=
   (i.execM env).run es
 
@@ -119,7 +119,7 @@ def InstructionSeq.execM (env : Environment τ) (p : InstructionSeq τ) : ExecM 
   p.foldlM Instruction.execM env
 
 @[inherit_doc InstructionSeq.execM]
-def InstructionSeq.exec (env : Environment τ) (is : InstructionSeq τ) (es : Trace τ) :
+def InstructionSeq.exec (env : Environment τ) (is : InstructionSeq τ) (es : Option (Trace τ)) :
     Option (Environment τ × Option (Trace τ)) :=
   (is.execM env).run es
 
@@ -141,7 +141,7 @@ Executes against an explicitly passed trace, returning the resulting trace.
 -/
 def Program.exec (env : Environment τ) (p : Program τ) (es : Option (Trace τ)) :
     ExecM.TypeErrM (List τ.Val × Option (Trace τ)) := do
-  (p.execM env).run' es
+  (p.execM env).run es
 
 /--
 Execute a complete *closed* program `p`, yielding the computed return values and
