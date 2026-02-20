@@ -17,7 +17,7 @@ namespace InstructionSeq
 variable {p : InstructionSeq τ}
 
 @[simp, grind =] theorem execM_nil : execM env (@nil τ) = return env := rfl
-@[simp, grind =] theorem execM_cons : execM env (i ;> p) = i.exec env >>= p.execM := rfl
+@[simp, grind =] theorem execM_cons : execM env (i ;> p) = i.execM env >>= p.execM := rfl
 
 end InstructionSeq
 
@@ -25,10 +25,10 @@ end InstructionSeq
 namespace Instruction
 variable {t : τ.DType} {p x : Var}
 
-open exec (modifyTrace)
+open execM (modifyTrace)
 
-@[simp, grind =] theorem exec_storeI :
-    exec env (.storeI t p x) = do
+@[simp, grind =] theorem execM_storeI :
+    execM env (.storeI t p x) = do
       modifyTrace (Semantics.store (← env.getPtr p) (← env.getData x t))
       return env :=
   rfl
@@ -107,7 +107,7 @@ end Semantics.Environment
 -/
 namespace Instruction
 open Semantics (Environment)
-open exec
+open execM
 variable {es es' : Trace τ}
 
 @[simp, grind =] theorem run_takeTrace_some :
@@ -130,51 +130,51 @@ section WellTypedExec
 open Semantics (Environment)
 variable {p : Program τ} {Γ ts}
 
-theorem Program.isSome_exec_of_wellTyped {env : Environment τ}
-    (wt_p : p.WellTyped Γ ts)
-    (wt_env : env.WellTyped Γ) :
-    (p.exec env es).isSome := by
-  rcases wt_p with ⟨Δ, wt_p, h_un, h_ts⟩
-  rcases p with ⟨p, returnVars⟩
-  simp_all only [Program.exec, Program.execM]
-  induction wt_p generalizing env
-  case nil Γ _ h =>
-    subst h
-    simp_all only [InstructionSeq.execM_nil, pure_bind, ExecM.run'_some]
-    rw [mapM_liftM, ExecM.run_liftM, Option.map_eq_map, Option.isSome_map, isSome_mapM_iff]
-    intro x hx
-    have : ∃ (i : _) (hi : i < returnVars.length), returnVars[i] = x := List.mem_iff_getElem.mp hx
-    have : Γ[x]?.isSome := by grind
-    grind
-  case cons x xs ih =>
-    simp_all
-    /-
-    TODO:
-    This requires verification of monadic code, which is going to be a pain.
-    I'll leave this sorry for now, but I want to experiment with building an
-    intrinsically well-typed data-structure on top of the untyped one, and then
-    defining the semantics only for well-typed programs.
-    Or at least, defining intrinsically well-typed exec functions defined in
-    terms of the untyped ones + a lemma like this one.
-    -/
-    sorry
-where
-  mapM_liftM {α β m n} [Monad m] [Monad n] [MonadLiftT m n] [LawfulMonadLiftT m n] [LawfulMonad m] [LawfulMonad n]
-      (xs : List α) (f : α → m β) :
-      (xs.mapM fun x => liftM (n:=n) (f x)) = liftM (xs.mapM f) := by
-    induction xs <;> simp_all
-  isSome_mapM_iff {α β} (xs : List α) (f : α → Option β) :
-      (xs.mapM f).isSome = ∀ x ∈ xs, (f x).isSome := by
-    induction xs
-    case nil => simp
-    case cons x xs ih =>
-      simp only [List.mapM_cons, Option.pure_def, Option.bind_eq_bind, List.mem_cons,
-        forall_eq_or_imp]
-      cases f x
-      · simp_all
-      · cases hfx : (List.mapM f xs) <;> simp_all
+-- theorem Program.isSome_exec_of_wellTyped {env : Environment τ}
+--     (wt_p : p.WellTyped Γ ts)
+--     (wt_env : env.WellTyped Γ) :
+--     (p.exec env es).isSome := by
+--   rcases wt_p with ⟨Δ, wt_p, h_un, h_ts⟩
+--   rcases p with ⟨p, returnVars⟩
+--   simp_all only [Program.exec, Program.execM]
+--   induction wt_p generalizing env
+--   case nil Γ _ h =>
+--     subst h
+--     simp_all only [InstructionSeq.execM_nil, pure_bind, ExecM.run'_some]
+--     rw [mapM_liftM, ExecM.run_liftM, Option.map_eq_map, Option.isSome_map, isSome_mapM_iff]
+--     intro x hx
+--     have : ∃ (i : _) (hi : i < returnVars.length), returnVars[i] = x := List.mem_iff_getElem.mp hx
+--     have : Γ[x]?.isSome := by grind
+--     grind
+--   case cons x xs ih =>
+--     simp_all
+--     /-
+--     TODO:
+--     This requires verification of monadic code, which is going to be a pain.
+--     I'll leave this sorry for now, but I want to experiment with building an
+--     intrinsically well-typed data-structure on top of the untyped one, and then
+--     defining the semantics only for well-typed programs.
+--     Or at least, defining intrinsically well-typed exec functions defined in
+--     terms of the untyped ones + a lemma like this one.
+--     -/
+--     sorry
+-- where
+--   mapM_liftM {α β m n} [Monad m] [Monad n] [MonadLiftT m n] [LawfulMonadLiftT m n] [LawfulMonad m] [LawfulMonad n]
+--       (xs : List α) (f : α → m β) :
+--       (xs.mapM fun x => liftM (n:=n) (f x)) = liftM (xs.mapM f) := by
+--     induction xs <;> simp_all
+--   isSome_mapM_iff {α β} (xs : List α) (f : α → Option β) :
+--       (xs.mapM f).isSome = ∀ x ∈ xs, (f x).isSome := by
+--     induction xs
+--     case nil => simp
+--     case cons x xs ih =>
+--       simp only [List.mapM_cons, Option.pure_def, Option.bind_eq_bind, List.mem_cons,
+--         forall_eq_or_imp]
+--       cases f x
+--       · simp_all
+--       · cases hfx : (List.mapM f xs) <;> simp_all
 
-theorem Program.isSome_execClosed_of_wellTyped (wt : p.WellTyped ∅ ts) :
-    p.execClosed.isSome := by
-  apply isSome_exec_of_wellTyped wt
-  simp
+-- theorem Program.isSome_execClosed_of_wellTyped (wt : p.WellTyped ∅ ts) :
+--     p.execClosed.isSome := by
+--   apply isSome_exec_of_wellTyped wt
+--   simp
