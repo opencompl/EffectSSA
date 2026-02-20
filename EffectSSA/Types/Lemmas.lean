@@ -136,10 +136,23 @@ end Var
 namespace Context
 variable {Γ : Context τ} {v : Var}
 
+/-! ### ofList -/
+section OfList
+variable (Γ : List τ.Typ) (v : Var)
+
+@[simp, grind =] theorem getElem?_ofList : (ofList Γ)[v]? = Γ[v.toNat]? := by rfl
+@[simp, grind =] theorem size_ofList : (ofList Γ).size = Γ.length := by rfl
+
+end OfList
+
 /-! ### size -/
 
 @[simp, grind =] theorem size_empty : size (∅ : Context τ) = 0 := rfl
 @[simp, grind =] theorem size_cons : size (Γ <: t) = Γ.size + 1 := rfl
+
+@[simp, grind =]
+theorem le_size_iff_isSome_getElem? : Γ[v]?.isSome ↔ v.toNat < Γ.size := by
+  cases Γ; simp
 
 /-! ### getElem -/
 
