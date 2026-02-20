@@ -26,7 +26,7 @@ Execute a single instruction `i` in a specific environment, returning a new
 environment with the results of `i` added to it, and any linear values consumed
 by `i` removed.
 -/
-def Instruction.exec (env : Environment τ) : (i : Instruction τ) → ExecM τ (Environment τ)
+def Instruction.execM (env : Environment τ) : (i : Instruction τ) → ExecM τ (Environment τ)
   -- Implicit (i.e, side-effecting) memory operations
   | .loadI t p => do
     let val ← modifyGetTrace <| load t (←env.getPtr p)
@@ -101,6 +101,11 @@ where
       | none => some es
       | some _ => some .ub
 
+@[inherit_doc Instruction.execM]
+def Instruction.exec (env : Environment τ) (i : Instruction τ) (es : Trace τ) :
+    Option (Environment τ × Option (Trace τ)) :=
+  (i.execM env).run es
+
 /-!
 ## Sequence & Program Semantics
 --------------------------------------------------------------------------------
@@ -111,7 +116,12 @@ Return the environment after executing all instructions in sequence `p`,
 starting from environment `env`.
 -/
 def InstructionSeq.execM (env : Environment τ) (p : InstructionSeq τ) : ExecM τ (Environment τ) :=
-  p.foldlM Instruction.exec env
+  p.foldlM Instruction.execM env
+
+@[inherit_doc InstructionSeq.execM]
+def InstructionSeq.exec (env : Environment τ) (is : InstructionSeq τ) (es : Trace τ) :
+    Option (Environment τ × Option (Trace τ)) :=
+  (is.execM env).run es
 
 /--
 Return the value assigned to the return variables of a program (fragment) `p`,
@@ -129,8 +139,8 @@ after executing the instruction sequence of `p` starting from environment `env`.
 
 Executes against an explicitly passed trace, returning the resulting trace.
 -/
-def Program.exec (env : Environment τ) (p : Program τ) (es : Trace τ) :
-    ExecM.TypeErrM (List τ.Val × Trace τ) := do
+def Program.exec (env : Environment τ) (p : Program τ) (es : Option (Trace τ)) :
+    ExecM.TypeErrM (List τ.Val × Option (Trace τ)) := do
   (p.execM env).run' es
 
 /--
@@ -143,5 +153,5 @@ empty initial trace, since we assume `p` represents a complete computation.
 Returns `none` if execution threw a type-error, which is impossible when the
 program is well-typed (see `isSome_execClosed?`).
 -/
-def Program.execClosed (p : Program τ) : Option (List τ.Val × Trace τ) := do
-  p.exec ∅ ∅
+def Program.execClosed (p : Program τ) : Option (List τ.Val × Option (Trace τ)) := do
+  p.exec ∅ (some ∅)
