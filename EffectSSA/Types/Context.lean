@@ -19,14 +19,15 @@ namespace EffectSSA
 A `Context τ` is a mapping from `n` variables to their types.
 -/
 structure Context (τ : Ty) where
-  toList : List τ.Typ
+  ofList :: toList : List τ.Typ
 
 /-!
 ## Definitions
 --------------------------------------------------------------------------------
 -/
 
-def Context.size (Γ : Context τ) : Nat := Γ.toList.length
+@[grind =]
+abbrev Context.size (Γ : Context τ) : Nat := Γ.toList.length
 
 @[grind =]
 def Var.InBounds (Γ : Context τ) (v : Var) : Prop := v.toNat < Γ.size
