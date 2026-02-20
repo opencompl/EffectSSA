@@ -28,6 +28,8 @@ def ExecM := StateT (Option <| Trace τ) TypeErrM
 namespace ExecM
 variable {τ}
 
+/-! ### Instances -/
+
 /-! Show that `ExecM` is in fact a (lawful) monad. -/
 section Monad
 instance : Monad (ExecM τ) := by unfold ExecM ExecM.TypeErrM; infer_instance
@@ -39,8 +41,10 @@ instance : Monad (ExecM.TypeErrM) := by unfold ExecM.TypeErrM; infer_instance
 instance : LawfulMonad (ExecM.TypeErrM) := by unfold ExecM.TypeErrM; infer_instance
 
 instance : MonadLift ExecM.TypeErrM (ExecM τ) := by unfold ExecM; infer_instance
+instance : LawfulMonadLift ExecM.TypeErrM (ExecM τ) := by unfold ExecM; infer_instance
 end Monad
 
+/-! ### run -/
 
 /--
 Run an `ExecM` by providing a possibly missing initial trace.
@@ -60,3 +64,18 @@ in the state by the end, UB is returned instead.
 -/
 def run (x : ExecM τ α) (es : Trace τ) : ExecM.TypeErrM (α × Trace τ) := do
   run' x (some es)
+
+/-!
+## Lemmas
+--------------------------------------------------------------------------------
+-/
+section Lemmas
+
+@[simp, grind =]
+theorem run'_some (x : ExecM τ α) : run' x (some es) = run x es := by rfl
+
+theorem run_liftM (x : ExecM.TypeErrM α) (es) :
+    run (τ:=τ) (liftM x) es = (·, es) <$> x := by
+  cases x <;> rfl
+
+end Lemmas
