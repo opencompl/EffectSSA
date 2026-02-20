@@ -73,6 +73,11 @@ namespace Semantics.Environment
 instance : EmptyCollection (Environment τ) where
   emptyCollection := .ofList []
 
+/-! #### size -/
+
+@[simp, grind =]
+abbrev size (env : Environment τ) : Nat := env.toList.length
+
 /-! #### Environment Getters -/
 
 /--
