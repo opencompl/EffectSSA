@@ -1,5 +1,5 @@
 import EffectSSA.Assumptions.MemorySignature
-import EffectSSA.Syntax.Basic
+import EffectSSA.Syntax.Untyped.Basic
 import EffectSSA.Types.Basic
 
 import Mathlib.Data.Vector.Defs

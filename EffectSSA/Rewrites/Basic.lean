@@ -52,11 +52,11 @@ def Rewrite.Correct (r : Rewrite τ) : Prop :=
 --------------------------------------------------------------------------------
 -/
 
-/--
-Only wellformed rewrites can be correct
--/
-theorem Rewrite.wellFormed_of_correct (h : Correct r) : ∃ Γ, WellFormed Γ r := by
-  -- TODO: this does not actually hold under the current placeholder definition
-  -- of program equivalence, but it likely should hold under the actual eventual
-  -- definition
-  sorry
+-- /--
+-- Only wellformed rewrites can be correct
+-- -/
+-- theorem Rewrite.wellFormed_of_correct (h : Correct r) : ∃ Γ, WellFormed Γ r := by
+--   -- TODO: this does not actually hold under the current placeholder definition
+--   -- of program equivalence, but it likely should hold under the actual eventual
+--   -- definition
+--   sorry

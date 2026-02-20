@@ -1,4 +1,4 @@
-import EffectSSA.Syntax.Basic
+import EffectSSA.Syntax.Untyped.Basic
 import EffectSSA.Meta.Trace
 
 import Lean

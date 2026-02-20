@@ -1,5 +1,5 @@
-import EffectSSA.Syntax.Basic
-import EffectSSA.Syntax.Var
+import EffectSSA.Syntax.Untyped.Basic
+import EffectSSA.Syntax.Untyped.Var
 
 /-!
 # Printing of Syntax

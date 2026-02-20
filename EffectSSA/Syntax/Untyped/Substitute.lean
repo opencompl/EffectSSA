@@ -1,4 +1,4 @@
-import EffectSSA.Syntax.Basic
+import EffectSSA.Syntax.Untyped.Basic
 
 /-!
 # Variable Substitution in Programs

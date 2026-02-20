@@ -1,4 +1,4 @@
-import EffectSSA.Syntax
+import EffectSSA.Syntax.Untyped
 import EffectSSA.Semantics
 import EffectSSA.Rewrites.Basic
 

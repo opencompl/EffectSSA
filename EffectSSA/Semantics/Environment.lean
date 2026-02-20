@@ -1,6 +1,6 @@
 import EffectSSA.Assumptions.MemoryModel
 import EffectSSA.Types
-import EffectSSA.Syntax
+import EffectSSA.Syntax.Untyped
 import EffectSSA.Semantics.ExecM
 
 import Mathlib.Data.Vector.Basic

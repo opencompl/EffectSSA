@@ -1,5 +1,5 @@
 import EffectSSA.Assumptions.MemorySignature
-import EffectSSA.Syntax.Var
+import EffectSSA.Syntax.Untyped.Var
 
 /-!
 # Program Syntax
