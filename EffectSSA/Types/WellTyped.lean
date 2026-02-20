@@ -1,5 +1,5 @@
 import EffectSSA.Assumptions.MemorySignature
-import EffectSSA.Syntax
+import EffectSSA.Syntax.Untyped
 import EffectSSA.Types.Context
 
 /-!
@@ -80,6 +80,10 @@ inductive InstructionSeq.WellTypedWith : Context τ → InstructionSeq τ → Co
       WellTypedWith Δ p Ξ →
       ---------------------------------
       WellTypedWith Γ (.cons i p) Ξ
+
+/-
+TODO: InstructionSeq.WellTypedWith should just be renamed to InstructionSeq.WellTyped
+-/
 
 /--
 `WellTyped Γ p ts` holds for a program `p`, when the constituent instruction
