@@ -211,4 +211,10 @@ theorem eraseVar_zero : (Γ <: t).eraseVar (Var.ofNat 0) = Γ := rfl
 @[simp, typecheck, grind =]
 theorem eraseVar_succ : (Γ <: t).eraseVar (v + 1) = Γ.eraseVar v <: t := rfl
 
+@[grind =]
+theorem getElem?_eraseVar {w : Var} :
+    (Γ.eraseVar v)[w]? = Γ[if w.toNat < v.toNat then w else w + 1]? := by
+  rcases Γ with ⟨Γ⟩
+  grind [eraseVar]
+
 end Context

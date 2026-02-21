@@ -70,4 +70,8 @@ theorem run_bind (x : ExecM τ α) (es?) :
       let p ← x.run es?
       (f p.fst).run p.snd) := by rfl
 
+@[simp, grind =]
+theorem run_map (f : α → β) (x : ExecM τ α) :
+    (f <$> x).run es? = (fun p => (f p.fst, p.snd)) <$> x.run es? := StateT.run_map ..
+
 end Lemmas

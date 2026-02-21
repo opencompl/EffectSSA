@@ -31,6 +31,33 @@ end InstructionSeq
 /-! ### Instruction -/
 namespace Instruction
 variable {t : τ.DType} {p x : Var}
+variable {i : Instruction τ}
+
+section Run
+open execM
+variable (es? : Option (Trace τ))
+
+@[simp, grind =] theorem run_execM : (execM env i).run = exec env i := by rfl
+
+@[simp, grind =] theorem run_modifyGetTrace {f : Trace τ → α × Trace τ} :
+    (modifyGetTrace f).run es? = some (
+      let p := f (es?.getD .ub)
+      (p.1, some p.2)) := by rfl
+
+@[simp, grind =] theorem run_modifyTrace {f : Trace τ → Trace τ} :
+    (modifyTrace f).run es? = some (((), some <| f (es?.getD .ub))) := by rfl
+
+@[grind =] theorem run_takeTrace :
+    takeTrace.run es? = some (match es? with
+      | none => (.ub, some .ub)
+      | some es => (es, none)) := by rfl
+
+@[grind =] theorem run_putTrace :
+    (putTrace ds).run es? = some ((), match es? with
+      | none => some ds
+      | some _ => some .ub) := by rfl
+
+end Run
 
 open execM (modifyTrace)
 
@@ -58,16 +85,47 @@ variable {env : Environment τ}
     (env.snoc ⟨t, x⟩).getAs ⟨0⟩ t = pure x := by
   simp [getAs, getAs?]
 
+@[simp, grind =] theorem getAs?_snoc_zero :
+    (env.snoc ⟨t, x⟩).getAs? ⟨0⟩ t = some x := by
+  simp [getAs?]
+
+@[simp, grind =] theorem get?_snoc_succ :
+    (env.snoc x).get? (v + 1) = env.get? v := by
+  simp [get?, snoc]
+
+@[simp, grind =] theorem getAs?_snoc_succ :
+    (env.snoc x).getAs? (v + 1) t = env.getAs? v t := by
+  simp [getAs?]
+
 @[simp, grind =] theorem getAs?_empty : (∅ : Environment τ).getAs? v t = none := by rfl
 
 @[simp, grind =] theorem get?_ofList (env : List τ.Val) :
   (ofList env).get? x = env[x.toNat]? := by rfl
 
+@[grind =] theorem get?_eraseVar :
+    (env.eraseVar w).get? v = env.get? (if v.toNat < w.toNat then v else v + 1) := by
+  grind [get?, eraseVar]
+
+@[grind =] theorem getAs?_eraseVar :
+    (env.eraseVar w).getAs? v t = env.getAs? (if v.toNat < w.toNat then v else v + 1) t := by
+  grind [getAs?]
+
 /-! ### WellTyped lemmas -/
 variable {Γ : Context τ}
 
+@[simp, grind .] theorem wellTyped_empty : WellTyped (τ := τ) ∅ ∅ := by simp [WellTyped]
+
+@[simp, grind .] theorem wellTyped_snoc {Γ : Context τ} {env : Environment τ} {x : τ.Val}
+    (hΓ : WellTyped Γ env) (hx : x.1 = t):
+    WellTyped (Γ <: t) (env.snoc x) := by
+  intro v u
+  rcases v with ⟨⟨⟩|_⟩ <;> grind [getAs?]
+
 @[simp, grind .]
-theorem wellTyped_empty : WellTyped (τ := τ) ∅ ∅ := by simp [WellTyped]
+theorem wellTyped_eraseVar {Γ : Context τ} {env : Environment τ} {v : Var}
+    (hΓ : WellTyped Γ env) :
+    WellTyped (Γ.eraseVar v) (env.eraseVar v) := by
+  grind
 
 /--
 If a context `env` is well-typed w.r.t. a context `Γ`, then `env` has precisely

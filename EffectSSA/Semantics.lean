@@ -5,4 +5,7 @@ import EffectSSA.Semantics.Lemmas
 import EffectSSA.Semantics.Merge
 import EffectSSA.Semantics.Program
 
+import EffectSSA.Semantics.TProgram
+import EffectSSA.Semantics.TEnvironment
+
 import EffectSSA.Semantics.Equiv

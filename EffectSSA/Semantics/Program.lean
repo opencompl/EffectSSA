@@ -21,6 +21,13 @@ variable {τ : Ty} [MemoryModel τ]
 --------------------------------------------------------------------------------
 -/
 
+/-
+TODO: in execM I probably want to change it so that I erase variables FIRST,
+and then snoc more things into the environment. Cross-reference the typing rules,
+and in particular, the TInstruction.exec proving effort, which is currently
+blocked in what seems like an unprovable state
+-/
+
 /--
 Execute a single instruction `i` in a specific environment, returning a new
 environment with the results of `i` added to it, and any linear values consumed
@@ -141,7 +148,7 @@ after executing the instruction sequence of `p` starting from environment `env`.
 Executes against an explicitly passed trace, returning the resulting trace.
 -/
 def Program.exec (env : Environment τ) (p : Program τ) (es : Option (Trace τ)) :
-    ExecM.TypeErrM (Environment τ × Option (Trace τ)) := do
+    Option (Environment τ × Option (Trace τ)) := do
   (p.execM env).run es
 
 /--
