@@ -129,9 +129,10 @@ after executing the instruction sequence of `p` starting from environment `env`.
 
 Executes against the trace in the mondic state.
 -/
-def Program.execM (env : Environment τ) (p : Program τ) : ExecM τ (List τ.Val) := do
+def Program.execM (env : Environment τ) (p : Program τ) : ExecM τ (Environment τ) := do
   let env ← p.instructions.execM env
-  p.returnVars.mapM (env.get ·)
+  let res : ExecM.TypeErrM _ := env.limitTo? p.returnVars
+  res
 
 /--
 Return the value assigned to the return variables of a program (fragment) `p`,
@@ -140,7 +141,7 @@ after executing the instruction sequence of `p` starting from environment `env`.
 Executes against an explicitly passed trace, returning the resulting trace.
 -/
 def Program.exec (env : Environment τ) (p : Program τ) (es : Option (Trace τ)) :
-    ExecM.TypeErrM (List τ.Val × Option (Trace τ)) := do
+    ExecM.TypeErrM (Environment τ × Option (Trace τ)) := do
   (p.execM env).run es
 
 /--
@@ -153,5 +154,5 @@ empty initial trace, since we assume `p` represents a complete computation.
 Returns `none` if execution threw a type-error, which is impossible when the
 program is well-typed (see `isSome_execClosed?`).
 -/
-def Program.execClosed (p : Program τ) : Option (List τ.Val × Option (Trace τ)) := do
+def Program.execClosed (p : Program τ) : Option (Environment τ × Option (Trace τ)) := do
   p.exec ∅ (some ∅)
