@@ -81,4 +81,10 @@ instance {Γ : Context τ} : Decidable (isUnrestricted Γ) :=
 def eraseVar (v : Var) (Γ : Context τ) : Context τ :=
   ⟨Γ.toList.eraseIdx v.toNat⟩
 
+/--
+`Γ.eraseVars vs` removes a list of variables `vs` from the context.
+-/
+def eraseVars (vs : List Var) (Γ : Context τ) : Context τ :=
+  vs.foldr eraseVar Γ
+
 end Context

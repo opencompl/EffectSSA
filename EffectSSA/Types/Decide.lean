@@ -58,24 +58,18 @@ def Instruction.typeCheck (Γ : Context τ) : (i : Instruction τ) → i.TypeChe
       else .isFalse
 
 inductive InstructionSeq.TypeCheckResult (Γ : Context τ) (p : InstructionSeq τ) where
-  | isTrue (Δ : Context τ)
-            (h₁ : WellTypedWith Γ p Δ := by grind)
-            (h₂ : Δ.isUnrestricted := by grind)
-  | isFalse (h : ∀ (Δ : Context τ), ¬WellTypedWith Γ p Δ ∨ ¬Δ.isUnrestricted := by grind)
+  | isTrue (Δ : Context τ) (h : WellTypedWith Γ p Δ := by grind)
+  | isFalse (h : ∀ (Δ : Context τ), ¬WellTypedWith Γ p Δ := by grind)
 
 def InstructionSeq.typeCheck (Γ : Context τ) : (p : InstructionSeq τ) → p.TypeCheckResult Γ
-  | nil =>
-    if h₂ : Γ.isUnrestricted then
-      .isTrue Γ (.nil rfl) h₂
-    else
-      .isFalse
+  | nil => .isTrue Γ (.nil rfl)
   | i ;> p =>
     match i.typeCheck Γ with
       | .isFalse h => .isFalse
       | .isTrue Δ hᵢ =>
         match p.typeCheck Δ with
         | .isFalse h => .isFalse <| by grind
-        | .isTrue Δ' h₁ h₂ => .isTrue Δ'
+        | .isTrue Δ' h => .isTrue Δ'
 
 inductive Program.TypeCheckResult (Γ : Context τ) (p : Program τ) (ts : List τ.Typ) where
   | isTrue (Δ : Context τ) (h : Program.WellTyped Γ p ts := by grind)
@@ -88,13 +82,15 @@ inductive Program.TypeCheckResult (Γ : Context τ) (p : Program τ) (ts : List 
 
 instance : Decidable (Program.WellTyped Γ p ts) :=
   match p.instructions.typeCheck Γ with
-  | .isTrue Δ h₁ h₂ =>
+  | .isTrue Δ h₁ =>
       let vs := p.returnVars
-      if hlen : vs.length ≠ ts.length then
+      if hun : ¬(Δ.eraseVars vs).isUnrestricted then
+        .isFalse (by grind)
+      else if hlen : vs.length ≠ ts.length then
         .isFalse (by grind)
       else if hret : ∃ (i : Fin vs.length), Δ[vs[i]]? ≠ ts[i]? then
         .isFalse (by grind)
       else
         have hret : ∀ (i : Fin vs.length), Δ[vs[i]]? = ts[i]? := by grind
-        .isTrue ⟨Δ, h₁, h₂, by grind, fun i hi => hret ⟨i, hi⟩⟩
+        .isTrue ⟨Δ, h₁, by grind, by grind, fun i hi => hret ⟨i, hi⟩⟩
   | .isFalse h => .isFalse (by grind)

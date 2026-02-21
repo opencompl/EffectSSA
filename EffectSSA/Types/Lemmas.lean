@@ -80,7 +80,7 @@ namespace Program
 @[simp, typecheck, grind =]
 theorem wellTyped_nil_iff {Γ : Context τ} :
     WellTyped Γ ⟨.nil, vs⟩ ts ↔
-      ( Γ.isUnrestricted
+      ( (Γ.eraseVars vs).isUnrestricted
       ∧ vs.length = ts.length
       ∧ ∀ (i) (hi : i < vs.length), ∃ t,
           ts[i]? = some t ∧ Γ[vs[i]]? = some t) := by
@@ -216,5 +216,10 @@ theorem getElem?_eraseVar {w : Var} :
     (Γ.eraseVar v)[w]? = Γ[if w.toNat < v.toNat then w else w + 1]? := by
   rcases Γ with ⟨Γ⟩
   grind [eraseVar]
+
+/-! ### eraseVar -/
+
+@[simp, typecheck, grind =]
+theorem eraseVars_nil : Γ.eraseVars [] = Γ := by rfl
 
 end Context

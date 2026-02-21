@@ -91,14 +91,16 @@ sequence `p` is welltyped under `Γ`, returning an *unrestricted* context `Δ`
 such that the i-th return variable of `p` is assigned the respective type
 `ts[i]` in context `Δ`
 
-NOTE: The requirement that `Δ` is unrestricted enforces that linear variables
-must be used *at least* once.
+NOTE: The unrestricted requirement enforces that linear variables
+must either be used *at least* once or returned.
 -/
 @[grind =]
 def Program.WellTyped (Γ : Context τ) (p : Program τ) (ts : List τ.Typ) : Prop :=
   ∃ (Δ : Context τ),
     InstructionSeq.WellTypedWith Γ p.instructions Δ
-    ∧ Δ.isUnrestricted
+    -- All internal (i.e., non-return) variables that are still in scope must
+    -- be unrestricted (i.e., non-linear)
+    ∧ (Δ.eraseVars p.returnVars).isUnrestricted
     -- And the returnVariables' types match `ts`
     ∧ p.returnVars.length = ts.length
     ∧ ∀ (i : Nat), (hi : i < p.returnVars.length) →
