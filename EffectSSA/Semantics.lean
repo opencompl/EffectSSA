@@ -7,5 +7,6 @@ import EffectSSA.Semantics.Program
 
 import EffectSSA.Semantics.TProgram
 import EffectSSA.Semantics.TEnvironment
+import EffectSSA.Semantics.TLemmas
 
 import EffectSSA.Semantics.Equiv

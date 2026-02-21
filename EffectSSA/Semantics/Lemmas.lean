@@ -110,6 +110,10 @@ variable {env : Environment τ}
     (env.eraseVar w).getAs? v t = env.getAs? (if v.toNat < w.toNat then v else v + 1) t := by
   grind [getAs?]
 
+/-! ### limitTo? -/
+
+@[simp, grind =] theorem limitTo?_nil : env.limitTo? [] = some ∅ := by rfl
+
 /-! ### WellTyped lemmas -/
 variable {Γ : Context τ}
 
