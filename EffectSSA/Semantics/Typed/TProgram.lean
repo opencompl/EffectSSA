@@ -1,7 +1,7 @@
 import EffectSSA.Syntax.Typed
 import EffectSSA.Semantics.Program
 import EffectSSA.Semantics.Lemmas
-import EffectSSA.Semantics.TEnvironment
+import EffectSSA.Semantics.Typed.TEnvironment
 
 /-!
 # Semantics of Intrinsically Typed Programs

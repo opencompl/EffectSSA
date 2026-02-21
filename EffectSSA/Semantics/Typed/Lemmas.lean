@@ -1,4 +1,4 @@
-import EffectSSA.Semantics.TProgram
+import EffectSSA.Semantics.Typed.TProgram
 
 /-!
 # Lemmas About Typed Semantics

@@ -1,7 +1,7 @@
 import EffectSSA.Semantics.Environment
 import EffectSSA.Semantics.Program
 import EffectSSA.Semantics.Lemmas
-import EffectSSA.Semantics.TProgram
+import EffectSSA.Semantics.Typed
 import EffectSSA.Types
 import EffectSSA.Syntax.Typed
 
