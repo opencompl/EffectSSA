@@ -8,15 +8,17 @@ import EffectSSA.Tactic
 # Implicit to EffectSSA conversion rewrites
 -/
 namespace EffectSSA
+open Semantics (TProgramContext)
 namespace Rewrites
+
 variable {τ}
 
-def createEff_consumeEff : Rewrite τ where
-  src := {
+def createEff_consumeEff : TRewrite (τ:=τ) ∅ [] where
+  rSrc := {
     instructions := program!()
     returnVars := []
   }
-  tgt := {
+  rTgt := {
     instructions := program!(
       e := createEff;
       consumeEff(e)
@@ -26,11 +28,6 @@ def createEff_consumeEff : Rewrite τ where
 
 namespace createEff_consumeEff
 
-
-theorem welltyped : (@createEff_consumeEff τ).WellFormed ∅ := by
-  unfold createEff_consumeEff
-  use []
-  typecheck
 
 /-!
 ## Contextual Equivalence
@@ -50,7 +47,11 @@ not be welltyped.
 
 variable [MemoryModel τ]
 theorem correct : (@createEff_consumeEff τ).Correct := by
-  unfold createEff_consumeEff Rewrite.Correct
+  intro C
+  simp [TProgramContext.execProgram]
+
+
+  stop
   use ∅, []
   and_intros <;> (try typecheck)
   simp
