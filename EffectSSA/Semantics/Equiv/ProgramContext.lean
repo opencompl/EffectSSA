@@ -50,6 +50,6 @@ resulting program.
 def execProgram (C : ProgramContext τ) (p : Program τ) :
     Option (Environment τ) := do
   let (env, es) ← C.pre.execClosed
-  let (env, es) ← p.exec (.ofList env) es
-  let (env, _) ← C.post.exec (.ofList env) es
-  return .ofList env
+  let (env, es) ← p.exec env es
+  let (env, _) ← C.post.exec env es
+  return env
