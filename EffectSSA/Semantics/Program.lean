@@ -50,23 +50,29 @@ def Instruction.execM (env : Environment τ) : (i : Instruction τ) → ExecM τ
   -- EffectSSA memory operations
   | .loadE t eff p => do
     let (val, trace) := load t (←env.getPtr p) (←env.getEff eff)
-    return (env.snoc trace |>.snoc val).eraseVar eff
+    let env := env.eraseVar eff
+    return env.snoc trace |>.snoc val
   | .storeE t eff p x => do
     let trace := store (←env.getPtr p) (←env.getData x t) (←env.getEff eff)
-    return (env.snoc trace).eraseVar eff
+    let env := env.eraseVar eff
+    return env.snoc trace
   | .allocE t eff p => do
     let trace := alloc t (←env.getPtr p) (←env.getEff eff)
-    return (env.snoc trace).eraseVar eff
+    let env := env.eraseVar eff
+    return env.snoc trace
   | .freeE t eff p => do
     let trace := free t (←env.getPtr p) (←env.getEff eff)
-    return (env.snoc trace).eraseVar eff
+    let env := env.eraseVar eff
+    return env.snoc trace
   -- Split / Merge
   | .split eff => do
     let trace := Semantics.split (← env.getEff eff)
-    return (env.snoc trace |>.snoc trace).eraseVar eff
+    let env := env.eraseVar eff
+    return env.snoc trace |>.snoc trace
   | .merge eff₁ eff₂ => do
     let trace := Semantics.merge (← env.getEff eff₁) (← env.getEff eff₂)
-    return (env.snoc trace).eraseVar eff₁ |>.eraseVar eff₂
+    let env := env.eraseVar eff₁ |>.eraseVar eff₂
+    return env.snoc trace
   -- Effect state bookkeeping operations
   | .createEff => do
     let trace ← takeTrace

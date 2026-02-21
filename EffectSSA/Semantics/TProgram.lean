@@ -35,12 +35,8 @@ def TInstruction.exec (i : TInstruction Γ Δ) (env : TEnvironment Γ) (es : Opt
   have wt := by
     subst res
     cases i
-    · simp [Instruction.exec, Instruction.execM]; grind
-    · simp [Instruction.exec, Instruction.execM]; grind
-    · simp [Instruction.exec, Instruction.execM]; sorry
-    · simp [Instruction.exec, Instruction.execM]; sorry
-    · simp [Instruction.exec, Instruction.execM]; grind
-    · simp [Instruction.exec, Instruction.execM]; grind
+    <;> (simp [Instruction.exec, Instruction.execM]; grind)
+    -- TODO: Surely, this (^^) should be do-able without needing `simp` before `grind`
   ⟨⟨res.1, wt⟩, res.2⟩
 
 @[grind =>]
