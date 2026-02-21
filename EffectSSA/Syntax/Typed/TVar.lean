@@ -21,8 +21,9 @@ structure TVar (Γ : Context τ) (t : τ.Typ) where
 is assinged the respective type `ts[i]` in `Γ`.
 -/
 structure TVarList (Γ : Context τ) (ts : List τ.Typ) where
-  vs : List.Vector Var ts.length
-  wt : ∀ (i : Fin ts.length), Γ[vs[i]]? = some ts[i] := by grind
+  toList : List Var
+  length_eq : toList.length = ts.length := by grind
+  wt : ∀ (i : Fin ts.length), Γ[toList[i]]? = some ts[i] := by grind
 
 /-!
 ## Coercions
@@ -42,10 +43,56 @@ instance : CoeOut (TVar Γ t) Var where coe := TVar.toVar
 grind_pattern TVar.wt => TVar.toVar self
 attribute [grind =] TVarList.wt
 
+grind_pattern TVarList.length_eq => TVarList.toList self
+
 /-!
-## TVarList Accessor
+## TVarList Definitions
 --------------------------------------------------------------------------------
 -/
+namespace TVarList
 
-def TVarList.get (vs : TVarList Γ ts) (i : Fin ts.length) : TVar Γ ts[i] :=
-  .ofVar vs.vs[i]
+@[grind] abbrev length (vs : TVarList Γ ts) : Nat := vs.toList.length
+
+/--
+Map a function into a non-dependent type `α` over a TVarList
+-/
+def map (f : ∀ {i : Fin ts.length}, TVar Γ ts[i] → α) (vs : TVarList Γ ts) : List α :=
+  vs.toList.zipIdx.attach.map fun ⟨⟨v, i⟩, h⟩ =>
+    have : vs.toList.length = ts.length := by grind
+    let i : Fin ts.length := ⟨i, by grind⟩
+    let v : TVar Γ ts[i] := ⟨v, by
+      have : vs.toList[i] = v := by
+        show vs.toList[i] = v; grind
+      grind⟩
+    f v
+
+def get (vs : TVarList Γ ts) (i : Fin ts.length) : TVar Γ ts[i] :=
+  .ofVar <| vs.toList[i]'(by grind)
+
+end TVarList
+
+/-!
+## TVarList Lemmas
+--------------------------------------------------------------------------------
+-/
+namespace TVarList
+variable {ts} (f : ∀ {i : Fin ts.length}, TVar Γ ts[i] → α) (vs : TVarList Γ ts)
+
+@[simp] theorem length_map : (vs.map f).length = vs.length := by
+  simp [map]
+
+@[grind =]
+theorem getElem?_map  (i : Nat) :
+    (vs.map @f)[i]? =
+      if hi : i < ts.length then
+        some <| f <| vs.get ⟨i, hi⟩
+      else
+        none := by
+  split
+  · simp [map];
+    use vs.toList[i]'(by grind)
+    and_intros
+    · grind
+    · use (by grind)
+      congr
+  · simp; grind

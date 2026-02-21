@@ -53,6 +53,42 @@ variable {Γ : Context τ} {ts : List τ.Typ}
 ### Constructors
 -/
 
+/-! #### instructions -/
+section TInstruction
+open Ty.Typ (ptr eff data)
+
+def TInstruction.loadI (t : τ.DType) (p : TVar Γ ptr) :
+    TInstruction Γ (Γ <: t) where
+  instruction := .loadI t p
+  wt := .loadI p.wt
+
+def TInstruction.storeI (t : τ.DType) (p : TVar Γ ptr) (x : TVar Γ t) :
+    TInstruction Γ Γ where
+  instruction := .storeI t p x
+  wt := .storeI p.wt x.wt
+
+def TInstruction.loadE (t : τ.DType) (e : TVar Γ eff) (p : TVar Γ ptr) :
+    TInstruction Γ (Γ.eraseVar e <: eff <: t) where
+  instruction := .loadE t e p
+  wt := .loadE e.wt p.wt
+
+def TInstruction.storeE (t : τ.DType) (e : TVar Γ eff) (p : TVar Γ ptr)
+    (x : TVar Γ t) :
+    TInstruction Γ (Γ.eraseVar e <: eff) where
+  instruction := .storeE t e p x
+  wt := .storeE e.wt p.wt x.wt
+
+def TInstruction.createEff (hΓ : Γ.isUnrestricted) :
+    TInstruction Γ (Γ <: eff) where
+  instruction := .createEff
+  wt := .createEff hΓ
+
+def TInstruction.consumeEff (e : TVar Γ eff) (hΓ : (Γ.eraseVar e).isUnrestricted) :
+    TInstruction Γ (Γ.eraseVar e) where
+  instruction := .consumeEff e
+
+end TInstruction
+
 def TInstructionSeq.nil (Γ : Context τ) : TInstructionSeq Γ Γ where seq := .nil
 def TInstructionSeq.cons (i : TInstruction Γ Δ) (is : TInstructionSeq Δ Ξ) :
     TInstructionSeq Γ Ξ where
@@ -72,8 +108,8 @@ def TProgram.instructions (p : TProgram Γ ts) : TInstructionSeq Γ p.returnCont
   seq := p.program.instructions
   wt := by grind
 
-def TProgram.returnVars (p : TProgram Γ ts) : TVarList Γ ts where
-  vs := ⟨p.program.returnVars, by grind⟩
+def TProgram.returnVars (p : TProgram Γ ts) : TVarList p.returnContext ts where
+  toList := p.program.returnVars
   wt := by
     intro i;
     have ⟨_, _, _, len_eq, wt⟩ := p.wt
@@ -96,12 +132,68 @@ def TProgram.returnVars (p : TProgram Γ ts) : TVarList Γ ts where
 @[simp, grind =] theorem TInstructionSeq.seq_cons :
   (cons i is).seq = i.instruction ;> is.seq := by rfl
 
+@[simp, grind =] theorem TProgram.instructions_program (p : TProgram Γ ts) :
+    p.program.instructions = p.instructions := by rfl
+@[simp, grind =] theorem TProgram.returnVars_program (p : TProgram Γ ts) :
+    p.program.returnVars = p.returnVars.toList := by rfl
+
+namespace TInstruction
+open Ty.Typ (ptr eff data)
+
+@[simp, grind =] theorem instruction_loadI (t : τ.DType) (p : TVar Γ ptr) :
+    (TInstruction.loadI t p).instruction = .loadI t p := rfl
+
+@[simp, grind =] theorem instruction_storeI (t : τ.DType) (p : TVar Γ ptr) (x : TVar Γ t) :
+    (TInstruction.storeI t p x).instruction = .storeI t p x := rfl
+
+@[simp, grind =] theorem instruction_loadE (t : τ.DType) (e : TVar Γ eff) (p : TVar Γ ptr) :
+    (TInstruction.loadE t e p).instruction = .loadE t e p := rfl
+
+@[simp, grind =] theorem instruction_storeE (t : τ.DType) (e : TVar Γ eff) (p : TVar Γ ptr)
+    (x : TVar Γ t) :
+    (TInstruction.storeE t e p x).instruction = .storeE t e p x := rfl
+
+@[simp, grind =] theorem instruction_createEff (hΓ : Γ.isUnrestricted) :
+    (TInstruction.createEff hΓ).instruction = .createEff := rfl
+
+@[simp, grind =] theorem instruction_consumeEff (e : TVar Γ eff)
+    (hΓ : (Γ.eraseVar e).isUnrestricted) :
+    (TInstruction.consumeEff e hΓ).instruction = .consumeEff e := rfl
+
+namespace TInstruction
 
 /-!
 ## Induction Principles
 --------------------------------------------------------------------------------
 FIXME: For now, let's just do induction, no data-producing recursion yet!
 -/
+
+open Ty.Typ (ptr eff data) in
+@[elab_as_elim, induction_eliminator, cases_eliminator]
+def TInstruction.indOn {motive : ∀ {Γ Δ : Context τ}, TInstruction Γ Δ → Prop}
+    {Γ Δ} (i : TInstruction Γ Δ)
+    (hLoadI : ∀ {Γ} (t : τ.DType) (p : TVar Γ ptr),
+      motive (.loadI t p))
+    (hStoreI : ∀ {Γ} (t : τ.DType) (p : TVar Γ ptr) (x : TVar Γ (data t)),
+      motive (.storeI t p x))
+    (hLoadE : ∀ {Γ} (t : τ.DType) (e : TVar Γ eff) (p : TVar Γ ptr),
+      motive (.loadE t e p))
+    (hStoreE : ∀ {Γ} (t : τ.DType) (e : TVar Γ eff) (p : TVar Γ ptr)
+      (x : TVar Γ (data t)),
+      motive (.storeE t e p x))
+    (hCreateEff : ∀ {Γ : Context τ} (hΓ : Γ.isUnrestricted),
+      motive (.createEff hΓ))
+    (hConsumeEff : ∀ {Γ} (e : TVar Γ eff) (hΓ : (Γ.eraseVar e).isUnrestricted),
+      motive (.consumeEff e hΓ)) :
+    motive i := by
+  obtain ⟨i, wt⟩ := i
+  match wt with
+  | .loadI hp => exact hLoadI _ ⟨_, hp⟩
+  | .storeI hp hx => exact hStoreI _ ⟨_, hp⟩ ⟨_, hx⟩
+  | .loadE he hp => exact hLoadE _ ⟨_, he⟩ ⟨_, hp⟩
+  | .storeE he hp hx => exact hStoreE _ ⟨_, he⟩ ⟨_, hp⟩ ⟨_, hx⟩
+  | .createEff hΓ => exact hCreateEff hΓ
+  | .consumeEff he hΓ => exact hConsumeEff ⟨_, he⟩ hΓ
 
 @[elab_as_elim, induction_eliminator]
 def TInstructionSeq.indOn {motive : ∀ {Γ Δ : Context τ}, TInstructionSeq Γ Δ → Prop}
@@ -111,7 +203,7 @@ def TInstructionSeq.indOn {motive : ∀ {Γ Δ : Context τ}, TInstructionSeq Γ
       motive is → motive (.cons i is)) :
     motive is :=
   match is with
-  | ⟨.nil, .nil h_eq⟩ => h_eq ▸ (nil _)
+  | ⟨_, .nil h_eq⟩ => h_eq ▸ (nil _)
   | ⟨i ;> is, .cons wt_i wt_is⟩ =>
       let i : TInstruction Γ _ := ⟨i, wt_i⟩
       let is : TInstructionSeq _ Δ := ⟨is, wt_is⟩
