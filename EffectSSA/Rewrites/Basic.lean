@@ -19,44 +19,31 @@ structure Rewrite τ where
   src : Program τ
   tgt : Program τ
 
-/-!
-## Wellformedness Constraints
---------------------------------------------------------------------------------
--/
-
-open Program (WellTyped)
-
 /--
 A rewrite is wellformed, if both fragments are welltyped, under the same context
 and with the same expected return types.
 -/
-@[grind =]
-def Rewrite.WellFormed (Γ : Context τ) (r : Rewrite τ) : Prop :=
-  ∃ ts, WellTyped Γ r.src ts ∧ WellTyped Γ r.tgt ts
+structure TRewrite (Γ : Context τ) (ts : List τ.Typ) where
+  raw : Rewrite τ
+  wt_src : raw.src.WellTyped Γ ts
+  wt_tgt : raw.tgt.WellTyped Γ ts
 
 /-!
 ## Semantics Correctness Constraints
 --------------------------------------------------------------------------------
 -/
-variable {τ} [MemoryModel τ]
+variable {τ} [MemoryModel τ] {Γ : Context τ}
+
+grind_pattern TRewrite.wt_src => (TRewrite.raw self).src
+grind_pattern TRewrite.wt_tgt => (TRewrite.raw self).tgt
+
+def TRewrite.src (rw : TRewrite Γ ts) : TProgram Γ ts where
+  program := rw.raw.src
+def TRewrite.tgt (rw : TRewrite Γ ts) : TProgram Γ ts where
+  program := rw.raw.tgt
 
 /--
 A rewrite is correct, if the source and target fragments are equivalent.
 -/
-def Rewrite.Correct (r : Rewrite τ) : Prop :=
+@[grind] def TRewrite.Correct (r : TRewrite Γ ts) : Prop :=
   r.src ≈ r.tgt
-
-
-/-!
-## Lemmas
---------------------------------------------------------------------------------
--/
-
--- /--
--- Only wellformed rewrites can be correct
--- -/
--- theorem Rewrite.wellFormed_of_correct (h : Correct r) : ∃ Γ, WellFormed Γ r := by
---   -- TODO: this does not actually hold under the current placeholder definition
---   -- of program equivalence, but it likely should hold under the actual eventual
---   -- definition
---   sorry

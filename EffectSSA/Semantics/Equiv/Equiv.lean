@@ -7,15 +7,24 @@ import EffectSSA.Semantics.Lemmas
 # Program Equivalence
 -/
 namespace EffectSSA
-namespace Program
-open Semantics (ProgramContext)
-variable {τ} [MemoryModel τ]
+open Semantics (ProgramContext TProgramContext)
+variable {τ} [MemoryModel τ] {Γ : Context τ} {ts : List τ.Typ}
+
+/-
+TODO: we might want to define equivalence of untyped programs as well, although
+I'm not exactly sure how the obvious relation would behave when the programs are
+mallformed, so it might not be an actual equivalence. In either case, if we do
+define untyped equivalence, we should of course prove the relation with typed
+equivalence.
+-/
+
+namespace TProgram
 
 @[grind =]
-def Equiv (p : Program τ) (q : Program τ) : Prop :=
-  ∀ (C : ProgramContext τ), C.execProgram p = C.execProgram q
+def Equiv (p : TProgram Γ ts) (q : TProgram Γ ts) : Prop :=
+  ∀ (C : TProgramContext Γ ts), C.execProgram p = C.execProgram q
 
-instance : Setoid (Program τ) where
+instance : Setoid (TProgram Γ ts) where
   r := Equiv
   iseqv := {
     refl := by grind
@@ -28,7 +37,7 @@ instance : Setoid (Program τ) where
 --------------------------------------------------------------------------------
 -/
 section Lemmas
-variable {p q : Program τ}
+variable {p q : TProgram Γ ts}
 
 /-- `_ ≈ _` is the preferred spelling -/
 theorem equiv_iff : p.Equiv q ↔ p ≈ q := by rfl
