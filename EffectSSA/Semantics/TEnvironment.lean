@@ -67,6 +67,10 @@ end Semantics.TEnvironment
 namespace Semantics.TEnvironment
 variable {Γ : Context τ} (env : TEnvironment Γ)
 
+@[simp, grind =] theorem length_toList_env : env.env.toList.length = Γ.size := by grind
+
+-- getAs?
+
 @[simp, grind =] theorem env_getAs?_isSome_eq :
     (env.env.getAs? v t).isSome = decide (Γ[v]? = some t) := by
   simp [env.wt v t]
@@ -81,6 +85,24 @@ variable {Γ : Context τ} (env : TEnvironment Γ)
 @[simp, grind =] theorem env_getAs_eq (h : Γ[v]? = some t) (env : TEnvironment Γ) :
     (env.env.getAs v t) = some (env.get ⟨v, h⟩) := by
   simp [get, Environment.getAs]
+
+-- get?
+
+open Ty (TVal) in
+@[grind =>] theorem env_get?_eq_getAs?_of (h : Γ[v]? = some t) :
+    env.env.get? v = TVal.toVal <$> env.env.getAs? v t := by
+  have := (env.wt v _).mp h
+  obtain ⟨x, hx⟩ : ∃ x, env.env.getAs? v t = some x := by grind
+  simp only [hx, Option.map_eq_map, Option.map_some]
+  simp only [Environment.getAs?, Option.bind_eq_bind, Option.bind_eq_some_iff,
+    Option.dite_none_right_eq_some, Option.some.injEq] at hx
+  rcases hx with ⟨⟨t', x'⟩, hp₁, ⟨rfl, hp₂⟩⟩
+  grind
+
+@[simp, grind! .] theorem env_get?_eq (h : Γ[v]? = some t) (env : TEnvironment Γ) :
+    (env.env.get? v) = some (env.get ⟨v, h⟩ |>.toVal) := by
+  grind
+
 
 @[simp, grind =] theorem env_empty : TEnvironment.env (τ:=τ) (∅ : TEnvironment ∅) = ∅ := by rfl
 

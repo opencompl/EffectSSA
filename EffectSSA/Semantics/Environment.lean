@@ -64,7 +64,7 @@ instance : Coe (τ.TVal <| .data t) (τ.DVal t) where coe := fun (.data x) => x
 end TVal
 
 /-- Coerce a statically typed value into a dynamically typed value. -/
-abbrev TVal.toVal : τ.TVal t → τ.Val := (⟨t, ·⟩)
+@[grind] abbrev TVal.toVal : τ.TVal t → τ.Val := (⟨t, ·⟩)
 
 end Ty
 
