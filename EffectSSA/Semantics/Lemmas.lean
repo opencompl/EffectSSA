@@ -160,6 +160,8 @@ as many variables as `Γ` has types.
 @[grind →]
 theorem isSome_get?_of_wellTyped (wt : WellTyped Γ env) :
     ∀ x, Γ[x]?.isSome → (env.get? x).isSome := by
+  intro x hx
+  have : x.InBounds Γ := by grind
   cases env; grind
 
 @[grind <=]
