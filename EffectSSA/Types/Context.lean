@@ -29,7 +29,6 @@ structure Context (τ : Ty) where
 @[grind =]
 abbrev Context.size (Γ : Context τ) : Nat := Γ.toList.length
 
-@[grind =]
 def Var.InBounds (Γ : Context τ) (v : Var) : Prop := v.toNat < Γ.size
 
 namespace Context

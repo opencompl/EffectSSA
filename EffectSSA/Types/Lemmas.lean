@@ -128,16 +128,39 @@ theorem Program.WellTyped.unique {p : Program τ}
   · grind
 
 /-!
+## Context.ofList lemmas
+--------------------------------------------------------------------------------
+-/
+namespace Context
+variable {τ : Ty} (Γ : List τ.Typ) (v : Var)
+
+@[simp, grind =] theorem getElem?_ofList : (ofList Γ)[v]? = Γ[v.toNat]? := by rfl
+@[simp, grind =] theorem getElem_ofList (h) : (ofList Γ)[v]'h = Γ[v.toNat] := by rfl
+@[simp, grind =] theorem size_ofList : (ofList Γ).size = Γ.length := by rfl
+
+end Context
+
+/-!
 ## Var
 --------------------------------------------------------------------------------
 -/
 namespace Var
+variable {v : Var}
 
-@[simp, grind =] theorem inBounds_iff {v : Var} : v.InBounds Γ ↔ v.toNat < Γ.size := by rfl
+theorem inBounds_iff_isSome : v.InBounds Γ ↔ Γ[v]?.isSome := by
+  cases Γ; grind [InBounds]
+theorem inBounds_iff_exists : v.InBounds Γ ↔ ∃ t, Γ[v]? = some t := by
+  cases Γ; grind [inBounds_iff_isSome]
+theorem inBounds_iff_lt_size : v.InBounds Γ ↔ v.toNat < Γ.size := by
+  grind [InBounds]
 
-@[grind .] theorem inBounds_of_isSome {v : Var} : Γ[v]?.isSome → v.InBounds Γ := by
-  intro (h : Γ.toList[v.toNat]?.isSome); grind
-@[grind .] theorem inBounds_of_eq_some {v : Var} : Γ[v]? = some t → v.InBounds Γ := by grind
+@[grind .] theorem inBounds_of_isSome : Γ[v]?.isSome → v.InBounds Γ := by
+  grind [inBounds_iff_isSome]
+
+@[grind .] theorem inBounds_of_lt : v.toNat < Γ.size → v.InBounds Γ := by
+  grind [InBounds]
+@[grind →] theorem lt_size_of_inBounds : v.InBounds Γ → v.toNat < Γ.size := by
+  grind [InBounds]
 
 end Var
 
@@ -164,16 +187,6 @@ end Ty.Typ
 namespace Context
 variable {Γ : Context τ} {v : Var}
 
-/-! ### ofList -/
-section OfList
-variable (Γ : List τ.Typ) (v : Var)
-
-@[simp, grind =] theorem getElem?_ofList : (ofList Γ)[v]? = Γ[v.toNat]? := by rfl
-@[simp, grind =] theorem getElem_ofList (h) : (ofList Γ)[v]'h = Γ[v.toNat] := by rfl
-@[simp, grind =] theorem size_ofList : (ofList Γ).size = Γ.length := by rfl
-
-end OfList
-
 /-! ### empty -/
 
 @[simp, grind =] theorem getElem?_empty : (∅ : Context τ)[v]? = none := by rfl
@@ -183,15 +196,15 @@ end OfList
 @[simp, grind =] theorem size_empty : size (∅ : Context τ) = 0 := rfl
 @[simp, grind =] theorem size_cons : size (Γ <: t) = Γ.size + 1 := rfl
 
-@[simp, grind =]
-theorem le_size_iff_isSome_getElem? : Γ[v]?.isSome ↔ v.toNat < Γ.size := by
-  cases Γ; simp
+@[grind →]
+theorem isSome_getElem?_of_inBounds : v.InBounds Γ → Γ[v]?.isSome := by
+  cases Γ; grind
 
 /-! ### getElem -/
 
 @[simp, grind =] theorem getElem_cons_zero : (Γ <: t)[Var.ofNat 0]'h = t := rfl
 @[simp, grind =] theorem getElem_cons_succ :
-    (Γ <: t)[v + 1]'h = Γ[v]'(by simp_all) := rfl
+    (Γ <: t)[v + 1]'h = Γ[v]'(by grind) := rfl
 
 @[grind =]
 theorem getElem_cons_eq :
@@ -199,7 +212,7 @@ theorem getElem_cons_eq :
       if hz : v = Var.ofNat 0 then
         t
       else
-        Γ[v - 1]'(by simp_all; grind) := by
+        Γ[v - 1]'(by grind) := by
   match v with
   | .ofNat 0 => grind
   | .ofNat (i + 1) => simp; grind
@@ -238,6 +251,10 @@ theorem getElem?_cons_succ : (Γ <: t)[v + 1]? = Γ[v]? := rfl
   have hv : v.InBounds Γ := by grind
   have : (Γ[v]).isUnrestricted = false := by cases Γ; grind
   grind [isUnrestricted]
+
+theorem isUnrestricted_iff_getElem? (Γ : Context τ) :
+    Γ.isUnrestricted ↔ ∀ (v : Var), ∀ t ∈ Γ[v]?, t.isUnrestricted := by
+  cases Γ; grind [isUnrestricted, Var.inBounds_iff_exists]
 
 /-! ### eraseVar -/
 
