@@ -26,11 +26,11 @@ inductive Instruction.TypeCheckResult (Γ : Context τ) (i : Instruction τ) whe
 
 def Instruction.typeCheck (Γ : Context τ) : (i : Instruction τ) → i.TypeCheckResult Γ
   | .loadI t p =>
-      if h : Γ[p]? = some .ptr then
+      if h : Γ.isUnrestricted ∧ Γ[p]? = some .ptr then
         .isTrue (Γ <: t)
       else .isFalse
   | .storeI t p x =>
-      if h : Γ[p]? = some .ptr ∧ Γ[x]? = some t then
+      if h : Γ.isUnrestricted ∧ Γ[p]? = some .ptr ∧ Γ[x]? = some t then
         .isTrue Γ
       else .isFalse
   | .allocI .. | .freeI .. => .isFalse

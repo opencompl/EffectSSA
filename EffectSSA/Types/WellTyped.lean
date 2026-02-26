@@ -19,11 +19,13 @@ open Ty.Typ (ptr eff data)
 
 inductive Instruction.WellTyped : Context τ → Instruction τ → Context τ → Prop
   | loadI :
+      Γ.isUnrestricted →
       Γ[p]? = some ptr →
       ---------------------------------
       WellTyped Γ (.loadI t p) (Γ <: t)
 
   | storeI :
+      Γ.isUnrestricted →
       Γ[p]? = some ptr →
       Γ[x]? = some (data t) →
       -- FIXME: I would prefer writing `Γ[x] = t` here, but then Lean searches

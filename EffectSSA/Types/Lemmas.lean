@@ -21,13 +21,13 @@ variable {Γ Δ : Context τ}
 
 @[simp, typecheck, grind =]
 theorem wellTyped_loadI_iff :
-    WellTyped Γ (.loadI t p) Δ ↔ (Γ[p]? = some ptr ∧ Δ = Γ <: t) := by
+    WellTyped Γ (.loadI t p) Δ ↔ (Γ.isUnrestricted ∧ Γ[p]? = some ptr ∧ Δ = Γ <: t) := by
   grind [WellTyped]
 
 @[simp, typecheck, grind =]
 theorem wellTyped_storeI_iff :
     WellTyped Γ (.storeI t p x) Δ
-    ↔ (Γ[p]? = some ptr ∧ Γ[x]? = some (data t) ∧ Δ = Γ) := by
+    ↔ (Γ.isUnrestricted ∧ Γ[p]? = some ptr ∧ Γ[x]? = some (data t) ∧ Δ = Γ) := by
   grind [WellTyped]
 
 @[simp, typecheck, grind =]
@@ -77,6 +77,15 @@ end InstructionSeq
 -/
 namespace Program
 
+@[grind =] theorem wellTyped_iff :
+    WellTyped Γ ⟨is, vs⟩ ts ↔ ∃ (Δ : Context _),
+      ( (Δ.eraseVars vs).isUnrestricted
+      ∧ is.WellTypedWith Γ Δ
+      ∧ vs.length = ts.length
+      ∧ ∀ (i) (hi : i < vs.length), ∃ t,
+          ts[i]? = some t ∧ Δ[vs[i]]? = some t) := by
+  grind
+
 @[simp, typecheck, grind =]
 theorem wellTyped_nil_iff {Γ : Context τ} :
     WellTyped Γ ⟨.nil, vs⟩ ts ↔
@@ -124,10 +133,29 @@ theorem Program.WellTyped.unique {p : Program τ}
 -/
 namespace Var
 
-@[simp, grind =]
-theorem inBounds_iff {v : Var} : v.InBounds Γ ↔ v.toNat < Γ.size := by rfl
+@[simp, grind =] theorem inBounds_iff {v : Var} : v.InBounds Γ ↔ v.toNat < Γ.size := by rfl
+
+@[grind .] theorem inBounds_of_isSome {v : Var} : Γ[v]?.isSome → v.InBounds Γ := by
+  intro (h : Γ.toList[v.toNat]?.isSome); grind
+@[grind .] theorem inBounds_of_eq_some {v : Var} : Γ[v]? = some t → v.InBounds Γ := by grind
 
 end Var
+
+/-!
+## Types
+--------------------------------------------------------------------------------
+-/
+namespace Ty.Typ
+variable {τ : Ty}
+
+@[grind =] theorem isUnrestricted_iff (t : τ.Typ) : t.isUnrestricted = decide (t ≠ .eff) := by
+  grind [Typ.isUnrestricted]
+
+@[simp, grind =] theorem isUnrestricted_data (d : τ.DType) : (data d).isUnrestricted := by grind
+@[simp, grind =] theorem isUnrestricted_ptr : (ptr : τ.Typ).isUnrestricted := by grind
+@[simp, grind =] theorem isUnrestricted_eff : (eff : τ.Typ).isUnrestricted = false := by grind
+
+end Ty.Typ
 
 /-!
 ## Context
@@ -141,6 +169,7 @@ section OfList
 variable (Γ : List τ.Typ) (v : Var)
 
 @[simp, grind =] theorem getElem?_ofList : (ofList Γ)[v]? = Γ[v.toNat]? := by rfl
+@[simp, grind =] theorem getElem_ofList (h) : (ofList Γ)[v]'h = Γ[v.toNat] := by rfl
 @[simp, grind =] theorem size_ofList : (ofList Γ).size = Γ.length := by rfl
 
 end OfList
@@ -202,6 +231,13 @@ theorem getElem?_cons_succ : (Γ <: t)[v + 1]? = Γ[v]? := rfl
       · left; rfl
       · right; use Var.ofNat i; rfl
     grind
+
+@[grind →] theorem isUnrestricted_eq_false_of_getElem (v : Var) :
+    Γ[v]? = some .eff → Γ.isUnrestricted = false := by
+  intro hv
+  have hv : v.InBounds Γ := by grind
+  have : (Γ[v]).isUnrestricted = false := by cases Γ; grind
+  grind [isUnrestricted]
 
 /-! ### eraseVar -/
 

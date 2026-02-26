@@ -57,15 +57,15 @@ variable {Γ : Context τ} {ts : List τ.Typ}
 section TInstruction
 open Ty.Typ (ptr eff data)
 
-def TInstruction.loadI (t : τ.DType) (p : TVar Γ ptr) :
+def TInstruction.loadI (t : τ.DType) (p : TVar Γ ptr)
+    (hΓ : Γ.isUnrestricted) :
     TInstruction Γ (Γ <: t) where
   instruction := .loadI t p
-  wt := .loadI p.wt
 
-def TInstruction.storeI (t : τ.DType) (p : TVar Γ ptr) (x : TVar Γ t) :
+def TInstruction.storeI (t : τ.DType) (p : TVar Γ ptr) (x : TVar Γ t)
+    (hΓ : Γ.isUnrestricted) :
     TInstruction Γ Γ where
   instruction := .storeI t p x
-  wt := .storeI p.wt x.wt
 
 def TInstruction.loadE (t : τ.DType) (e : TVar Γ eff) (p : TVar Γ ptr) :
     TInstruction Γ (Γ.eraseVar e <: eff <: t) where
@@ -94,6 +94,17 @@ def TInstructionSeq.cons (i : TInstruction Γ Δ) (is : TInstructionSeq Δ Ξ) :
     TInstructionSeq Γ Ξ where
   seq := i ;> is
 
+def TProgram.mk' {Δ} (is : TInstructionSeq Γ Δ) (vs : TVarList Δ ts)
+    (h : (Δ.eraseVars vs.toList).isUnrestricted) :
+    TProgram Γ ts where
+  program := ⟨is.seq, vs.toList⟩
+  wt := by
+    have (i : ℕ) (hi : i < vs.toList.length) : ∃ t,
+        ts[i]? = some t ∧ Δ[vs.toList[i]]? = some t := by
+      have := vs.wt ⟨i, by grind⟩
+      grind
+    grind
+
 /-!
 ### Projections
 -/
@@ -111,20 +122,12 @@ def TProgram.instructions (p : TProgram Γ ts) : TInstructionSeq Γ p.returnCont
 def TProgram.returnVars (p : TProgram Γ ts) : TVarList p.returnContext ts where
   toList := p.program.returnVars
   wt := by
-    intro i;
-    have ⟨_, _, _, len_eq, wt⟩ := p.wt
-    specialize wt i.val (by grind)
-    /-
-    FIXME: proving this will likely be nicer with some theory around context
-    "extensions". I.e., we likely want some API which allows us to conclude
-    that context `Δ` "extends" `Γ` from `Γ ⊢ ... :: Δ`, which in turn will
-    let us know that `Δ[v]? = some t` implies `Γ[v]? = some t`.
-    If we had such API, the following sorry ought to be provable by grind.
-    -/
-    sorry
+    obtain ⟨Δ, wt_is, _, _, _⟩ := p.wt
+    obtain rfl : Δ = p.returnContext := by grind
+    grind
 
 /-!
-## Lemmas
+## Grind Lemmas
 --------------------------------------------------------------------------------
 -/
 
@@ -141,10 +144,10 @@ namespace TInstruction
 open Ty.Typ (ptr eff data)
 
 @[simp, grind =] theorem instruction_loadI (t : τ.DType) (p : TVar Γ ptr) :
-    (TInstruction.loadI t p).instruction = .loadI t p := rfl
+    (TInstruction.loadI t p hΓ).instruction = .loadI t p := rfl
 
 @[simp, grind =] theorem instruction_storeI (t : τ.DType) (p : TVar Γ ptr) (x : TVar Γ t) :
-    (TInstruction.storeI t p x).instruction = .storeI t p x := rfl
+    (TInstruction.storeI t p x hΓ).instruction = .storeI t p x := rfl
 
 @[simp, grind =] theorem instruction_loadE (t : τ.DType) (e : TVar Γ eff) (p : TVar Γ ptr) :
     (TInstruction.loadE t e p).instruction = .loadE t e p := rfl
@@ -160,7 +163,13 @@ open Ty.Typ (ptr eff data)
     (hΓ : (Γ.eraseVar e).isUnrestricted) :
     (TInstruction.consumeEff e hΓ).instruction = .consumeEff e := rfl
 
-namespace TInstruction
+end TInstruction
+
+namespace TProgram
+variable {Γ Δ : Context τ} (is : TInstructionSeq Γ Δ) (vs : TVarList Δ ts)
+
+@[simp, grind =] theorem program_mk' : (mk' is vs h).program = ⟨is.seq, vs.toList⟩ := by rfl
+@[simp, grind =] theorem returnVars_mk' : (mk' is vs h).returnContext = Δ := by grind
 
 /-!
 ## Induction Principles
@@ -172,10 +181,10 @@ open Ty.Typ (ptr eff data) in
 @[elab_as_elim, induction_eliminator, cases_eliminator]
 def TInstruction.indOn {motive : ∀ {Γ Δ : Context τ}, TInstruction Γ Δ → Prop}
     {Γ Δ} (i : TInstruction Γ Δ)
-    (hLoadI : ∀ {Γ} (t : τ.DType) (p : TVar Γ ptr),
-      motive (.loadI t p))
-    (hStoreI : ∀ {Γ} (t : τ.DType) (p : TVar Γ ptr) (x : TVar Γ (data t)),
-      motive (.storeI t p x))
+    (hLoadI : ∀ {Γ} (t : τ.DType) (p : TVar Γ ptr) (hΓ : Γ.isUnrestricted),
+      motive (.loadI t p hΓ))
+    (hStoreI : ∀ {Γ} (t : τ.DType) (p : TVar Γ ptr) (x : TVar Γ (data t)) (hΓ : Γ.isUnrestricted),
+      motive (.storeI t p x hΓ))
     (hLoadE : ∀ {Γ} (t : τ.DType) (e : TVar Γ eff) (p : TVar Γ ptr),
       motive (.loadE t e p))
     (hStoreE : ∀ {Γ} (t : τ.DType) (e : TVar Γ eff) (p : TVar Γ ptr)
@@ -188,8 +197,8 @@ def TInstruction.indOn {motive : ∀ {Γ Δ : Context τ}, TInstruction Γ Δ �
     motive i := by
   obtain ⟨i, wt⟩ := i
   match wt with
-  | .loadI hp => exact hLoadI _ ⟨_, hp⟩
-  | .storeI hp hx => exact hStoreI _ ⟨_, hp⟩ ⟨_, hx⟩
+  | .loadI hΓ hp => exact hLoadI _ ⟨_, hp⟩ hΓ
+  | .storeI hΓ hp hx => exact hStoreI _ ⟨_, hp⟩ ⟨_, hx⟩ hΓ
   | .loadE he hp => exact hLoadE _ ⟨_, he⟩ ⟨_, hp⟩
   | .storeE he hp hx => exact hStoreE _ ⟨_, he⟩ ⟨_, hp⟩ ⟨_, hx⟩
   | .createEff hΓ => exact hCreateEff hΓ
@@ -208,3 +217,26 @@ def TInstructionSeq.indOn {motive : ∀ {Γ Δ : Context τ}, TInstructionSeq Γ
       let i : TInstruction Γ _ := ⟨i, wt_i⟩
       let is : TInstructionSeq _ Δ := ⟨is, wt_is⟩
       cons i is (indOn is nil cons)
+
+@[elab_as_elim, cases_eliminator]
+def TProgram.casesOn' {motive : ∀ {Γ : Context τ} {ts}, TProgram Γ ts → Prop}
+    {Γ ts} (p : TProgram Γ ts)
+    (mk' : ∀ {Γ Δ : Context τ} {ts} (is : TInstructionSeq Γ Δ) (vs : TVarList Δ ts)
+      (h : (Δ.eraseVars vs.toList).isUnrestricted),
+      motive (.mk' is vs h)) :
+    motive p :=
+  let ⟨⟨is, vs⟩, ⟨Δ, wt_is, h_un, length_eq, wt_vs⟩⟩ := p
+  let is : TInstructionSeq Γ Δ := ⟨is, wt_is⟩
+  let vs : TVarList Δ ts := { toList := vs }
+  mk' is vs h_un
+
+/-!
+## Lemmas
+--------------------------------------------------------------------------------
+-/
+
+@[simp, grind =] theorem TProgram.isUnrestricted_returnContext (p : TProgram Γ ts) :
+    p.returnContext.isUnrestricted ↔ Context.isUnrestricted ⟨ts⟩ := by
+  cases p with | mk' is vs h =>
+  -- TODO: finish this proof
+  sorry
