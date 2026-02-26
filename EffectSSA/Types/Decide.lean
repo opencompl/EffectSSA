@@ -26,11 +26,11 @@ inductive Instruction.TypeCheckResult (Γ : Context τ) (i : Instruction τ) whe
 
 def Instruction.typeCheck (Γ : Context τ) : (i : Instruction τ) → i.TypeCheckResult Γ
   | .loadI t p =>
-      if h : Γ[p]? = some .ptr then
+      if h : Γ.isUnrestricted ∧ Γ[p]? = some .ptr then
         .isTrue (Γ <: t)
       else .isFalse
   | .storeI t p x =>
-      if h : Γ[p]? = some .ptr ∧ Γ[x]? = some t then
+      if h : Γ.isUnrestricted ∧ Γ[p]? = some .ptr ∧ Γ[x]? = some t then
         .isTrue Γ
       else .isFalse
   | .allocI .. | .freeI .. => .isFalse
@@ -57,32 +57,40 @@ def Instruction.typeCheck (Γ : Context τ) : (i : Instruction τ) → i.TypeChe
         .isTrue Γ'
       else .isFalse
 
-inductive Program.TypeCheckResult (Γ : Context τ) (p : Program τ) where
-  | isTrue (Δ : Context τ)
-            (h₁ : WellTypedWith Γ p Δ := by grind)
-            (h₂ : Δ.isUnrestricted := by grind)
-  | isFalse (h : ∀ (Δ : Context τ), ¬WellTypedWith Γ p Δ ∨ ¬Δ.isUnrestricted := by grind)
+inductive InstructionSeq.TypeCheckResult (Γ : Context τ) (p : InstructionSeq τ) where
+  | isTrue (Δ : Context τ) (h : WellTypedWith Γ p Δ := by grind)
+  | isFalse (h : ∀ (Δ : Context τ), ¬WellTypedWith Γ p Δ := by grind)
 
-def Program.typeCheck (Γ : Context τ) : (p : Program τ) → p.TypeCheckResult Γ
-  | nil =>
-    if h₂ : Γ.isUnrestricted then
-      .isTrue Γ (.nil rfl) h₂
-    else
-      .isFalse
+def InstructionSeq.typeCheck (Γ : Context τ) : (p : InstructionSeq τ) → p.TypeCheckResult Γ
+  | nil => .isTrue Γ (.nil rfl)
   | i ;> p =>
     match i.typeCheck Γ with
       | .isFalse h => .isFalse
       | .isTrue Δ hᵢ =>
         match p.typeCheck Δ with
         | .isFalse h => .isFalse <| by grind
-        | .isTrue Δ' h₁ h₂ => .isTrue Δ'
+        | .isTrue Δ' h => .isTrue Δ'
+
+inductive Program.TypeCheckResult (Γ : Context τ) (p : Program τ) (ts : List τ.Typ) where
+  | isTrue (Δ : Context τ) (h : Program.WellTyped Γ p ts := by grind)
+  | isFalse (h : ¬Program.WellTyped Γ p ts := by grind)
 
 /-!
-## `Decidable` instance
+## Program `Decidable` instance
 --------------------------------------------------------------------------------
 -/
 
-instance : Decidable (Program.WellTyped Γ p) :=
-  match p.typeCheck Γ with
-  | .isTrue Δ h₁ h₂ => .isTrue <| by use Δ
-  | .isFalse h => .isFalse <| by grind
+instance : Decidable (Program.WellTyped Γ p ts) :=
+  match p.instructions.typeCheck Γ with
+  | .isTrue Δ h₁ =>
+      let vs := p.returnVars
+      if hun : ¬(Δ.eraseVars vs).isUnrestricted then
+        .isFalse (by grind)
+      else if hlen : vs.length ≠ ts.length then
+        .isFalse (by grind)
+      else if hret : ∃ (i : Fin vs.length), Δ[vs[i]]? ≠ ts[i]? then
+        .isFalse (by grind)
+      else
+        have hret : ∀ (i : Fin vs.length), Δ[vs[i]]? = ts[i]? := by grind
+        .isTrue ⟨Δ, h₁, by grind, by grind, fun i hi => hret ⟨i, hi⟩⟩
+  | .isFalse h => .isFalse (by grind)

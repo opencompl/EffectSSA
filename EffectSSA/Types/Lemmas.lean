@@ -11,40 +11,23 @@ namespace EffectSSA
 --------------------------------------------------------------------------------
 -/
 
-/-! ### Program -/
-namespace Program
 
-@[simp, typecheck, grind =]
-theorem wellTyped_nil_iff {Γ Δ : Context τ} :
-    WellTypedWith Γ .nil Δ ↔ Γ = Δ := by
-  grind [WellTypedWith]
-
-@[simp, typecheck, grind =]
-theorem wellTyped_cons_iff (i : Instruction τ) (p : Program τ) :
-    WellTypedWith Γ (i ;> p) Ξ ↔ (∃ Δ, i.WellTyped Γ Δ ∧ p.WellTypedWith Δ Ξ) := by
-  grind [WellTypedWith]
-
-@[simp, typecheck, grind =]
-theorem WellTyped_nil_iff {Γ : Context τ} :
-    WellTyped Γ .nil ↔ Γ.isUnrestricted := by
-  simp [Program.WellTyped]
-
-end Program
-
-/-! ### Program -/
+/-!
+### Instruction
+-/
 namespace Instruction
 open Ty.Typ (ptr eff data)
 variable {Γ Δ : Context τ}
 
 @[simp, typecheck, grind =]
 theorem wellTyped_loadI_iff :
-    WellTyped Γ (.loadI t p) Δ ↔ (Γ[p]? = some ptr ∧ Δ = Γ <: t) := by
+    WellTyped Γ (.loadI t p) Δ ↔ (Γ.isUnrestricted ∧ Γ[p]? = some ptr ∧ Δ = Γ <: t) := by
   grind [WellTyped]
 
 @[simp, typecheck, grind =]
 theorem wellTyped_storeI_iff :
     WellTyped Γ (.storeI t p x) Δ
-    ↔ (Γ[p]? = some ptr ∧ Γ[x]? = some (data t) ∧ Δ = Γ) := by
+    ↔ (Γ.isUnrestricted ∧ Γ[p]? = some ptr ∧ Γ[x]? = some (data t) ∧ Δ = Γ) := by
   grind [WellTyped]
 
 @[simp, typecheck, grind =]
@@ -73,6 +56,48 @@ theorem wellTyped_consumeEff_iff :
 end Instruction
 
 /-!
+### InstructionSeq
+-/
+namespace InstructionSeq
+
+@[simp, typecheck, grind =]
+theorem wellTyped_nil_iff {Γ Δ : Context τ} :
+    WellTypedWith Γ .nil Δ ↔ Γ = Δ := by
+  grind [WellTypedWith]
+
+@[simp, typecheck, grind =]
+theorem wellTyped_cons_iff (i : Instruction τ) (p : InstructionSeq τ) :
+    WellTypedWith Γ (i ;> p) Ξ ↔ (∃ Δ, i.WellTyped Γ Δ ∧ p.WellTypedWith Δ Ξ) := by
+  grind [WellTypedWith]
+
+end InstructionSeq
+
+/-!
+### Program
+-/
+namespace Program
+
+@[grind =] theorem wellTyped_iff :
+    WellTyped Γ ⟨is, vs⟩ ts ↔ ∃ (Δ : Context _),
+      ( (Δ.eraseVars vs).isUnrestricted
+      ∧ is.WellTypedWith Γ Δ
+      ∧ vs.length = ts.length
+      ∧ ∀ (i) (hi : i < vs.length), ∃ t,
+          ts[i]? = some t ∧ Δ[vs[i]]? = some t) := by
+  grind
+
+@[simp, typecheck, grind =]
+theorem wellTyped_nil_iff {Γ : Context τ} :
+    WellTyped Γ ⟨.nil, vs⟩ ts ↔
+      ( (Γ.eraseVars vs).isUnrestricted
+      ∧ vs.length = ts.length
+      ∧ ∀ (i) (hi : i < vs.length), ∃ t,
+          ts[i]? = some t ∧ Γ[vs[i]]? = some t) := by
+  grind
+
+end Program
+
+/-!
 ## Uniqueness of out contexts
 --------------------------------------------------------------------------------
 -/
@@ -85,11 +110,22 @@ theorem Instruction.WellTyped.unique
   grind [WellTyped]
 
 @[grind →]
-theorem Program.WellTyped.unique
-    {p : Program τ} {Δ Δ' : Context τ}
+theorem InstructionSeq.WellTyped.unique
+    {p : InstructionSeq τ} {Δ Δ' : Context τ}
     (h₁ : p.WellTypedWith Γ Δ) (h₂ : p.WellTypedWith Γ Δ') :
       Δ = Δ' := by
   induction p generalizing Γ <;> grind
+
+@[grind →]
+theorem Program.WellTyped.unique {p : Program τ}
+    (h₁ : p.WellTyped Γ ts) (h₂ : p.WellTyped Γ us) :
+      ts = us := by
+  rcases h₁ with ⟨Δ₁, h₁, h_un₁, h_ts_len, h_ts⟩
+  rcases p with ⟨is, vs⟩
+  induction is generalizing Γ
+  · apply List.ext_getElem?
+    grind
+  · grind
 
 /-!
 ## Var
@@ -97,10 +133,29 @@ theorem Program.WellTyped.unique
 -/
 namespace Var
 
-@[simp, grind =]
-theorem inBounds_iff {v : Var} : v.InBounds Γ ↔ v.toNat < Γ.size := by rfl
+@[simp, grind =] theorem inBounds_iff {v : Var} : v.InBounds Γ ↔ v.toNat < Γ.size := by rfl
+
+@[grind .] theorem inBounds_of_isSome {v : Var} : Γ[v]?.isSome → v.InBounds Γ := by
+  intro (h : Γ.toList[v.toNat]?.isSome); grind
+@[grind .] theorem inBounds_of_eq_some {v : Var} : Γ[v]? = some t → v.InBounds Γ := by grind
 
 end Var
+
+/-!
+## Types
+--------------------------------------------------------------------------------
+-/
+namespace Ty.Typ
+variable {τ : Ty}
+
+@[grind =] theorem isUnrestricted_iff (t : τ.Typ) : t.isUnrestricted = decide (t ≠ .eff) := by
+  grind [Typ.isUnrestricted]
+
+@[simp, grind =] theorem isUnrestricted_data (d : τ.DType) : (data d).isUnrestricted := by grind
+@[simp, grind =] theorem isUnrestricted_ptr : (ptr : τ.Typ).isUnrestricted := by grind
+@[simp, grind =] theorem isUnrestricted_eff : (eff : τ.Typ).isUnrestricted = false := by grind
+
+end Ty.Typ
 
 /-!
 ## Context
@@ -109,10 +164,28 @@ end Var
 namespace Context
 variable {Γ : Context τ} {v : Var}
 
+/-! ### ofList -/
+section OfList
+variable (Γ : List τ.Typ) (v : Var)
+
+@[simp, grind =] theorem getElem?_ofList : (ofList Γ)[v]? = Γ[v.toNat]? := by rfl
+@[simp, grind =] theorem getElem_ofList (h) : (ofList Γ)[v]'h = Γ[v.toNat] := by rfl
+@[simp, grind =] theorem size_ofList : (ofList Γ).size = Γ.length := by rfl
+
+end OfList
+
+/-! ### empty -/
+
+@[simp, grind =] theorem getElem?_empty : (∅ : Context τ)[v]? = none := by rfl
+
 /-! ### size -/
 
 @[simp, grind =] theorem size_empty : size (∅ : Context τ) = 0 := rfl
 @[simp, grind =] theorem size_cons : size (Γ <: t) = Γ.size + 1 := rfl
+
+@[simp, grind =]
+theorem le_size_iff_isSome_getElem? : Γ[v]?.isSome ↔ v.toNat < Γ.size := by
+  cases Γ; simp
 
 /-! ### getElem -/
 
@@ -159,6 +232,13 @@ theorem getElem?_cons_succ : (Γ <: t)[v + 1]? = Γ[v]? := rfl
       · right; use Var.ofNat i; rfl
     grind
 
+@[grind →] theorem isUnrestricted_eq_false_of_getElem (v : Var) :
+    Γ[v]? = some .eff → Γ.isUnrestricted = false := by
+  intro hv
+  have hv : v.InBounds Γ := by grind
+  have : (Γ[v]).isUnrestricted = false := by cases Γ; grind
+  grind [isUnrestricted]
+
 /-! ### eraseVar -/
 
 @[simp, typecheck, grind =]
@@ -166,5 +246,16 @@ theorem eraseVar_zero : (Γ <: t).eraseVar (Var.ofNat 0) = Γ := rfl
 
 @[simp, typecheck, grind =]
 theorem eraseVar_succ : (Γ <: t).eraseVar (v + 1) = Γ.eraseVar v <: t := rfl
+
+@[grind =]
+theorem getElem?_eraseVar {w : Var} :
+    (Γ.eraseVar v)[w]? = Γ[if w.toNat < v.toNat then w else w + 1]? := by
+  rcases Γ with ⟨Γ⟩
+  grind [eraseVar]
+
+/-! ### eraseVar -/
+
+@[simp, typecheck, grind =]
+theorem eraseVars_nil : Γ.eraseVars [] = Γ := by rfl
 
 end Context

@@ -16,12 +16,24 @@ namespace EffectSSA
 open Semantics
 variable {τ : Ty} [MemoryModel τ]
 
+/-!
+## Instruction Semantics
+--------------------------------------------------------------------------------
+-/
+
+/-
+TODO: in execM I probably want to change it so that I erase variables FIRST,
+and then snoc more things into the environment. Cross-reference the typing rules,
+and in particular, the TInstruction.exec proving effort, which is currently
+blocked in what seems like an unprovable state
+-/
+
 /--
 Execute a single instruction `i` in a specific environment, returning a new
 environment with the results of `i` added to it, and any linear values consumed
 by `i` removed.
 -/
-def Instruction.exec (env : Environment τ) : (i : Instruction τ) → ExecM τ (Environment τ)
+def Instruction.execM (env : Environment τ) : (i : Instruction τ) → ExecM τ (Environment τ)
   -- Implicit (i.e, side-effecting) memory operations
   | .loadI t p => do
     let val ← modifyGetTrace <| load t (←env.getPtr p)
@@ -38,23 +50,29 @@ def Instruction.exec (env : Environment τ) : (i : Instruction τ) → ExecM τ 
   -- EffectSSA memory operations
   | .loadE t eff p => do
     let (val, trace) := load t (←env.getPtr p) (←env.getEff eff)
-    return (env.snoc trace |>.snoc val).eraseVar eff
+    let env := env.eraseVar eff
+    return env.snoc trace |>.snoc val
   | .storeE t eff p x => do
     let trace := store (←env.getPtr p) (←env.getData x t) (←env.getEff eff)
-    return (env.snoc trace).eraseVar eff
+    let env := env.eraseVar eff
+    return env.snoc trace
   | .allocE t eff p => do
     let trace := alloc t (←env.getPtr p) (←env.getEff eff)
-    return (env.snoc trace).eraseVar eff
+    let env := env.eraseVar eff
+    return env.snoc trace
   | .freeE t eff p => do
     let trace := free t (←env.getPtr p) (←env.getEff eff)
-    return (env.snoc trace).eraseVar eff
+    let env := env.eraseVar eff
+    return env.snoc trace
   -- Split / Merge
   | .split eff => do
     let trace := Semantics.split (← env.getEff eff)
-    return (env.snoc trace |>.snoc trace).eraseVar eff
+    let env := env.eraseVar eff
+    return env.snoc trace |>.snoc trace
   | .merge eff₁ eff₂ => do
     let trace := Semantics.merge (← env.getEff eff₁) (← env.getEff eff₂)
-    return (env.snoc trace).eraseVar eff₁ |>.eraseVar eff₂
+    let env := env.eraseVar eff₁ |>.eraseVar eff₂
+    return env.snoc trace
   -- Effect state bookkeeping operations
   | .createEff => do
     let trace ← takeTrace
@@ -96,7 +114,58 @@ where
       | none => some es
       | some _ => some .ub
 
+@[inherit_doc Instruction.execM]
+def Instruction.exec (env : Environment τ) (i : Instruction τ) (es : Option (Trace τ)) :
+    Option (Environment τ × Option (Trace τ)) :=
+  (i.execM env).run es
 
-/-- Execute all instructions in a program sequentially, threading the environment through. -/
-def Program.exec (env : Environment τ) (p : Program τ) : ExecM τ (Environment τ) :=
-  p.foldlM Instruction.exec env
+/-!
+## Sequence & Program Semantics
+--------------------------------------------------------------------------------
+-/
+
+/--
+Return the environment after executing all instructions in sequence `p`,
+starting from environment `env`.
+-/
+def InstructionSeq.execM (env : Environment τ) (p : InstructionSeq τ) : ExecM τ (Environment τ) :=
+  p.foldlM Instruction.execM env
+
+@[inherit_doc InstructionSeq.execM]
+def InstructionSeq.exec (env : Environment τ) (is : InstructionSeq τ) (es : Option (Trace τ)) :
+    Option (Environment τ × Option (Trace τ)) :=
+  (is.execM env).run es
+
+/--
+Return the value assigned to the return variables of a program (fragment) `p`,
+after executing the instruction sequence of `p` starting from environment `env`.
+
+Executes against the trace in the mondic state.
+-/
+def Program.execM (env : Environment τ) (p : Program τ) : ExecM τ (Environment τ) := do
+  let env ← p.instructions.execM env
+  let res : ExecM.TypeErrM _ := env.limitTo? p.returnVars
+  res
+
+/--
+Return the value assigned to the return variables of a program (fragment) `p`,
+after executing the instruction sequence of `p` starting from environment `env`.
+
+Executes against an explicitly passed trace, returning the resulting trace.
+-/
+def Program.exec (env : Environment τ) (p : Program τ) (es : Option (Trace τ)) :
+    Option (Environment τ × Option (Trace τ)) := do
+  (p.execM env).run es
+
+/--
+Execute a complete *closed* program `p`, yielding the computed return values and
+the final trace of all events that happened during execution.
+
+This differs from `exec` in that execution starts with an empty environment and
+empty initial trace, since we assume `p` represents a complete computation.
+
+Returns `none` if execution threw a type-error, which is impossible when the
+program is well-typed (see `isSome_execClosed?`).
+-/
+def Program.execClosed (p : Program τ) : Option (Environment τ × Option (Trace τ)) := do
+  p.exec ∅ (some ∅)

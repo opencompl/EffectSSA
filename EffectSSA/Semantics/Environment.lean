@@ -1,6 +1,6 @@
 import EffectSSA.Assumptions.MemoryModel
 import EffectSSA.Types
-import EffectSSA.Syntax
+import EffectSSA.Syntax.Untyped
 import EffectSSA.Semantics.ExecM
 
 import Mathlib.Data.Vector.Basic
@@ -44,28 +44,43 @@ structure Semantics.Environment τ [MemoryModel τ] where
 variable {τ}
 
 /-! ### Val API -/
+namespace Ty
 
 /-! Traces, pointers and plain data values can be coerced into a generic value. -/
-namespace Ty.Val
+namespace Val
 instance : Coe (Trace τ) τ.Val where coe := (⟨.eff, .eff ·⟩)
 instance : Coe τ.Ptr τ.Val where coe := (⟨.ptr, .ptr ·⟩)
 instance : CoeOut (τ.DVal t) τ.Val where coe := (⟨.data t, .data ·⟩)
-end Ty.Val
+end Val
 
 /-!
 Similarly, a typed value of the respective concrete type may be coerced into a
 trace, pointer or plain data value, as appropriate.
 -/
-namespace Ty.TVal
+namespace TVal
 instance : Coe (τ.TVal .eff) (Trace τ) where coe := fun (.eff e) => e
 instance : Coe (τ.TVal .ptr) τ.Ptr where coe := fun (.ptr p) => p
 instance : Coe (τ.TVal <| .data t) (τ.DVal t) where coe := fun (.data x) => x
-end Ty.TVal
+end TVal
 
+/-- Coerce a statically typed value into a dynamically typed value. -/
+@[grind] abbrev TVal.toVal : τ.TVal t → τ.Val := (⟨t, ·⟩)
 
+end Ty
 
 /-! ### Environment API -/
 namespace Semantics.Environment
+
+/-!
+`∅` represents the empty environment, without any values.
+-/
+instance : EmptyCollection (Environment τ) where
+  emptyCollection := .ofList []
+
+/-! #### size -/
+
+@[simp, grind =]
+abbrev size (env : Environment τ) : Nat := env.toList.length
 
 /-! #### Environment Getters -/
 
@@ -80,8 +95,8 @@ def get? (env : Environment τ) (v : Var) : Option τ.Val :=
 `env.get v` retrieves the (untyped) value environment `env` associates with
 the variable `v`. Throws a TypErr if the variable does not exist.
 -/
-def get (env : Environment τ) (v : Var) : ExecM τ τ.Val :=
-  StateT.lift (env.get? v)
+def get (env : Environment τ) (v : Var) : ExecM.TypeErrM τ.Val :=
+  env.get? v
 
 /--
 `env.getAs? v t` retrieves the value environment `env` associates with the
@@ -104,20 +119,20 @@ present in the environment.
 
 See also `Environment.getAs?`, which returns none instead.
 -/
-def getAs (env : Environment τ) (v : Var) (t : τ.Typ) : ExecM τ (τ.TVal t) :=
-  StateT.lift (env.getAs? v t)
+def getAs (env : Environment τ) (v : Var) (t : τ.Typ) : ExecM.TypeErrM (τ.TVal t) :=
+  env.getAs? v t
 
 /-- Retrieve a pointer via `getAs`. -/
 @[simp, grind =]
-def getPtr (env : Environment τ) (v : Var) : ExecM τ τ.Ptr := env.getAs v .ptr
+def getPtr (env : Environment τ) (v : Var) : ExecM.TypeErrM τ.Ptr := env.getAs v .ptr
 
 /-- Retrieve an effect trace via `getAs`. -/
 @[simp, grind =]
-def getEff (env : Environment τ) (v : Var) : ExecM τ (Trace τ) := env.getAs v .eff
+def getEff (env : Environment τ) (v : Var) : ExecM.TypeErrM (Trace τ) := env.getAs v .eff
 
 /-- Retrieve a data value via `getAs`. -/
 @[simp, grind =]
-def getData (env : Environment τ) (v : Var) (t : τ.DType) : ExecM τ (τ.DVal t) :=
+def getData (env : Environment τ) (v : Var) (t : τ.DType) : ExecM.TypeErrM (τ.DVal t) :=
   env.getAs v (.data t)
 
 /-! #### Environment Constructors -/
@@ -136,6 +151,18 @@ def snoc (x : τ.Val) (env : Environment τ) : Environment τ :=
 def eraseVar (env : Environment τ) (v : Var) : Environment τ :=
   ⟨env.toList.eraseIdx v.toNat⟩
 
+/--
+`env.limitTo vs` returns an environment containing just the variables `vs`, and
+the values the original environment `env` assigns to these variables.
+Returns `none` if any of the variables in `vs` are not present in `env`.
+
+The variables are re-ordered in the process, so that the i-th variables of
+the returned environment corresponds to `vs[i]`.
+-/
+def limitTo? (env : Environment τ) (vs : List Var) : Option (Environment τ) := do
+  let xs ← vs.mapM (env.get? ·)
+  return ofList xs
+
 end Semantics.Environment
 
 
@@ -145,5 +172,6 @@ end Semantics.Environment
 -/
 namespace Semantics.Environment
 
+@[grind =]
 def WellTyped (Γ : Context τ) (env : Environment τ) : Prop :=
   ∀ (v : Var) (t : τ.Typ), Γ[v]? = some t ↔ (env.getAs? v t).isSome

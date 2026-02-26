@@ -1,4 +1,4 @@
-import EffectSSA.Syntax.Basic
+import EffectSSA.Syntax.Untyped.Basic
 import EffectSSA.Meta.Trace
 
 import Lean
@@ -210,7 +210,7 @@ def elabInstruction (τ : Q(Ty)) (i : Lean.TSyntax `ssa_instruction) :
       modify (·.erase v)
 
 macro_rules
-  | `(program!{$_vs:ident,*}()) => `(Program.nil)
+  | `(program!{$_vs:ident,*}()) => `(InstructionSeq.nil)
 
 open Lean in
 elab_rules : term
@@ -220,5 +220,5 @@ elab_rules : term
         (#[i] ++ is).mapM (elabInstruction τ)
       trace[EffectSSA] "Final context: {ctx}"
 
-      let cons := mkApp3 (mkConst ``Program.cons) τ
-      return iExprs.foldr cons q(@Program.nil $τ)
+      let cons := mkApp3 (mkConst ``InstructionSeq.cons) τ
+      return iExprs.foldr cons q(@InstructionSeq.nil $τ)

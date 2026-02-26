@@ -1,5 +1,5 @@
 import EffectSSA.Assumptions.MemorySignature
-import EffectSSA.Syntax
+import EffectSSA.Syntax.Untyped
 import EffectSSA.Types.Context
 
 /-!
@@ -19,11 +19,13 @@ open Ty.Typ (ptr eff data)
 
 inductive Instruction.WellTyped : Context τ → Instruction τ → Context τ → Prop
   | loadI :
+      Γ.isUnrestricted →
       Γ[p]? = some ptr →
       ---------------------------------
       WellTyped Γ (.loadI t p) (Γ <: t)
 
   | storeI :
+      Γ.isUnrestricted →
       Γ[p]? = some ptr →
       Γ[x]? = some (data t) →
       -- FIXME: I would prefer writing `Γ[x] = t` here, but then Lean searches
@@ -59,12 +61,12 @@ inductive Instruction.WellTyped : Context τ → Instruction τ → Context τ �
 
 
 /--
-`WellTypedWith Γ p Δ` holds when the instruction in program `p` are welltyped under
-`Γ`, and result in a final context `Δ` after execution.
+`WellTypedWith Γ p Δ` holds when the instruction in sequence `p` are welltyped
+under `Γ`, and result in a final context `Δ` after execution.
 
 NOTE: linearity is not yet checked
 -/
-inductive Program.WellTypedWith : Context τ → Program τ → Context τ → Prop
+inductive InstructionSeq.WellTypedWith : Context τ → InstructionSeq τ → Context τ → Prop
   /--
   An empty program does not change the context.
 
@@ -81,12 +83,27 @@ inductive Program.WellTypedWith : Context τ → Program τ → Context τ → P
       ---------------------------------
       WellTypedWith Γ (.cons i p) Ξ
 
-/--
-`WellTyped Γ p` holds when program `p` is welltyped under `Γ`, *and* the
-resulting context is unrestricted.
+/-
+TODO: InstructionSeq.WellTypedWith should just be renamed to InstructionSeq.WellTyped
+-/
 
-This enforces that linear variables must be used *at least* once.
+/--
+`WellTyped Γ p ts` holds for a program `p`, when the constituent instruction
+sequence `p` is welltyped under `Γ`, returning an *unrestricted* context `Δ`
+such that the i-th return variable of `p` is assigned the respective type
+`ts[i]` in context `Δ`
+
+NOTE: The unrestricted requirement enforces that linear variables
+must either be used *at least* once or returned.
 -/
 @[grind =]
-def Program.WellTyped (Γ : Context τ) (p : Program τ) : Prop :=
-  ∃ (Δ : Context τ), WellTypedWith Γ p Δ ∧ Δ.isUnrestricted
+def Program.WellTyped (Γ : Context τ) (p : Program τ) (ts : List τ.Typ) : Prop :=
+  ∃ (Δ : Context τ),
+    InstructionSeq.WellTypedWith Γ p.instructions Δ
+    -- All internal (i.e., non-return) variables that are still in scope must
+    -- be unrestricted (i.e., non-linear)
+    ∧ (Δ.eraseVars p.returnVars).isUnrestricted
+    -- And the returnVariables' types match `ts`
+    ∧ p.returnVars.length = ts.length
+    ∧ ∀ (i : Nat), (hi : i < p.returnVars.length) →
+        Δ[p.returnVars[i]]? = ts[i]?

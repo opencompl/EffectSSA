@@ -1,5 +1,5 @@
 import EffectSSA.Assumptions.MemorySignature
-import EffectSSA.Syntax.Basic
+import EffectSSA.Syntax.Untyped.Basic
 import EffectSSA.Types.Basic
 
 import Mathlib.Data.Vector.Defs
@@ -19,14 +19,15 @@ namespace EffectSSA
 A `Context τ` is a mapping from `n` variables to their types.
 -/
 structure Context (τ : Ty) where
-  toList : List τ.Typ
+  ofList :: toList : List τ.Typ
 
 /-!
 ## Definitions
 --------------------------------------------------------------------------------
 -/
 
-def Context.size (Γ : Context τ) : Nat := Γ.toList.length
+@[grind =]
+abbrev Context.size (Γ : Context τ) : Nat := Γ.toList.length
 
 @[grind =]
 def Var.InBounds (Γ : Context τ) (v : Var) : Prop := v.toNat < Γ.size
@@ -79,5 +80,11 @@ instance {Γ : Context τ} : Decidable (isUnrestricted Γ) :=
 -/
 def eraseVar (v : Var) (Γ : Context τ) : Context τ :=
   ⟨Γ.toList.eraseIdx v.toNat⟩
+
+/--
+`Γ.eraseVars vs` removes a list of variables `vs` from the context.
+-/
+def eraseVars (vs : List Var) (Γ : Context τ) : Context τ :=
+  vs.foldr eraseVar Γ
 
 end Context
