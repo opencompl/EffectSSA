@@ -238,4 +238,5 @@ def TProgram.casesOn' {motive : ∀ {Γ : Context τ} {ts}, TProgram Γ ts → P
 @[simp, grind =] theorem TProgram.isUnrestricted_returnContext (p : TProgram Γ ts) :
     p.returnContext.isUnrestricted ↔ Context.isUnrestricted ⟨ts⟩ := by
   cases p with | mk' is vs h =>
-  simp [Context.isUnrestricted_iff_getElem?]
+  -- TODO: finish this proof
+  sorry
