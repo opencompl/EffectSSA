@@ -34,6 +34,13 @@ instance : HAdd Var Nat Var where
 instance : HSub Var Nat Var where
   hSub v n := Var.ofNat (v.toNat - n)
 
+@[grind] instance : LT Var where lt v w := v.toNat < w.toNat
+@[grind] instance : LE Var where le v w := v.toNat ≤ w.toNat
+instance : DecidableRel ((· < ·) : Var → Var → Prop) := by
+  intro v w; show Decidable (v.toNat < w.toNat); infer_instance
+instance : DecidableRel ((· ≤ ·) : Var → Var → Prop) := by
+  intro v w; show Decidable (v.toNat ≤ w.toNat); infer_instance
+
 
 /-!
 ## Lemmas

@@ -41,3 +41,9 @@ def isUnrestricted : τ.Typ → Bool
 
 /-- Plain data types may be coerced to arbitrary types. -/
 instance : Coe τ.DType τ.Typ where coe := .data
+
+instance [Repr τ.DType] : Repr τ.Typ where
+  reprPrec
+    | .ptr, _ => "ptr"
+    | .eff, _ => "eff"
+    | .data d, p => f!"data {reprPrec d p}"
