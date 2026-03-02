@@ -138,7 +138,7 @@ variable {τ : Ty} (Γ : List τ.Typ) (v : Var)
 @[simp, grind =] theorem getElem_ofList (h) : (ofList Γ)[v]'h = Γ[v.toNat] := by rfl
 @[simp, grind =] theorem size_ofList : (ofList Γ).size = Γ.length := by rfl
 
-@[simp, grind =] theorem toList_ofList : (ofList Γ).toList = Γ := by rfl
+@[simp] theorem toList_ofList : (ofList Γ).toList = Γ := by rfl
 -- FIXME: ^^ This ought to be a grind-lemma, but when tagged grind reports:
 --           `invalid pattern, (non-forbidden) application expected #0`
 
