@@ -138,6 +138,12 @@ variable {τ : Ty} (Γ : List τ.Typ) (v : Var)
 @[simp, grind =] theorem getElem_ofList (h) : (ofList Γ)[v]'h = Γ[v.toNat] := by rfl
 @[simp, grind =] theorem size_ofList : (ofList Γ).size = Γ.length := by rfl
 
+@[simp, grind =] theorem toList_ofList : (ofList Γ).toList = Γ := by rfl
+-- FIXME: ^^ This ought to be a grind-lemma, but when tagged grind reports:
+--           `invalid pattern, (non-forbidden) application expected #0`
+
+@[simp, grind =] theorem ofList_toList (Γ : Context τ) : ofList Γ.toList = Γ := by rfl
+
 end Context
 
 /-!
@@ -186,6 +192,19 @@ end Ty.Typ
 -/
 namespace Context
 variable {Γ : Context τ} {v : Var}
+
+/-! ### ext -/
+
+theorem eq_of_toList {Γ Δ : Context τ} (h : Γ.toList = Δ.toList) : Γ = Δ := by
+  cases Γ; cases Δ; grind
+
+@[ext, grind ext]
+theorem eq_of_getElem?_eq {Γ Δ : Context τ} (h : ∀ (v : Var), Γ[v]? = Δ[v]?) :
+    Γ = Δ := by
+  cases Γ; cases Δ
+  apply eq_of_toList
+  ext v
+  grind [h ⟨v⟩]
 
 /-! ### empty -/
 
@@ -257,6 +276,9 @@ theorem isUnrestricted_iff_getElem? (Γ : Context τ) :
   cases Γ; grind [isUnrestricted, Var.inBounds_iff_exists]
 
 /-! ### eraseVar -/
+
+@[simp, grind =] theorem toList_eraseVar :
+  (Γ.eraseVar v).toList = Γ.toList.eraseIdx v.toNat := by rfl
 
 @[simp, typecheck, grind =]
 theorem eraseVar_zero : (Γ <: t).eraseVar (Var.ofNat 0) = Γ := rfl
