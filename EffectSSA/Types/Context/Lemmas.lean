@@ -144,6 +144,9 @@ theorem isSome_getElem?_of_inBounds : v.InBounds Γ → Γ[v]?.isSome := by
 
 @[simp, grind =] theorem getElem_snoc_zero : (Γ <: t)[Var.ofNat 0]'h = t := rfl
 @[simp, grind =] theorem getElem_snoc_succ :
+
+@[simp, grind =] theorem getElem_cons_zero : (Γ <: t)[Var.ofNat 0]'h = t := rfl
+@[simp, grind =] theorem getElem_cons_succ :
     (Γ <: t)[v + 1]'h = Γ[v]'(by grind) := rfl
 
 @[grind =]
