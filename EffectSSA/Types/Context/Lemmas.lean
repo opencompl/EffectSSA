@@ -9,11 +9,14 @@ import EffectSSA.Types.Simpset
 namespace EffectSSA
 
 /-!
-## Preliminary Context.ofList lemmas
+## Preliminary Context.ofList & Context.toList lemmas
 --------------------------------------------------------------------------------
 -/
 namespace Context
-variable {τ : Ty} (Γ : List τ.Typ) (v : Var)
+variable {τ : Ty}  (v : Var)
+
+section OfList
+variable (Γ : List τ.Typ)
 
 @[simp, grind =] theorem getElem?_ofList : (ofList Γ)[v]? = Γ[v.toNat]? := by rfl
 @[simp, grind =] theorem getElem_ofList (h) : (ofList Γ)[v]'h = Γ[v.toNat] := by rfl
@@ -23,8 +26,16 @@ variable {τ : Ty} (Γ : List τ.Typ) (v : Var)
 -- FIXME: ^^ This ought to be a grind-lemma, but when tagged grind reports:
 --           `invalid pattern, (non-forbidden) application expected #0`
 
-@[simp, grind =] theorem ofList_toList (Γ : Context τ) : ofList Γ.toList = Γ := by rfl
+end OfList
+section ToList
+variable (Γ : Context τ)
 
+@[simp, grind =] theorem ofList_toList : ofList Γ.toList = Γ := by rfl
+
+@[simp, grind =] theorem toList_empty : toList (∅ : Context τ) = [] := by rfl
+@[simp, grind =] theorem toList_snoc : toList (Γ <: t) = t :: Γ.toList := by rfl
+
+end ToList
 end Context
 
 /-!
@@ -131,6 +142,9 @@ theorem isSome_getElem?_of_inBounds : v.InBounds Γ → Γ[v]?.isSome := by
 
 /-! ### getElem -/
 
+-- FIXME: The `<:` opteration is actually called `snoc`, not `cons`.
+--        All theorem names below should be changed to reflect this.
+
 @[simp, grind =] theorem getElem_cons_zero : (Γ <: t)[Var.ofNat 0]'h = t := rfl
 @[simp, grind =] theorem getElem_cons_succ :
     (Γ <: t)[v + 1]'h = Γ[v]'(by grind) := rfl
@@ -204,17 +218,47 @@ theorem getElem?_eraseVar {w : Var} :
 
 /-! ### eraseVars -/
 
-@[simp, typecheck, grind =]
-theorem eraseVars_nil : Γ.eraseVars [] = Γ := by simp [eraseVars]
+@[simp, grind =] theorem toList_eraseVars :
+  (Γ.eraseVars vs n).toList = Γ.toList.eraseAllIdxP (⟨·⟩ ∈ vs) n := by rfl
 
 @[simp, typecheck, grind =]
-theorem empty_eraseVars : (∅ : Context τ).eraseVars vs = ∅ := by rfl
+theorem eraseVars_nil : Γ.eraseVars [] n = Γ := by simp [eraseVars]
 
-variable (Γ) in
+@[simp, typecheck, grind =]
+theorem empty_eraseVars : (∅ : Context τ).eraseVars vs n = ∅ := by rfl
+
+@[grind =] theorem snoc_eraseVars :
+    (Γ <: t).eraseVars vs n =
+      let Γ' := Γ.eraseVars vs (n + 1)
+      if ⟨n⟩ ∈ vs then Γ' else Γ' <: t := by
+  apply eq_of_toList; grind
+
+@[simp, grind =] theorem snoc_eraseVars_of_mem (h : ⟨n⟩ ∈ vs) :
+    (Γ <: t).eraseVars vs n = Γ.eraseVars vs (n + 1) := by grind
+
+@[simp, grind =] theorem snoc_eraseVars_of_notMem (h : ⟨n⟩ ∉ vs) :
+    (Γ <: t).eraseVars vs n = Γ.eraseVars vs (n + 1) <: t := by grind
+
 @[grind .]
-theorem getElem?_eraseVars_of_notMem {v : Var} (hv : v ∉ vs) :
-    Γ[v]? = some t → ∃ (w : Var), (Γ.eraseVars vs)[w]? = some t := by
-  sorry
+theorem getElem?_eraseVars_of_notMem {v : Var} (hΓ : Γ[v]? = some t) (hv : v ∉ vs) :
+    ∃ (w : Var), (Γ.eraseVars vs)[w]? = some t :=
+  withVar 0 hΓ hv
+where
+  withVar {Γ : Context τ} {v : Var} (n : Nat) (hΓ : Γ[v]? = some t) (hv : v + n ∉ vs) :
+      ∃ (w : Var), (Γ.eraseVars vs n)[w]? = some t := by
+    induction Γ generalizing v n
+    · grind
+    next Γ t' ih =>
+      cases v
+      case zero => use ⟨0⟩; grind
+      case succ v =>
+        replace hΓ : Γ[v]? = some t := by grind
+        obtain ⟨w, ih⟩ := ih (n+1) hΓ <| by
+          have : (v + 1 : Var) + n = v + (n + 1) := by ext; grind
+          grind
+        by_cases ⟨n⟩ ∈ vs
+        · use w; grind
+        · use w + 1; grind
 
 @[grind .] theorem getElem?_eraseVars :
     (Γ.eraseVars vs)[v]? = some t → (∃ w ∉ vs, Γ[w]? = some t) := by

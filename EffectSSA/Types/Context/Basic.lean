@@ -83,9 +83,15 @@ def eraseVar (v : Var) (Γ : Context τ) : Context τ :=
   ⟨Γ.toList.eraseIdx v.toNat⟩
 
 /--
-`Γ.eraseVars vs` removes a list of variables `vs` from the context.
+`Γ.eraseVars vs` removes a list of variables `vs` from the context,
+optionally starting the first variable at an index other than 0.
+
+For example:
+* `[α, β, γ].eraseVars [0, 2] = [β]`
+* `[α, β, γ].eraseVars [0]    = [β, γ]`
+* `[α, β, γ].eraseVars [0] 1  = [α, γ]`
 -/
-def eraseVars (vs : List Var) (Γ : Context τ) : Context τ where
-  toList := Γ.toList.eraseAllIdxP (⟨·⟩ ∈ vs)
+def eraseVars (vs : List Var) (Γ : Context τ) (n : Nat := 0) : Context τ where
+  toList := Γ.toList.eraseAllIdxP (⟨·⟩ ∈ vs) n
 
 end Context

@@ -47,7 +47,7 @@ instance : DecidableRel ((· ≤ ·) : Var → Var → Prop) := by
 --------------------------------------------------------------------------------
 -/
 
-@[ext]
+@[ext, grind ext]
 theorem toNat_ext {v w : Var} (h : v.toNat = w.toNat) : v = w := by
   cases v; cases w; simpa using h
 
@@ -57,6 +57,9 @@ theorem toNat_ext {v w : Var} (h : v.toNat = w.toNat) : v = w := by
 
 @[simp, grind =] theorem ofNat_add (i n : Nat) : Var.ofNat (i + n) = (Var.ofNat i) + n := rfl
 @[simp, grind =] theorem ofNat_sub (i n : Nat) : Var.ofNat (i - n) = (Var.ofNat i) - n := rfl
+
+@[simp, grind =] theorem zero_add (n : Nat) : (ofNat 0) + n = ofNat n := by grind
+@[simp, grind =] theorem add_zero (v : Var) : v + 0 = v := by rfl
 
 /-!
 ## Metaprogramming API
