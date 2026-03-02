@@ -51,6 +51,50 @@ theorem inBounds_iff_lt_size : v.InBounds Γ ↔ v.toNat < Γ.size := by
 
 end Var
 
+/-!
+## Induction Principles
+--------------------------------------------------------------------------------
+-/
+
+@[elab_as_elim, induction_eliminator]
+def Context.recOn' {motive : Context τ → Sort u}
+    (Γ : Context τ)
+    (empty : motive ∅)
+    (snoc : ∀ Γ t, motive Γ → motive (Γ <: t)) :
+    motive Γ :=
+  go Γ.toList
+where
+  go : (Γ : List _) → motive ⟨Γ⟩
+  | [] => empty
+  | t :: Γ => snoc ⟨Γ⟩ t (go Γ)
+
+@[elab_as_elim, cases_eliminator]
+def Context.casesOn' {motive : Context τ → Sort u}
+    (Γ : Context τ)
+    (empty : motive ∅)
+    (snoc : ∀ Γ t, motive (Γ <: t)) :
+    motive Γ :=
+  recOn' Γ empty (fun Γ t _ => snoc Γ t)
+
+@[elab_as_elim, induction_eliminator]
+def Var.recOn' {motive : Var → Sort u}
+    (v : Var)
+    (zero : motive ⟨0⟩)
+    (succ : ∀ v, motive v → motive (v + 1)) :
+    motive v :=
+  go v.toNat
+where
+  go : (v : Nat) → motive ⟨v⟩
+  | 0 => zero
+  | v + 1 => succ ⟨v⟩ (go v)
+
+@[elab_as_elim, cases_eliminator]
+def Var.casesOn' {motive : Var → Sort u}
+    (v : Var)
+    (zero : motive ⟨0⟩)
+    (succ : ∀ (v : Var), motive (v + 1)) :
+    motive v :=
+  recOn' v zero (fun v _ => succ v)
 
 /-!
 ## Context
@@ -62,12 +106,12 @@ variable {Γ : Context τ} {v : Var}
 /-! ### ext -/
 
 theorem eq_of_toList {Γ Δ : Context τ} (h : Γ.toList = Δ.toList) : Γ = Δ := by
-  cases Γ; cases Δ; grind
+  rcases Γ; rcases Δ; grind
 
 @[ext, grind ext]
 theorem eq_of_getElem?_eq {Γ Δ : Context τ} (h : ∀ (v : Var), Γ[v]? = Δ[v]?) :
     Γ = Δ := by
-  cases Γ; cases Δ
+  rcases Γ; rcases Δ
   apply eq_of_toList
   ext v
   grind [h ⟨v⟩]
@@ -83,7 +127,7 @@ theorem eq_of_getElem?_eq {Γ Δ : Context τ} (h : ∀ (v : Var), Γ[v]? = Δ[v
 
 @[grind →]
 theorem isSome_getElem?_of_inBounds : v.InBounds Γ → Γ[v]?.isSome := by
-  cases Γ; grind
+  rcases Γ; grind
 
 /-! ### getElem -/
 
@@ -112,7 +156,7 @@ theorem getElem?_cons_succ : (Γ <: t)[v + 1]? = Γ[v]? := rfl
 @[simp, typecheck, grind .] theorem isUnrestricted_empty : @isUnrestricted τ ∅ := by
   grind [isUnrestricted]
 
-@[simp, typecheck, grind =] theorem isUnrestricted_cons :
+@[simp, typecheck, grind =] theorem isUnrestricted_snoc :
     (Γ <: t).isUnrestricted ↔ Γ.isUnrestricted ∧ t.isUnrestricted  := by
   unfold isUnrestricted Var.InBounds
   constructor
@@ -134,12 +178,12 @@ theorem getElem?_cons_succ : (Γ <: t)[v + 1]? = Γ[v]? := rfl
     Γ[v]? = some .eff → Γ.isUnrestricted = false := by
   intro hv
   have hv : v.InBounds Γ := by grind
-  have : (Γ[v]).isUnrestricted = false := by cases Γ; grind
+  have : (Γ[v]).isUnrestricted = false := by rcases Γ; grind
   grind [isUnrestricted]
 
 theorem isUnrestricted_iff_getElem? (Γ : Context τ) :
     Γ.isUnrestricted ↔ ∀ (v : Var), ∀ t ∈ Γ[v]?, t.isUnrestricted := by
-  cases Γ; grind [isUnrestricted, Var.inBounds_iff_exists]
+  rcases Γ; grind [isUnrestricted, Var.inBounds_iff_exists]
 
 /-! ### eraseVar -/
 
