@@ -1,6 +1,6 @@
 import EffectSSA.Assumptions.MemorySignature
 import EffectSSA.Syntax.Untyped
-import EffectSSA.Types.Context
+import EffectSSA.Types.Context.Basic
 
 /-!
 # Type Rules
