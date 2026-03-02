@@ -171,6 +171,8 @@ variable {Γ Δ : Context τ} (is : TInstructionSeq Γ Δ) (vs : TVarList Δ ts)
 @[simp, grind =] theorem program_mk' : (mk' is vs h).program = ⟨is.seq, vs.toList⟩ := by rfl
 @[simp, grind =] theorem returnVars_mk' : (mk' is vs h).returnContext = Δ := by grind
 
+end TProgram
+
 /-!
 ## Induction Principles
 --------------------------------------------------------------------------------
