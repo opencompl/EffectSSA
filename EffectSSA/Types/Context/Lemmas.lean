@@ -161,6 +161,9 @@ theorem getElem?_eraseVar {w : Var} :
 /-! ### eraseVar -/
 
 @[simp, typecheck, grind =]
-theorem eraseVars_nil : Γ.eraseVars [] = Γ := by rfl
+theorem eraseVars_nil : Γ.eraseVars [] = Γ := by simp [eraseVars]
+
+@[simp, typecheck, grind =]
+theorem empty_eraseVars : (∅ : Context τ).eraseVars vs = ∅ := by rfl
 
 end Context
