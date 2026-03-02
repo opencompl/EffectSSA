@@ -2,8 +2,6 @@ import EffectSSA.Assumptions.MemorySignature
 import EffectSSA.Syntax.Untyped.Basic
 import EffectSSA.Types.Basic
 
-import EffectSSA.Types.Context.ListErase
-
 import Mathlib.Data.Vector.Defs
 import Mathlib.Data.Fintype.Basic
 
@@ -85,7 +83,7 @@ def eraseVar (v : Var) (Γ : Context τ) : Context τ :=
 /--
 `Γ.eraseVars vs` removes a list of variables `vs` from the context.
 -/
-def eraseVars (vs : List Var) (Γ : Context τ) : Context τ where
-  toList := Γ.toList.eraseAllIdxP (⟨·⟩ ∈ vs)
+def eraseVars (vs : List Var) (Γ : Context τ) : Context τ :=
+  vs.foldr eraseVar Γ
 
 end Context
