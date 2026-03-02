@@ -239,6 +239,21 @@ def TProgram.casesOn' {motive : ∀ {Γ : Context τ} {ts}, TProgram Γ ts → P
 
 @[simp, grind =] theorem TProgram.isUnrestricted_returnContext (p : TProgram Γ ts) :
     p.returnContext.isUnrestricted ↔ Context.isUnrestricted ⟨ts⟩ := by
-  cases p with | mk' is vs h =>
-  -- TODO: finish this proof
-  sorry
+  cases p with | @mk' _ Δ _ is vs h =>
+  simp only [returnVars_mk', Context.isUnrestricted_iff_getElem?, Option.mem_def,
+    Context.getElem?_ofList]
+  constructor
+  · intro hΔ v t ht
+    let w := vs.toList[v.toNat]'(by grind)
+    apply hΔ w _
+    grind [vs.wt ⟨v.toNat, by grind⟩]
+  · intro hts v t hvt
+    rw [Context.isUnrestricted_iff_getElem?, Context.forall_getElem?_eraseVars] at h
+    by_cases hv : v ∈ vs.toList
+    · obtain ⟨i, hi⟩ : ∃ (i : Fin ts.length), vs.toList[i]'(by grind) = v := by
+        obtain ⟨i, hi⟩ := List.getElem?_of_mem hv
+        use ⟨i, by grind⟩
+        grind
+      apply hts (.ofNat i)
+      grind
+    · grind

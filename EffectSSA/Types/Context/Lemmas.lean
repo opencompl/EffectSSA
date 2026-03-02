@@ -9,11 +9,14 @@ import EffectSSA.Types.Simpset
 namespace EffectSSA
 
 /-!
-## Preliminary Context.ofList lemmas
+## Preliminary Context.ofList & Context.toList lemmas
 --------------------------------------------------------------------------------
 -/
 namespace Context
-variable {τ : Ty} (Γ : List τ.Typ) (v : Var)
+variable {τ : Ty}  (v : Var)
+
+section OfList
+variable (Γ : List τ.Typ)
 
 @[simp, grind =] theorem getElem?_ofList : (ofList Γ)[v]? = Γ[v.toNat]? := by rfl
 @[simp, grind =] theorem getElem_ofList (h) : (ofList Γ)[v]'h = Γ[v.toNat] := by rfl
@@ -23,8 +26,16 @@ variable {τ : Ty} (Γ : List τ.Typ) (v : Var)
 -- FIXME: ^^ This ought to be a grind-lemma, but when tagged grind reports:
 --           `invalid pattern, (non-forbidden) application expected #0`
 
-@[simp, grind =] theorem ofList_toList (Γ : Context τ) : ofList Γ.toList = Γ := by rfl
+end OfList
+section ToList
+variable (Γ : Context τ)
 
+@[simp, grind =] theorem ofList_toList : ofList Γ.toList = Γ := by rfl
+
+@[simp, grind =] theorem toList_empty : toList (∅ : Context τ) = [] := by rfl
+@[simp, grind =] theorem toList_snoc : toList (Γ <: t) = t :: Γ.toList := by rfl
+
+end ToList
 end Context
 
 /-!
@@ -51,6 +62,50 @@ theorem inBounds_iff_lt_size : v.InBounds Γ ↔ v.toNat < Γ.size := by
 
 end Var
 
+/-!
+## Induction Principles
+--------------------------------------------------------------------------------
+-/
+
+@[elab_as_elim, induction_eliminator]
+def Context.recOn' {motive : Context τ → Sort u}
+    (Γ : Context τ)
+    (empty : motive ∅)
+    (snoc : ∀ Γ t, motive Γ → motive (Γ <: t)) :
+    motive Γ :=
+  go Γ.toList
+where
+  go : (Γ : List _) → motive ⟨Γ⟩
+  | [] => empty
+  | t :: Γ => snoc ⟨Γ⟩ t (go Γ)
+
+@[elab_as_elim, cases_eliminator]
+def Context.casesOn' {motive : Context τ → Sort u}
+    (Γ : Context τ)
+    (empty : motive ∅)
+    (snoc : ∀ Γ t, motive (Γ <: t)) :
+    motive Γ :=
+  recOn' Γ empty (fun Γ t _ => snoc Γ t)
+
+@[elab_as_elim, induction_eliminator]
+def Var.recOn' {motive : Var → Sort u}
+    (v : Var)
+    (zero : motive ⟨0⟩)
+    (succ : ∀ v, motive v → motive (v + 1)) :
+    motive v :=
+  go v.toNat
+where
+  go : (v : Nat) → motive ⟨v⟩
+  | 0 => zero
+  | v + 1 => succ ⟨v⟩ (go v)
+
+@[elab_as_elim, cases_eliminator]
+def Var.casesOn' {motive : Var → Sort u}
+    (v : Var)
+    (zero : motive ⟨0⟩)
+    (succ : ∀ (v : Var), motive (v + 1)) :
+    motive v :=
+  recOn' v zero (fun v _ => succ v)
 
 /-!
 ## Context
@@ -62,12 +117,12 @@ variable {Γ : Context τ} {v : Var}
 /-! ### ext -/
 
 theorem eq_of_toList {Γ Δ : Context τ} (h : Γ.toList = Δ.toList) : Γ = Δ := by
-  cases Γ; cases Δ; grind
+  rcases Γ; rcases Δ; grind
 
 @[ext, grind ext]
 theorem eq_of_getElem?_eq {Γ Δ : Context τ} (h : ∀ (v : Var), Γ[v]? = Δ[v]?) :
     Γ = Δ := by
-  cases Γ; cases Δ
+  rcases Γ; rcases Δ
   apply eq_of_toList
   ext v
   grind [h ⟨v⟩]
@@ -83,9 +138,12 @@ theorem eq_of_getElem?_eq {Γ Δ : Context τ} (h : ∀ (v : Var), Γ[v]? = Δ[v
 
 @[grind →]
 theorem isSome_getElem?_of_inBounds : v.InBounds Γ → Γ[v]?.isSome := by
-  cases Γ; grind
+  rcases Γ; grind
 
 /-! ### getElem -/
+
+-- FIXME: The `<:` opteration is actually called `snoc`, not `cons`.
+--        All theorem names below should be changed to reflect this.
 
 @[simp, grind =] theorem getElem_cons_zero : (Γ <: t)[Var.ofNat 0]'h = t := rfl
 @[simp, grind =] theorem getElem_cons_succ :
@@ -112,7 +170,7 @@ theorem getElem?_cons_succ : (Γ <: t)[v + 1]? = Γ[v]? := rfl
 @[simp, typecheck, grind .] theorem isUnrestricted_empty : @isUnrestricted τ ∅ := by
   grind [isUnrestricted]
 
-@[simp, typecheck, grind =] theorem isUnrestricted_cons :
+@[simp, typecheck, grind =] theorem isUnrestricted_snoc :
     (Γ <: t).isUnrestricted ↔ Γ.isUnrestricted ∧ t.isUnrestricted  := by
   unfold isUnrestricted Var.InBounds
   constructor
@@ -134,12 +192,12 @@ theorem getElem?_cons_succ : (Γ <: t)[v + 1]? = Γ[v]? := rfl
     Γ[v]? = some .eff → Γ.isUnrestricted = false := by
   intro hv
   have hv : v.InBounds Γ := by grind
-  have : (Γ[v]).isUnrestricted = false := by cases Γ; grind
+  have : (Γ[v]).isUnrestricted = false := by rcases Γ; grind
   grind [isUnrestricted]
 
 theorem isUnrestricted_iff_getElem? (Γ : Context τ) :
     Γ.isUnrestricted ↔ ∀ (v : Var), ∀ t ∈ Γ[v]?, t.isUnrestricted := by
-  cases Γ; grind [isUnrestricted, Var.inBounds_iff_exists]
+  rcases Γ; grind [isUnrestricted, Var.inBounds_iff_exists]
 
 /-! ### eraseVar -/
 
@@ -158,12 +216,70 @@ theorem getElem?_eraseVar {w : Var} :
   rcases Γ with ⟨Γ⟩
   grind [eraseVar]
 
-/-! ### eraseVar -/
+/-! ### eraseVars -/
+
+@[simp, grind =] theorem toList_eraseVars :
+  (Γ.eraseVars vs n).toList = Γ.toList.eraseAllIdxP (⟨·⟩ ∈ vs) n := by rfl
 
 @[simp, typecheck, grind =]
-theorem eraseVars_nil : Γ.eraseVars [] = Γ := by simp [eraseVars]
+theorem eraseVars_nil : Γ.eraseVars [] n = Γ := by simp [eraseVars]
 
 @[simp, typecheck, grind =]
-theorem empty_eraseVars : (∅ : Context τ).eraseVars vs = ∅ := by rfl
+theorem empty_eraseVars : (∅ : Context τ).eraseVars vs n = ∅ := by rfl
+
+@[grind =] theorem snoc_eraseVars :
+    (Γ <: t).eraseVars vs n =
+      let Γ' := Γ.eraseVars vs (n + 1)
+      if ⟨n⟩ ∈ vs then Γ' else Γ' <: t := by
+  apply eq_of_toList; grind
+
+@[simp, grind =] theorem snoc_eraseVars_of_mem (h : ⟨n⟩ ∈ vs) :
+    (Γ <: t).eraseVars vs n = Γ.eraseVars vs (n + 1) := by grind
+
+@[simp, grind =] theorem snoc_eraseVars_of_notMem (h : ⟨n⟩ ∉ vs) :
+    (Γ <: t).eraseVars vs n = Γ.eraseVars vs (n + 1) <: t := by grind
+
+@[grind .]
+theorem getElem?_eraseVars_of_getElem? {v : Var} (hΓ : Γ[v]? = some t) (hv : v ∉ vs) :
+    ∃ (w : Var), (Γ.eraseVars vs)[w]? = some t :=
+  go 0 hΓ hv
+where
+  go {Γ : Context τ} {v : Var} (n : Nat) (hΓ : Γ[v]? = some t) (hv : v + n ∉ vs) :
+      ∃ (w : Var), (Γ.eraseVars vs n)[w]? = some t := by
+    induction Γ generalizing v n
+    case empty => grind
+    case snoc Γ t' ih =>
+      cases v
+      case zero => use ⟨0⟩; grind
+      case succ v =>
+        replace hΓ : Γ[v]? = some t := by grind
+        obtain ⟨w, ih⟩ := ih (n+1) hΓ <| by
+          have : (v + 1 : Var) + n = v + (n + 1) := by ext; grind
+          grind
+        by_cases ⟨n⟩ ∈ vs
+        · use w; grind
+        · use w + 1; grind
+
+@[grind .] theorem getElem?_of_getElem?_eraseVars :
+    (Γ.eraseVars vs)[v]? = some t → (∃ w ∉ vs, Γ[w]? = some t) := by
+  suffices ∀ n,
+    (Γ.eraseVars vs n)[v]? = some t → (∃ (w : Var), w + n ∉ vs ∧ Γ[w]? = some t)
+  by exact this 0
+  intro n hΓ
+  induction Γ generalizing v n
+  case empty => grind
+  case snoc Γ t' ih =>
+    have (w : Var) : w + (n + 1) = (w + 1) + n := by grind
+    by_cases hn : ⟨n⟩ ∈ vs
+    · grind [ih (n + 1)]
+    · replace hΓ : (eraseVars vs Γ (n + 1) <: t')[v]? = some t := by grind
+      cases v
+      · use ⟨0⟩; grind
+      · grind [ih (n + 1)]
+
+@[simp] theorem forall_getElem?_eraseVars (P : τ.Typ → Prop) :
+    (∀ (v : Var), ∀ t ∈ (Γ.eraseVars vs)[v]?, P t)
+    ↔ (∀ (v : Var), ∀ t ∈ Γ[v]?, ¬(v ∈ vs) → P t) := by
+  grind [Option.mem_def]
 
 end Context
