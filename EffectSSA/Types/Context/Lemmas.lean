@@ -158,12 +158,27 @@ theorem getElem?_eraseVar {w : Var} :
   rcases Γ with ⟨Γ⟩
   grind [eraseVar]
 
-/-! ### eraseVar -/
+/-! ### eraseVars -/
 
 @[simp, typecheck, grind =]
 theorem eraseVars_nil : Γ.eraseVars [] = Γ := by simp [eraseVars]
 
 @[simp, typecheck, grind =]
 theorem empty_eraseVars : (∅ : Context τ).eraseVars vs = ∅ := by rfl
+
+variable (Γ) in
+@[grind .]
+theorem getElem?_eraseVars_of_notMem {v : Var} (hv : v ∉ vs) :
+    Γ[v]? = some t → ∃ (w : Var), (Γ.eraseVars vs)[w]? = some t := by
+  sorry
+
+@[grind .] theorem getElem?_eraseVars :
+    (Γ.eraseVars vs)[v]? = some t → (∃ w ∉ vs, Γ[w]? = some t) := by
+  sorry
+
+@[simp] theorem forall_getElem?_eraseVars (P : τ.Typ → Prop) :
+    (∀ (v : Var), ∀ t ∈ (Γ.eraseVars vs)[v]?, P t)
+    ↔ (∀ (v : Var), ∀ t ∈ Γ[v]?, ¬(v ∈ vs) → P t) := by
+  grind [Option.mem_def]
 
 end Context
