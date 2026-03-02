@@ -240,15 +240,15 @@ theorem empty_eraseVars : (∅ : Context τ).eraseVars vs n = ∅ := by rfl
     (Γ <: t).eraseVars vs n = Γ.eraseVars vs (n + 1) <: t := by grind
 
 @[grind .]
-theorem getElem?_eraseVars_of_notMem {v : Var} (hΓ : Γ[v]? = some t) (hv : v ∉ vs) :
+theorem getElem?_eraseVars_of_getElem? {v : Var} (hΓ : Γ[v]? = some t) (hv : v ∉ vs) :
     ∃ (w : Var), (Γ.eraseVars vs)[w]? = some t :=
-  withVar 0 hΓ hv
+  go 0 hΓ hv
 where
-  withVar {Γ : Context τ} {v : Var} (n : Nat) (hΓ : Γ[v]? = some t) (hv : v + n ∉ vs) :
+  go {Γ : Context τ} {v : Var} (n : Nat) (hΓ : Γ[v]? = some t) (hv : v + n ∉ vs) :
       ∃ (w : Var), (Γ.eraseVars vs n)[w]? = some t := by
     induction Γ generalizing v n
-    · grind
-    next Γ t' ih =>
+    case empty => grind
+    case snoc Γ t' ih =>
       cases v
       case zero => use ⟨0⟩; grind
       case succ v =>
@@ -260,9 +260,22 @@ where
         · use w; grind
         · use w + 1; grind
 
-@[grind .] theorem getElem?_eraseVars :
+@[grind .] theorem getElem?_of_getElem?_eraseVars :
     (Γ.eraseVars vs)[v]? = some t → (∃ w ∉ vs, Γ[w]? = some t) := by
-  sorry
+  suffices ∀ n,
+    (Γ.eraseVars vs n)[v]? = some t → (∃ (w : Var), w + n ∉ vs ∧ Γ[w]? = some t)
+  by exact this 0
+  intro n hΓ
+  induction Γ generalizing v n
+  case empty => grind
+  case snoc Γ t' ih =>
+    have (w : Var) : w + (n + 1) = (w + 1) + n := by grind
+    by_cases hn : ⟨n⟩ ∈ vs
+    · grind [ih (n + 1)]
+    · replace hΓ : (eraseVars vs Γ (n + 1) <: t')[v]? = some t := by grind
+      cases v
+      · use ⟨0⟩; grind
+      · grind [ih (n + 1)]
 
 @[simp] theorem forall_getElem?_eraseVars (P : τ.Typ → Prop) :
     (∀ (v : Var), ∀ t ∈ (Γ.eraseVars vs)[v]?, P t)
