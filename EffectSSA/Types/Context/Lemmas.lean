@@ -134,7 +134,7 @@ theorem eq_of_getElem?_eq {Γ Δ : Context τ} (h : ∀ (v : Var), Γ[v]? = Δ[v
 /-! ### size -/
 
 @[simp, grind =] theorem size_empty : size (∅ : Context τ) = 0 := rfl
-@[simp, grind =] theorem size_cons : size (Γ <: t) = Γ.size + 1 := rfl
+@[simp, grind =] theorem size_snoc : size (Γ <: t) = Γ.size + 1 := rfl
 
 @[grind →]
 theorem isSome_getElem?_of_inBounds : v.InBounds Γ → Γ[v]?.isSome := by
@@ -142,15 +142,12 @@ theorem isSome_getElem?_of_inBounds : v.InBounds Γ → Γ[v]?.isSome := by
 
 /-! ### getElem -/
 
--- FIXME: The `<:` opteration is actually called `snoc`, not `cons`.
---        All theorem names below should be changed to reflect this.
-
-@[simp, grind =] theorem getElem_cons_zero : (Γ <: t)[Var.ofNat 0]'h = t := rfl
-@[simp, grind =] theorem getElem_cons_succ :
+@[simp, grind =] theorem getElem_snoc_zero : (Γ <: t)[Var.ofNat 0]'h = t := rfl
+@[simp, grind =] theorem getElem_snoc_succ :
     (Γ <: t)[v + 1]'h = Γ[v]'(by grind) := rfl
 
 @[grind =]
-theorem getElem_cons_eq :
+theorem getElem_snoc_eq :
     (Γ <: t)[v]'h =
       if hz : v = Var.ofNat 0 then
         t
@@ -161,9 +158,9 @@ theorem getElem_cons_eq :
   | .ofNat (i + 1) => simp; grind
 
 @[simp, typecheck, grind =]
-theorem getElem?_cons_zero : (Γ <: t)[Var.ofNat 0]? = some t := rfl
+theorem getElem?_snoc_zero : (Γ <: t)[Var.ofNat 0]? = some t := rfl
 @[simp, typecheck, grind =]
-theorem getElem?_cons_succ : (Γ <: t)[v + 1]? = Γ[v]? := rfl
+theorem getElem?_snoc_succ : (Γ <: t)[v + 1]? = Γ[v]? := rfl
 
 /-! ### isUnrestricted -/
 
