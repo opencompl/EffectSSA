@@ -322,7 +322,7 @@ theorem le_fork : c ≤ c.fork.fst ∧ c ≤ c.fork.snd := by grind
 /--
 `c.fork.fst` is independent from `c.fork.snd`.
 -/
-theorem indep_fork: c.fork.fst # c.fork.snd := by
+theorem indep_fork : c.fork.fst # c.fork.snd := by
   sorry
 
 variable {c c'} in
