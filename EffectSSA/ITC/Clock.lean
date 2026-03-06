@@ -429,12 +429,9 @@ end CanonicalIdTree
 
 
 namespace Clock
-def join : Clock → Clock → Clock
-  | ⟨i₁, e₁⟩, ⟨i₂, e₂⟩ => ⟨i₁.sum i₂, max e₁ e₂ + 1⟩
-  -- -----------------------------------------  ^^^
-  -- For now, we're incrementing both here and in the fork/split semantics,
-  -- just to be sure. One of these ought to be redundant, but we'll figure out
-  -- which one later
+def join (c₁ : Clock) (c₂ : Clock) : Clock where
+  i := .sum c₁.i c₂.i
+  e := (max c₁.e c₂.e) + 1
 
 section JoinLemmas
 variable {c₁ c₂ c' : Clock}
