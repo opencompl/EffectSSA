@@ -369,7 +369,7 @@ def sum (i₁ : CanonicalIdTree) (i₂ : CanonicalIdTree) : CanonicalIdTree :=
 section SumLemmas
 variable {i₁ i₂ : CanonicalIdTree}
 
-@[simp] theorem sum_mk {t₁ t₂ : IdTree} {h₁ : t₁.normalize = t₁} {h₂ : t₂.normalize = t₂} :
+@[simp, grind =] theorem sum_mk {t₁ t₂ : IdTree} {h₁ : t₁.normalize = t₁} {h₂ : t₂.normalize = t₂} :
     sum ⟨t₁, h₁⟩ ⟨t₂, h₂⟩ = ⟨t₁.sum t₂, by grind⟩ := rfl
 
 /-- Custom functional induction principle for `CanonicalIdTree.sum`. -/
@@ -388,14 +388,7 @@ theorem sum.induct_unfolding (motive : CanonicalIdTree → CanonicalIdTree → C
   rcases i₂ with ⟨i₂, h₂⟩
   simp only [sum_mk]
   fun_induction IdTree.sum i₁ i₂ with
-  | case5 l₁ r₁ l₂ r₂ l r ihl ihr =>
-      -- TODO: the following should be reducable to just `grind`, with appropriate grind-lemmas
-      have : l₁.normalize = l₁ := by grind
-      have : l₂.normalize = l₂ := by grind
-      have : r₁.normalize = r₁ := by grind
-      have : r₂.normalize = r₂ := by grind
-      simp [*]
-      apply case5 <;> (simp; grind)
+  | case5 l₁ r₁ l₂ r₂ l r ihl ihr => grind
   | _ => grind
 
 theorem sum_le : i₁ ≤ sum i₁ i₂ ∧ i₂ ≤ sum i₁ i₂ := by

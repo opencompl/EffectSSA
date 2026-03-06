@@ -109,7 +109,7 @@ theorem node_injective :
 @[simp, grind =] theorem mk_node_eq_node {l r : IdTree} (h : (IdTree.node l r).normalize = .node l r) :
     (⟨.node l r, h⟩ : CanonicalIdTree) = node ⟨l, by grind⟩ ⟨r, by grind⟩ := by rfl
 
-@[simp] theorem mk_normalize_node {l r : IdTree} :
+@[simp, grind =] theorem mk_normalize_node {l r : IdTree} :
     ⟨(IdTree.node l r).normalize, by grind⟩ = node' ⟨l.normalize, by grind⟩ ⟨r.normalize, by grind⟩ := by
   simp [node', IdTree.normalize]
 
