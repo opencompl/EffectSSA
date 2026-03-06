@@ -320,7 +320,7 @@ variable (c c' : Clock)
 theorem le_fork : c ≤ c.fork.fst ∧ c ≤ c.fork.snd := by grind
 
 /--
-`c.fork.fst` is independent from `c.fork.snd`.
+The results of a `fork` are independent.
 -/
 theorem indep_fork : c.fork.fst # c.fork.snd := by
   sorry
@@ -329,7 +329,7 @@ variable {c c'} in
 /--
 If `c` is independent from `c'`, then the same holds for either result of `c.fork`.
 -/
-theorem indep_fork' (h : c # c') : c.fork.fst # c' ∧ c.fork.snd # c' := by
+theorem indep_fork_congr (h : c # c') : c.fork.fst # c' ∧ c.fork.snd # c' := by
   sorry
 
 end ForkLemmas
@@ -457,7 +457,7 @@ theorem le_join (c₁ c₂ : Clock) : c₁ ≤ c₁.join c₂ ∧ c₂ ≤ c₁.
 If `c₁` and `c₂` are both independent from `c'`,
 then the same holds for `c₁.join c₂`.
 -/
-theorem indep_join (h₁ : c₁ # c') (h₂ : c₂ # c') : c₁.join c₂ # c' := by
+theorem indep_join_congr (h₁ : c₁ # c') (h₂ : c₂ # c') : c₁.join c₂ # c' := by
   -- TODO: finish proof
   sorry
 
