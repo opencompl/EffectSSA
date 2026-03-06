@@ -15,11 +15,13 @@ variable (τ : Ty) [MemoryModel τ]
 --------------------------------------------------------------------------------
 -/
 
+namespace ExecM
+/-- `TypeErrM α` represents either a type-error, or a value of type `α`. -/
+abbrev TypeErrM : Type → Type := Option
+end ExecM
+
 /-- `ExecM` is the monad in which programs are executed. -/
-def ExecM := StateT (Option <| Trace τ) TypeErrM
-  where
-    /-- `TypeErrM α` represents either a type-error, or a value of type `α`. -/
-    TypeErrM := Option
+def ExecM := StateT (Option <| Trace τ) ExecM.TypeErrM
 
 /-!
 ## Definitions
@@ -32,13 +34,10 @@ variable {τ}
 
 /-! Show that `ExecM` is in fact a (lawful) monad. -/
 section Monad
-instance : Monad (ExecM τ) := by unfold ExecM ExecM.TypeErrM; infer_instance
-instance : LawfulMonad (ExecM τ) := by unfold ExecM ExecM.TypeErrM; infer_instance
-instance : MonadState (Option <| Trace τ) (ExecM τ) := by unfold ExecM ExecM.TypeErrM; infer_instance
-instance : MonadStateOf (Option <| Trace τ) (ExecM τ) := by unfold ExecM ExecM.TypeErrM; infer_instance
-
-instance : Monad (ExecM.TypeErrM) := by unfold ExecM.TypeErrM; infer_instance
-instance : LawfulMonad (ExecM.TypeErrM) := by unfold ExecM.TypeErrM; infer_instance
+instance : Monad (ExecM τ) := by unfold ExecM; infer_instance
+instance : LawfulMonad (ExecM τ) := by unfold ExecM; infer_instance
+instance : MonadState (Option <| Trace τ) (ExecM τ) := by unfold ExecM; infer_instance
+instance : MonadStateOf (Option <| Trace τ) (ExecM τ) := by unfold ExecM; infer_instance
 
 instance : MonadLift ExecM.TypeErrM (ExecM τ) := by unfold ExecM; infer_instance
 instance : LawfulMonadLift ExecM.TypeErrM (ExecM τ) := by unfold ExecM; infer_instance
