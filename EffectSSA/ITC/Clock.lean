@@ -298,6 +298,9 @@ theorem not_le_split (h : i ≠ zero) : ¬(i ≤ i.split.1) ∧ ¬(i ≤ i.split
 @[simp, grind .] theorem not_le_split_fst (h : i ≠ zero) : ¬(i ≤ i.split.1) := (not_le_split h).1
 @[simp, grind .] theorem not_le_split_snd (h : i ≠ zero) : ¬(i ≤ i.split.2) := (not_le_split h).2
 
+@[simp, grind .] theorem indep_split (h : i ≠ zero) : i.split.fst # i.split.snd := by
+  induction i using split.induct_unfolding <;> grind
+
 end SplitLemmas
 end CanonicalIdTree
 
@@ -322,8 +325,7 @@ theorem le_fork : c ≤ c.fork.fst ∧ c ≤ c.fork.snd := by grind
 /--
 The results of a `fork` are independent.
 -/
-theorem indep_fork : c.fork.fst # c.fork.snd := by
-  sorry
+theorem indep_fork (h : c.i ≠ .zero) : c.fork.fst # c.fork.snd := by grind
 
 variable {c c'} in
 /--
