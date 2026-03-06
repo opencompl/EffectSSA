@@ -115,6 +115,14 @@ instance : DecidableLE CanonicalIdTree := by
   <;> grind
 
 @[simp, grind .] theorem le_refl : i ≤ i := by induction i <;> grind
+@[simp, grind .] theorem le_trans {i₁ i₂ i₃ : CanonicalIdTree} : i₁ ≤ i₂ → i₂ ≤ i₃ → i₁ ≤ i₃ := by
+  induction i₁ generalizing i₂ i₃ <;> try grind
+  cases i₂ <;> try grind
+  cases i₃ <;> grind
+
+instance : Std.IsPreorder CanonicalIdTree where
+  le_refl _ := le_refl
+  le_trans _ _ _ := le_trans
 
 -- NOTE: we deliberatelyy put `le_iff` just before closing the namespace, as it
 --       would otherwise cause divergence with the local `le_iff'` simp-lemma.
@@ -164,11 +172,24 @@ section GenericUnrelLemmas
 variable {α : Type _} [LE α] {x y : α}
 
 @[grind =] theorem unrel_iff : x # y ↔ ¬(x ≤ y) ∧ ¬(y ≤ x) := by rfl
+@[grind =] theorem not_unrel_iff : ¬(x # y) ↔ x ≤ y ∨ y ≤ x := by grind
 
 instance [DecidableLE α] : Decidable (x # y) := by unfold Unrelated; infer_instance
 
+/-- `#` is symmetric -/
 theorem unrel_symm : x # y ↔ y # x := by grind
+instance : Std.Symm (@Unrelated α _) where
+  symm _ _ := @unrel_symm.mp
+
+/-!
+`#` is irreflexive (when `≤` is reflexive)
+-/
+
 theorem unrel_refl_iff : x # x ↔ ¬(x ≤ x) := by grind
+
+@[simp, grind .] theorem unrel_irrefl [Std.Refl (@LE.le α _)] (x : α) : ¬(x # x) := by
+  simp [unrel_refl_iff, Std.Refl.refl]
+instance [Std.Refl (@LE.le α _)] : Std.Irrefl (@Unrelated α _) where irrefl := unrel_irrefl
 
 end GenericUnrelLemmas
 
@@ -177,7 +198,7 @@ variable {i j : CanonicalIdTree} {c₁ c₂ : Clock}
 /-! ### CanonicalIdTree Unrelated lemmas -/
 namespace CanonicalIdTree
 
-@[simp, grind .] theorem unrefl_irrefl : ¬(i # i) := by grind
+@[simp, grind .] theorem unrel_irrefl : ¬(i # i) := by grind
 
 @[simp, grind .] theorem not_unrel_zero : ¬(i # zero) := by grind
 @[simp, grind .] theorem not_zero_unrel : ¬(zero # j) := by grind
@@ -317,10 +338,14 @@ variable (c c' : Clock)
 @[simp, grind =] theorem e_fork_fst : c.fork.1.e = c.e := by rfl
 @[simp, grind =] theorem e_fork_snd : c.fork.2.e = c.e := by rfl
 
-/--
-`c` happens-before both results of `c.fork`
+/-!
+`c` (strictly) happens-before both results of `c.fork`
 -/
-theorem le_fork : c ≤ c.fork.fst ∧ c ≤ c.fork.snd := by grind
+@[simp, grind .] theorem le_fork_snd : c ≤ c.fork.snd := by grind
+@[simp, grind .] theorem le_fork_fst : c ≤ c.fork.fst := by grind
+
+@[simp, grind .] theorem not_fork_fst_le (h : c.i ≠ .zero) : ¬(c.fork.fst ≤ c) := by grind
+@[simp, grind .] theorem not_fork_snd_le (h : c.i ≠ .zero) : ¬(c.fork.snd ≤ c) := by grind
 
 /--
 The results of a `fork` are independent.
