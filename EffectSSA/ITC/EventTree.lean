@@ -110,6 +110,13 @@ attribute [local grind] lift sink
 @[simp, grind =] theorem sink_sink : (e.sink k).sink m = e.sink (k + m) := by
   induction e generalizing k m <;> grind
 
+@[simp] theorem sink_eq_self : e.sink k = e ↔ (k = 0 ∨ e.maxValue = 0) := by
+  induction e generalizing k
+  · grind
+  · by_cases hk : k = 0
+    · grind
+    · simp_all; grind
+
 @[simp] theorem rootValue_le_maxValue : e.rootValue ≤ e.maxValue := by cases e <;> grind
 grind_pattern rootValue_le_maxValue => e.rootValue, e.maxValue
 
@@ -191,8 +198,8 @@ end Lemmas
 -/
 section Denote
 
-def denote : EventTree → Rat → Nat
-  | .leaf n, x => if 0 ≤ x ∧ x < 1 then n else 0
+def denote : EventTree → Rat → Int
+  | .leaf n, x => if 0 ≤ x ∧ x < 1 then (n : Int) else 0
   | .node n l r, x =>
     if 0 ≤ x ∧ x < 1 then
       n + l.denote (2 * x) + r.denote (2 * x - 1)
@@ -204,47 +211,33 @@ variable {e : EventTree} {l r : EventTree} {n : Nat} {x : Rat}
 
 attribute [local grind] denote
 
+@[grind =] theorem denote_leaf : (leaf n).denote x = if 0 ≤ x ∧ x < 1 then n else 0 := by rfl
+@[grind =] theorem denote_node :
+    (node n l r).denote x
+    = if 0 ≤ x ∧ x < 1 then
+        n + l.denote (2 * x) + r.denote (2 * x - 1)
+      else
+        0 := by rfl
+
 @[simp, grind =] theorem denote_leaf_of (hx : 0 ≤ x ∧ x < 1) : (leaf n).denote x = n := by grind
 @[simp, grind =] theorem denote_node_of (hx : 0 ≤ x ∧ x < 1) :
     (node n l r).denote x = n + l.denote (2 * x) + r.denote (2 * x - 1) := by
   grind
 
+@[simp, grind =] theorem denote_sink : (e.sink k).denote x = e.denote x - k := by
+  sorry
+
+theorem denote_normalize : e.normalize.denote = e.denote := by
+  funext x
+  induction e generalizing x
+  · grind
+  · simp [normalize_node, denote_node, denote_sink, *]
+    split
+    · grind
+    · rfl
+
 end DenoteLemmas
 end Denote
-
-/-
-TODO: the comparison and join sections should be moved to the Clock.lean file
-This file is just for the basic setup
--/
-
-/-!
-## Comparison (≤)
--/
-section Comparison
-
-/--
-Event tree ordering: `e₁ ≤ e₂` means that at every point in `[0,1]`,
-the value of `e₁` is at most the value of `e₂`.
--/
-def le : EventTree → EventTree → Bool
-  | leaf n₁, leaf n₂ => n₁ ≤ n₂
-  | leaf n₁, node n₂ l₂ r₂ => n₁ ≤ n₂ ∧ le (leaf 0) l₂ ∧ le (leaf 0) r₂
-  | node n₁ l₁ r₁, leaf n₂ => n₁ ≤ n₂ ∧ le l₁ (leaf (n₂ - n₁)) ∧ le r₁ (leaf (n₂ - n₁))
-  | node n₁ l₁ r₁, node n₂ l₂ r₂ =>
-    if n₁ ≤ n₂ then
-      le l₁ (l₂.lift (n₂ - n₁)) ∧ le r₁ (r₂.lift (n₂ - n₁))
-    else
-      le (l₁.lift (n₁ - n₂)) l₂ ∧ le (r₁.lift (n₁ - n₂)) r₂
-termination_by e₁ e₂ => e₁.depth + e₂.depth
-decreasing_by all_goals sorry
-
-instance : LE EventTree := ⟨fun e₁ e₂ => le e₁ e₂⟩
-
-instance : DecidableRel (α := EventTree) (· ≤ ·) := fun e₁ e₂ =>
-  if h : le e₁ e₂ then isTrue h else isFalse h
-
-end Comparison
-
 
 end EventTree
 end EffectSSA.ITC

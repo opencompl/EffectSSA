@@ -23,7 +23,7 @@ namespace CanonicalEventTree
 section Lemmas
 variable {e f : CanonicalEventTree}
 
-attribute [grind =] CanonicalEventTree.eq_normalize
+attribute [simp, grind =_] CanonicalEventTree.eq_normalize
 
 @[ext, grind ext]
 theorem ext : e.raw = f.raw → e = f := by
@@ -109,7 +109,7 @@ def node' (n : Nat) (l r : CanonicalEventTree) : CanonicalEventTree :=
   let m := min l.rootValue r.rootValue
   let l' := l.sink m
   let r' := r.sink m
-  node n l' r'
+  node (n + m) l' r'
 
 /-! ### Constructor Lemmas -/
 section CtorLemmas
@@ -118,7 +118,8 @@ variable {e : CanonicalEventTree} {l r : CanonicalEventTree} {n : Nat} {hmin}
 @[simp, grind =] theorem raw_zero : zero.raw = .leaf 0 := rfl
 @[simp, grind =] theorem raw_leaf : (leaf n).raw = .leaf n := rfl
 @[simp, grind =] theorem raw_node : (node n l r hmin).raw = .node n l.raw r.raw := rfl
--- @[simp, grind =] theorem raw_node' : (node' n l r).raw = (EventTree.node n l.raw r.raw).normalize := rfl
+@[simp, grind =] theorem raw_node' : (node' n l r).raw = (EventTree.node n l.raw r.raw).normalize := by
+  grind [node']
 
 @[simp, grind .] theorem eq_zero_iff : e = zero ↔ e.raw = .leaf 0 := by grind
 @[simp, grind .] theorem eq_leaf_iff : e = leaf n ↔ e.raw = .leaf n := by grind
@@ -179,5 +180,44 @@ def cases' {motive : CanonicalEventTree → Sort u}
 
 end Recursion
 
+/-! ## Denotation -/
+
+/-!
+## Denotation
+-/
+section Denote
+
+def denote : CanonicalEventTree → Rat → Nat := (go ·.raw)
+  where go : EventTree → Rat → Nat
+  | .leaf n, x => if 0 ≤ x ∧ x < 1 then n else 0
+  | .node n l r, x =>
+    if 0 ≤ x ∧ x < 1 then
+      n + go l (2 * x) + go r (2 * x - 1)
+    else
+      0
+
+section DenoteLemmas
+variable {e l r: CanonicalEventTree} {n : Nat} {x : Rat}
+
+
+@[grind =] theorem denote_leaf : (leaf n).denote x = if 0 ≤ x ∧ x < 1 then n else 0 := by rfl
+@[grind =] theorem denote_node :
+    (node n l r hmin).denote x
+    = if 0 ≤ x ∧ x < 1 then
+        n + l.denote (2 * x) + r.denote (2 * x - 1)
+      else
+        0 := by rfl
+
+@[simp, grind =] theorem denote_leaf_of (hx : 0 ≤ x ∧ x < 1) : (leaf n).denote x = n := by grind
+@[simp, grind =] theorem denote_node_of (hx : 0 ≤ x ∧ x < 1) :
+    (node n l r hmin).denote x = n + l.denote (2 * x) + r.denote (2 * x - 1) := by grind
+
+@[simp, grind =] theorem denote_node'_of (hx : 0 ≤ x ∧ x < 1) :
+    (node' n l r).denote x = n + l.denote (2 * x) + r.denote (2 * x - 1) := by
+  simp [node', hx]
+  grind
+
+end DenoteLemmas
+end Denote
 end CanonicalEventTree
 end EffectSSA.ITC
