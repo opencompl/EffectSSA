@@ -63,7 +63,7 @@ open execM (modifyTrace)
 
 @[simp, grind =] theorem execM_storeI :
     execM env (.storeI t p x) = do
-      modifyTrace (Semantics.store (← env.getPtr p) (← env.getData x t))
+      modifyTrace (Semantics.store (← env.getPtr? p) (← env.getData? x t))
       return env :=
   rfl
 
@@ -80,10 +80,6 @@ variable {env : Environment τ}
 
 @[simp, grind =] theorem get?_snoc_zero :
     (env.snoc x).get? ⟨0⟩ = pure x := rfl
-
-@[simp, grind =] theorem getAs_snoc_zero :
-    (env.snoc ⟨t, x⟩).getAs ⟨0⟩ t = pure x := by
-  simp [getAs, getAs?]
 
 @[simp, grind =] theorem getAs?_snoc_zero :
     (env.snoc ⟨t, x⟩).getAs? ⟨0⟩ t = some x := by
@@ -164,10 +160,10 @@ theorem isSome_get?_of_wellTyped (wt : WellTyped Γ env) :
   have : x.InBounds Γ := by grind
   cases env; grind
 
-@[grind <=]
-theorem isSome_get_of_wellTyped {Γ} {env : Environment τ} (wt : WellTyped Γ env) :
-    ∀ x, Γ[x]?.isSome → (env.get x).isSome :=
-  isSome_get?_of_wellTyped wt
+-- @[grind <=]
+-- theorem isSome_get?_of_wellTyped {Γ} {env : Environment τ} (wt : WellTyped Γ env) :
+--     ∀ x, Γ[x]?.isSome → (env.get? x).isSome :=
+--   isSome_get?_of_wellTyped wt
 
 end Semantics.Environment
 

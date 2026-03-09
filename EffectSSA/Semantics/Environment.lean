@@ -92,13 +92,6 @@ def get? (env : Environment τ) (v : Var) : Option τ.Val :=
   env.toList[v.toNat]?
 
 /--
-`env.get v` retrieves the (untyped) value environment `env` associates with
-the variable `v`. Throws a TypErr if the variable does not exist.
--/
-def get (env : Environment τ) (v : Var) : ExecM.TypeErrM τ.Val :=
-  env.get? v
-
-/--
 `env.getAs? v t` retrieves the value environment `env` associates with the
 variable `v`, and then attempts to coerce this to be a typed value of type `t`.
 Returns `none` if `v` has a type different from `t`, or if `v` is not present in
@@ -111,29 +104,18 @@ def getAs? (env : Environment τ) (v : Var) (t : τ.Typ) : Option (τ.TVal t) :=
   else
     none
 
-/--
-`env.getAs v t` retrieves the value environment `env` associates with a
-variable `v`, and then attempts to coerce this to be a typed value of type `t`.
-Throws a type error if `v` has a type different from `t`, or if `v` is not
-present in the environment.
-
-See also `Environment.getAs?`, which returns none instead.
--/
-def getAs (env : Environment τ) (v : Var) (t : τ.Typ) : ExecM.TypeErrM (τ.TVal t) :=
-  env.getAs? v t
-
-/-- Retrieve a pointer via `getAs`. -/
+/-- Retrieve a pointer via `getAs?`. -/
 @[simp, grind =]
-def getPtr (env : Environment τ) (v : Var) : ExecM.TypeErrM τ.Ptr := env.getAs v .ptr
+def getPtr? (env : Environment τ) (v : Var) : Option τ.Ptr := env.getAs? v .ptr
 
 /-- Retrieve an effect trace via `getAs`. -/
 @[simp, grind =]
-def getEff (env : Environment τ) (v : Var) : ExecM.TypeErrM (Trace τ) := env.getAs v .eff
+def getEff? (env : Environment τ) (v : Var) : Option (Trace τ) := env.getAs? v .eff
 
 /-- Retrieve a data value via `getAs`. -/
 @[simp, grind =]
-def getData (env : Environment τ) (v : Var) (t : τ.DType) : ExecM.TypeErrM (τ.DVal t) :=
-  env.getAs v (.data t)
+def getData? (env : Environment τ) (v : Var) (t : τ.DType) : Option (τ.DVal t) :=
+  env.getAs? v (.data t)
 
 /-! #### Environment Constructors -/
 

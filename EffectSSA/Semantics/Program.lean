@@ -36,41 +36,41 @@ by `i` removed.
 def Instruction.execM (env : Environment τ) : (i : Instruction τ) → ExecM τ (Environment τ)
   -- Implicit (i.e, side-effecting) memory operations
   | .loadI t p => do
-    let val ← modifyGetTrace <| load t (←env.getPtr p)
+    let val ← modifyGetTrace <| load t (←env.getPtr? p)
     return env.snoc val
   | .storeI t p x => do
-    modifyTrace <| store (←env.getPtr p) (←env.getData x t)
+    modifyTrace <| store (←env.getPtr? p) (←env.getData? x t)
     return env
   | .allocI t p => do
-    modifyTrace (alloc t (←env.getPtr p))
+    modifyTrace (alloc t (←env.getPtr? p))
     return env
   | .freeI t p => do
-    modifyTrace (free t (←env.getPtr p))
+    modifyTrace (free t (←env.getPtr? p))
     return env
   -- EffectSSA memory operations
   | .loadE t eff p => do
-    let (val, trace) := load t (←env.getPtr p) (←env.getEff eff)
+    let (val, trace) := load t (←env.getPtr? p) (←env.getEff? eff)
     let env := env.eraseVar eff
     return env.snoc trace |>.snoc val
   | .storeE t eff p x => do
-    let trace := store (←env.getPtr p) (←env.getData x t) (←env.getEff eff)
+    let trace := store (←env.getPtr? p) (←env.getData? x t) (←env.getEff? eff)
     let env := env.eraseVar eff
     return env.snoc trace
   | .allocE t eff p => do
-    let trace := alloc t (←env.getPtr p) (←env.getEff eff)
+    let trace := alloc t (←env.getPtr? p) (←env.getEff? eff)
     let env := env.eraseVar eff
     return env.snoc trace
   | .freeE t eff p => do
-    let trace := free t (←env.getPtr p) (←env.getEff eff)
+    let trace := free t (←env.getPtr? p) (←env.getEff? eff)
     let env := env.eraseVar eff
     return env.snoc trace
   -- Split / Merge
   | .split eff => do
-    let trace := Semantics.split (← env.getEff eff)
+    let trace := Semantics.split (← env.getEff? eff)
     let env := env.eraseVar eff
     return env.snoc trace |>.snoc trace
   | .merge eff₁ eff₂ => do
-    let trace := Semantics.merge (← env.getEff eff₁) (← env.getEff eff₂)
+    let trace := Semantics.merge (← env.getEff? eff₁) (← env.getEff? eff₂)
     let env := env.eraseVar eff₁ |>.eraseVar eff₂
     return env.snoc trace
   -- Effect state bookkeeping operations
@@ -78,7 +78,7 @@ def Instruction.execM (env : Environment τ) : (i : Instruction τ) → ExecM τ
     let trace ← takeTrace
     return env.snoc trace
   | .consumeEff e => do
-    putTrace (←env.getEff e)
+    putTrace (←env.getEff? e)
     return env.eraseVar e
 where
   /--
@@ -144,8 +144,7 @@ Executes against the trace in the mondic state.
 -/
 def Program.execM (env : Environment τ) (p : Program τ) : ExecM τ (Environment τ) := do
   let env ← p.instructions.execM env
-  let res : ExecM.TypeErrM _ := env.limitTo? p.returnVars
-  res
+  env.limitTo? p.returnVars
 
 /--
 Return the value assigned to the return variables of a program (fragment) `p`,
