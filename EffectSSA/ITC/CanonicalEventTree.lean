@@ -19,7 +19,7 @@ structure CanonicalEventTree where
 
 namespace CanonicalEventTree
 
-/-! ## Basic Lemmas -/
+/-! ## Basic Structural Lemmas -/
 section Lemmas
 variable {e f : CanonicalEventTree}
 
@@ -39,18 +39,53 @@ theorem ext : e.raw = f.raw → e = f := by
 
 end Lemmas
 
+/-! ## Basic Definitions -/
+section Defs
+
+def lift (k : Nat) (e : CanonicalEventTree) : CanonicalEventTree where
+  raw := e.raw.lift k
+  eq_normalize := by
+    rcases e with ⟨_|_, _⟩ <;> grind
+
+def sink (e : CanonicalEventTree) (m : Nat) : CanonicalEventTree where
+  raw := e.raw.sink m
+
+@[grind] def rootValue (e : CanonicalEventTree) : Nat := e.raw.rootValue
+@[grind] def maxValue (e : CanonicalEventTree) : Nat := e.raw.maxValue
+
+section Lemmas
+variable {e : CanonicalEventTree} {n m k : Nat}
+
+attribute [local grind] sink rootValue maxValue
+
+/-! ### Raw projection lemmas -/
+
+@[simp, grind =] theorem raw_sink : (e.sink k).raw = e.raw.sink k := rfl
+@[simp, grind =] theorem raw_lift : (e.lift k).raw = e.raw.lift k := rfl
+
+@[simp, grind =] theorem sink_zero : e.sink 0 = e := by grind
+@[simp, grind =] theorem lift_zero : e.lift 0 = e := by grind
+
+@[simp, grind =] theorem rootValue_sink : (e.sink k).rootValue = e.rootValue - k := by grind
+@[simp, grind =] theorem maxValue_sink : (e.sink k).maxValue = e.maxValue - k := by grind
+
+@[simp] theorem rootValue_le_maxValue : e.rootValue ≤ e.maxValue := by grind
+grind_pattern rootValue_le_maxValue => e.rootValue, e.maxValue
+
+end Lemmas
+end Defs
+
 /-! ## Constructors -/
 section Ctors
-
-/-- The canonical representation of the constant zero function. -/
-@[match_pattern]
-def zero : CanonicalEventTree where
-  raw := .leaf 0
 
 /-- A leaf with value `n`. -/
 @[match_pattern]
 def leaf (n : Nat) : CanonicalEventTree where
   raw := .leaf n
+
+/-- The canonical representation of the constant zero function. -/
+@[match_pattern]
+abbrev zero : CanonicalEventTree := leaf 0
 
 /--
 A node with base value `n` and children `l` and `r`.
@@ -58,14 +93,10 @@ Requires that the node is canonical, i.e., `min l.rootValue r.rootValue = 0`.
 -/
 @[match_pattern]
 def node (n : Nat) (l r : CanonicalEventTree)
-    (hmin : min l.raw.rootValue r.raw.rootValue = 0 := by simp; try omega) :
+    (hmin : min l.raw.rootValue r.raw.rootValue = 0 := by simp; try grind) :
     CanonicalEventTree where
   raw := .node n l.raw r.raw
-  eq_normalize := by
-    rcases l with ⟨l, hl⟩
-    rcases r with ⟨r, hr⟩
-    simp only [EventTree.normalize, hl, hr]
-    simp [hmin]
+  eq_normalize := by grind
 
 /--
 `node'` returns a canonical event tree equivalent to the node with base value `n`
@@ -74,8 +105,11 @@ and children `l` and `r`.
 NOTE: the normalization means that the result of `node'` may have a different
 base value than `n` if the minimum of the children's root values is non-zero.
 -/
-def node' (n : Nat) (l r : CanonicalEventTree) : CanonicalEventTree where
-  raw := (EventTree.node n l.raw r.raw).normalize
+def node' (n : Nat) (l r : CanonicalEventTree) : CanonicalEventTree :=
+  let m := min l.rootValue r.rootValue
+  let l' := l.sink m
+  let r' := r.sink m
+  node n l' r'
 
 /-! ### Constructor Lemmas -/
 section CtorLemmas
@@ -84,7 +118,7 @@ variable {e : CanonicalEventTree} {l r : CanonicalEventTree} {n : Nat} {hmin}
 @[simp, grind =] theorem raw_zero : zero.raw = .leaf 0 := rfl
 @[simp, grind =] theorem raw_leaf : (leaf n).raw = .leaf n := rfl
 @[simp, grind =] theorem raw_node : (node n l r hmin).raw = .node n l.raw r.raw := rfl
-@[simp, grind =] theorem raw_node' : (node' n l r).raw = (EventTree.node n l.raw r.raw).normalize := rfl
+-- @[simp, grind =] theorem raw_node' : (node' n l r).raw = (EventTree.node n l.raw r.raw).normalize := rfl
 
 @[simp, grind .] theorem eq_zero_iff : e = zero ↔ e.raw = .leaf 0 := by grind
 @[simp, grind .] theorem eq_leaf_iff : e = leaf n ↔ e.raw = .leaf n := by grind
@@ -93,6 +127,17 @@ variable {e : CanonicalEventTree} {l r : CanonicalEventTree} {n : Nat} {hmin}
 @[simp] theorem leaf_zero_eq_zero : leaf 0 = zero := rfl
 
 @[simp, grind =] theorem mk_leaf_eq_leaf {h} : (⟨.leaf n, h⟩ : CanonicalEventTree) = leaf n := rfl
+
+/-! #### Basic Definitions -/
+
+@[simp, grind =] theorem rootValue_leaf : (leaf n).rootValue = n := rfl
+@[simp, grind =] theorem rootValue_node : (node n l r hmin).rootValue = n := rfl
+
+@[simp, grind =] theorem maxValue_leaf : (leaf n).maxValue = n := rfl
+@[simp, grind =] theorem maxValue_node : (node n l r hmin).maxValue = n + max l.maxValue r.maxValue := rfl
+
+@[simp, grind =] theorem lift_leaf : lift k (leaf n) = leaf (n + k) := rfl
+@[simp, grind =] theorem lift_node : lift k (node n l r hmin) = node (n + k) l r hmin := rfl
 
 end CtorLemmas
 end Ctors
@@ -105,27 +150,20 @@ Recursion principle for `CanonicalEventTree` using the high-level constructors.
 -/
 @[elab_as_elim, induction_eliminator]
 def rec' {motive : CanonicalEventTree → Sort u}
-    (leaf : ∀ (n : Nat), motive (CanonicalEventTree.leaf n))
+    (leaf : ∀ (n : Nat), motive (leaf n))
     (node : ∀ (n : Nat) (l r : CanonicalEventTree)
       (hmin : min l.raw.rootValue r.raw.rootValue = 0),
-      motive l → motive r → motive (CanonicalEventTree.node n l r hmin))
+      motive l → motive r → motive (node n l r hmin))
     (t : CanonicalEventTree) : motive t :=
   go t.raw t.eq_normalize
   where
     go : (raw : EventTree) → (h_canon : raw.normalize = raw) → motive ⟨raw, h_canon⟩
     | .leaf n, _ => leaf n
     | .node n l r, hcanon =>
-      let l' : CanonicalEventTree := ⟨l, by
-        simp only [EventTree.normalize] at hcanon
-        split at hcanon <;> simp_all⟩
-      let r' : CanonicalEventTree := ⟨r, by
-        simp only [EventTree.normalize] at hcanon
-        split at hcanon <;> simp_all⟩
-      have hmin : min l'.raw.rootValue r'.raw.rootValue = 0 := by
-        -- A normalized node has min(l.rootValue, r.rootValue) = 0
-        -- The proof is tedious; we defer it.
-        sorry
-      node n l' r' hmin (go l l'.eq_normalize) (go r r'.eq_normalize)
+      let l' : CanonicalEventTree := ⟨l, by grind⟩
+      let r' : CanonicalEventTree := ⟨r, by grind⟩
+      have hmin : min l'.raw.rootValue r'.raw.rootValue = 0 := by grind
+      node n l' r' hmin (go l'.1 l'.2) (go r'.1 r'.2)
 
 /--
 Cases principle for `CanonicalEventTree` using the high-level constructors.
@@ -140,63 +178,6 @@ def cases' {motive : CanonicalEventTree → Sort u}
   rec' leaf (fun n l r hmin _ _ => node n l r hmin) t
 
 end Recursion
-
-/-! ## Operations -/
-section Operations
-
-/-- The root value of a canonical event tree. -/
-def rootValue (e : CanonicalEventTree) : Nat := e.raw.rootValue
-
-/-- Lift a canonical event tree by adding `k` to the root. -/
-def lift (k : Nat) (e : CanonicalEventTree) : CanonicalEventTree where
-  raw := e.raw.lift k
-  eq_normalize := by
-    rcases e with ⟨raw, hcanon⟩
-    cases raw with
-    | leaf n => rfl
-    | node n l r =>
-      simp only [EventTree.lift, EventTree.normalize]
-      simp only [EventTree.normalize] at hcanon
-      split at hcanon
-      · simp only [EventTree.node.injEq] at hcanon
-        split
-        · simp_all
-        · -- lift doesn't change children, so min rootValue stays 0
-          simp only [EventTree.rootValue] at *
-          simp_all
-      · simp only [EventTree.node.injEq] at hcanon
-        split
-        · simp_all
-        · simp_all
-
-@[simp] theorem rootValue_leaf : (leaf n).rootValue = n := rfl
-@[simp] theorem rootValue_node : (node n l r hmin).rootValue = n := rfl
-
-@[simp] theorem lift_leaf : lift k (leaf n) = leaf (n + k) := rfl
-
-end Operations
-
-/-! ## Comparison -/
-section Comparison
-
-instance : LE CanonicalEventTree := ⟨fun e₁ e₂ => e₁.raw ≤ e₂.raw⟩
-
-instance : DecidableRel (α := CanonicalEventTree) (· ≤ ·) := fun e₁ e₂ =>
-  inferInstanceAs (Decidable (e₁.raw ≤ e₂.raw))
-
-end Comparison
-
-/-! ## Join -/
-section Join
-
-/-- Join of two canonical event trees. -/
-def join (e₁ e₂ : CanonicalEventTree) : CanonicalEventTree where
-  raw := (e₁.raw.join e₂.raw).normalize
-  eq_normalize := by simp
-
-instance : Max CanonicalEventTree := ⟨join⟩
-
-end Join
 
 end CanonicalEventTree
 end EffectSSA.ITC

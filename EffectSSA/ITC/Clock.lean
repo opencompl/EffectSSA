@@ -1,4 +1,5 @@
 import EffectSSA.ITC.CanonicalIdTree
+import EffectSSA.ITC.CanonicalEventTree
 
 /-!
 # Simplified Interval Tree Clock
@@ -28,7 +29,7 @@ structure Clock where
   This is used to disambiguate between two non-concurrent threads,
   which thread precedes the other.
   -/
-  e : Nat
+  e : CanonicalEventTree
   deriving DecidableEq
 
 
@@ -39,8 +40,26 @@ Section 5.3.1 in [1]
 section Compare
 
 /--
+We say that `e₁ ≤ e₂` for two (canonical) event trees `e₁` and `e₂`, when
+  `⟦e₁⟧(x) ≤ ⟦e₂⟧(x)` for every `x ∈ [0, 1)`
+-/
+def CanonicalEventTree.le (e₁ : CanonicalEventTree) (e₂ : CanonicalEventTree) : Bool :=
+  go e₁.raw e₂.raw
+  where
+    go : EventTree → EventTree → Bool
+    | .leaf n₁, e₂    => n₁ ≤ e₂.rootValue
+    -- At this point, we deviate from the paper by decrementing the rhs, rather than lifting
+    -- the lhs; this is logically equivalent, but our version is structurally recursive in the
+    -- first argument, and thus nicer for the termination checker
+    | .node n₁ l₁ r₁, .leaf n₂       => n₁ ≤ n₂ && go l₁ (.leaf (n₂ - n₁))   && go r₁ (.leaf (n₂ - n₁))
+    | .node n₁ l₁ r₁, .node n₂ l₂ r₂ => n₁ ≤ n₂ && go l₁ (l₂.lift (n₂ - n₁)) && go r₁ (r₂.lift (n₂ - n₁))
+instance : LE CanonicalEventTree where le e₁ e₂ := e₁.le e₂
+
+/--
 We say that `i ≤ j`, for two (canonical) id trees `i` and `j`, when the set
 represented by `i` is a *subset* of the set represented by `j`.
+
+NOTE: this is unused, since we've introduced the full event tree
 -/
 def CanonicalIdTree.le (i : CanonicalIdTree) (j : CanonicalIdTree) : Bool :=
   go i.raw j.raw
@@ -52,34 +71,7 @@ def CanonicalIdTree.le (i : CanonicalIdTree) (j : CanonicalIdTree) : Bool :=
     | _, _ => false
 instance : LE CanonicalIdTree where le i j := i.le j
 
-/--
-We say that `(i₁, e₁) ≤ (i₂, e₂)`, when either
-`i₁` is a subset of `i₂` and `e₁` is less than or equal to `e₂`, or
-`i₁` is a superset of `i₂` and `e₁` is strictly less than `e₂`.
-
-That is, whether two clocks are *concurrent* (i.e. unrelated in the
-happens-before relation) is determined by the id component of the clock.
-Whenever two ids *are* related (in either direction), the event counter
-disambiguates in which direction the clocks ought to be related.
-
-Recall that a split will give disjoint subsets of its argument and keep the event
-counter constant, which is why the first branch allows for the event counter to
-be equal on both sides. A merge, on the other hand, gives a superset of its
-arguments, but increments the event counter. Thus, when we see that `i₁` is a
-superset of `i₂` we only relate the clocks if `e₂` has seen at least one more
-merge than `e₁`.
-
-TODO: I tweaked the definition below after writing the docstring, so
-I should doublecheck the docs are still accurate
--/
-instance : LE Clock where le c₁ c₂ :=
-  -- Firstly, if `c₁` is a subset of (i.e, could have been split off from) `c₂`,
-  -- then for `c₁` to have happened *before* `c₂`, it must have seen *stricty* more merges
-  (c₁.i ≤ c₂.i ∧ c₁.e < c₂.e)
-  -- Secondly, if `c₁` is a superset of `c₂`, then `c₁` cannot have been directly
-  -- split of from `c₂` without having seen a merge in between, thus we say that
-  -- `c₁` has happened before `c₂` if it has seen at least as many merges.
-  ∨ (c₂.i ≤ c₁.i ∧ c₁.e ≤ c₂.e)
+instance : LE Clock where le c₁ c₂ := c₁.e ≤ c₂.e
 
 section CompareLemmas
 variable {i j : CanonicalIdTree} {c₁ c₂ : Clock}
@@ -131,14 +123,96 @@ instance : Std.IsPreorder CanonicalIdTree where
 
 end CanonicalIdTree
 
+/-! ### CanonicalEventTree LE lemmas -/
+namespace CanonicalEventTree
+variable {e e₁ e₂ : CanonicalEventTree} {l₁ r₁ l₂ r₂ : CanonicalEventTree} {n₁ n₂ : Nat}
+
+attribute [local grind, local simp] le le.go
+theorem le_iff' : (e₁ ≤ e₂) ↔ e₁.le e₂ = true := by
+  simp [LE.le]
+
+instance : DecidableLE CanonicalEventTree := by
+  intro e₁ e₂
+  apply decidable_of_bool (e₁.le e₂)
+  rfl
+
+/-! #### Basic LE lemmas -/
+section Basic
+
+@[simp, grind =] theorem leaf_le : leaf n₁ ≤ e₂ ↔ n₁ ≤ e₂.rootValue := by grind [le_iff']
+@[simp, grind =] theorem le_leaf : e₁ ≤ leaf n₂ ↔ e₁.maxValue ≤ n₂ := by
+  induction e₁ generalizing n₂ <;> simp_all [le_iff']; grind
+
+@[simp, grind .] theorem zero_le : zero ≤ e₂ := by cases e₂ <;> grind
+
+@[simp, grind =] theorem node_le_node {hmin₁ hmin₂} :
+    (node n₁ l₁ r₁ hmin₁ ≤ node n₂ l₂ r₂ hmin₂)
+    ↔ n₁ ≤ n₂ ∧ l₁ ≤ (l₂.lift (n₂ - n₁)) ∧ r₁ ≤ (r₂.lift (n₂ - n₁)) := by
+  grind [le_iff']
+
+@[grind →] theorem rootValue_le_of_le (h : e₁ ≤ e₂) : e₁.rootValue ≤ e₂.rootValue := by
+  cases e₁ <;> cases e₂ <;> grind
+
+@[grind! .]
+theorem le_lift (e : CanonicalEventTree) (k) : e ≤ e.lift k := by
+  induction e generalizing k <;> grind
+
+theorem le_of_maxValue_le_rootValue (h : e₁.maxValue ≤ e₂.rootValue) : e₁ ≤ e₂ := by
+  induction e₁ generalizing e₂ <;> cases e₂ <;> simp_all <;> grind
+
+@[grind →]
+theorem maxValue_le_maxValue_of_le (h : e₁ ≤ e₂) : e₁.maxValue ≤ e₂.maxValue := by
+  induction e₁ generalizing e₂ <;> cases e₂ <;> simp_all <;> grind
+
+end Basic
+
+/-! #### Reflexivity and Transitivity -/
+
+@[simp, grind .] theorem le_refl : e ≤ e := by
+  induction e <;> grind
+
+theorem le_trans : e₁ ≤ e₂ → e₂ ≤ e₃ → e₁ ≤ e₃ := by
+  -- TODO: prove transitivity
+  stop
+  intro h₁ h₂
+  induction e₁ generalizing e₂ e₃
+  case leaf => grind
+  case node n₁ l₁ r₁ hm ihl ihr =>
+    cases e₂
+    case leaf => grind [le_of_maxValue_le_rootValue]
+    case node n₂ l₂ r₂ _ =>
+      cases e₃
+      case leaf => grind
+      case node n₃ l₃ r₃ _ =>
+        simp_all
+        and_intros
+        · grind
+        · apply ihl (lift (n₂ - n₁) l₂)
+          · grind
+          · rw [lift_le_iff]
+            grind
+        · sorry
+
+
+
+instance : Std.IsPreorder CanonicalEventTree where
+  le_refl _ := le_refl
+  le_trans _ _ _ := le_trans
+
+-- NOTE: we deliberately put `le_iff` just before closing the namespace, as it
+--       would otherwise cause divergence with the local `le_iff'` simp-lemma.
+@[simp, grind =] theorem le_iff : (e₁.le e₂ = true) ↔ (e₁ ≤ e₂) := by
+  simp [LE.le]
+
+end CanonicalEventTree
+
 /-! ### Clock LE lemmas -/
 namespace Clock
 variable {e : Nat}
 
-@[grind =] theorem le_iff :
-    c₁ ≤ c₂ ↔ ((c₁.i ≤ c₂.i ∧ c₁.e < c₂.e) ∨ (c₂.i ≤ c₁.i ∧ c₁.e ≤ c₂.e)) := by rfl
+@[grind =] theorem le_iff : c₁ ≤ c₂ ↔ c₁.e ≤ c₂.e := by rfl
 
-instance : DecidableLE Clock := fun _ _ => decidable_of_iff' _ le_iff
+-- instance : DecidableLE Clock := fun _ _ => decidable_of_iff' _ le_iff
 
 @[simp, grind .] theorem le_refl : c₁ ≤ c₁ := by grind
 
@@ -215,8 +289,8 @@ end CanonicalIdTree
 /-! ### Clock Unrelated lemmas -/
 namespace Clock
 
-/-- Two clocks are unrelated iff their id components are unrelated -/
-@[simp, grind =] theorem unrel_iff : c₁ # c₂ ↔ c₁.i # c₂.i := by grind
+-- /-- Two clocks are unrelated iff their id components are unrelated -/
+-- @[simp, grind =] theorem unrel_iff : c₁ # c₂ ↔ c₁.i # c₂.i := by grind
 
 end Clock
 end UnrelLemmas
@@ -325,32 +399,137 @@ theorem not_le_split (h : i ≠ zero) : ¬(i ≤ i.split.1) ∧ ¬(i ≤ i.split
 end SplitLemmas
 end CanonicalIdTree
 
+namespace EventTree
+
+/--
+Expand a leaf into an equivalent (non-canonical) node, or return an existing
+node as-is
+-/
+def intoNode : EventTree → Nat × EventTree × EventTree
+  | leaf n => (n, .leaf 0, .leaf 0)
+  | node n l r => (n, l, r)
+
+/--
+Increment the left-most branch of the event-tree that is within the domain
+allowed to be incremented by the given id-tree.
+
+Returns the event-tree unchanged if `id` represents the empty domain.
+-/
+def increment : (id : IdTree) → EventTree → EventTree
+  | .zero, e          => e
+  | .one, e           => e.lift 1
+  | .node i₁ i₂, e  =>
+      let (n, l, r) := e.intoNode
+      if i₁ = .zero then
+        node n l (increment i₂ r)
+      else
+        node n (increment i₁ l) r
+
+section IncrLemmas
+
+variable {id : IdTree} {e : EventTree}
+
+@[simp, grind =] theorem increment_zero : increment .zero e = e := rfl
+@[simp, grind =] theorem increment_one : increment .one e = e.lift 1 := rfl
+
+@[grind =] theorem increment_node {i₁ i₂ : IdTree} :
+    increment (.node i₁ i₂) e
+    = let (n, l, r) := e.intoNode
+      if i₁ = .zero then
+        node n l (increment i₂ r)
+      else
+        node n (increment i₁ l) r := by rfl
+
+@[simp, grind =] theorem increment_node_zero {i : IdTree} :
+    increment (.node .zero i) e
+    = let (n, l, r) := e.intoNode
+      node n l (increment i r) := rfl
+
+@[simp, grind =] theorem intoNode_leaf {n : Nat} :
+    intoNode (leaf n) = (n, leaf 0, leaf 0) := rfl
+
+@[simp, grind =] theorem intoNode_node {n : Nat} {l r : EventTree} :
+    intoNode (node n l r) = (n, l, r) := rfl
+
+end IncrLemmas
+end EventTree
+
+namespace CanonicalEventTree
+
+/--
+Increment the left-most branch of the event-tree that is within the domain
+allowed to be incremented by the given id-tree.
+
+Returns the event-tree unchanged if `id` represents the empty domain.
+-/
+def increment (id : CanonicalIdTree) (e : CanonicalEventTree) : CanonicalEventTree where
+  raw := e.raw.increment id.raw
+  eq_normalize := by
+    induction id generalizing e; grind; grind
+    next l r ho hz ihl ihr =>
+      specialize ihl ⟨e.raw.intoNode.2.1, sorry⟩
+      specialize ihr ⟨e.raw.intoNode.2.2, sorry⟩
+      simp at ihl ihr
+      cases e
+      · simp_all
+        simp [EventTree.increment, ihl, ihr]
+        split
+        · simp only [EventTree.normalize, EventTree.rootValue_leaf, Nat.zero_le, Nat.min_eq_left,
+          Nat.add_zero, EventTree.sink_leaf, Nat.sub_self, EventTree.sink_zero, ihr]
+        · simp [EventTree.normalize, *]
+      · simp at ihl ihr
+        simp [EventTree.increment, ihl, ihr]
+        split
+        · simp only [EventTree.normalize_node, ihl, ihr]
+
+          -- grind
+
+          sorry
+
+
+        -- grind
+        -- · grind
+        -- · grind
+      stop
+
+      simp_all
+      simp at hi
+      simp [EventTree.increment_node]
+      split
+      · simp [*] at hi
+
+      · grind
+
+end CanonicalEventTree
+
 namespace Clock
-def fork (id : Clock) : Clock × Clock :=
-  let (i₁, i₂) := id.i.split
-  (⟨i₁, id.e⟩, ⟨i₂, id.e⟩)
+def fork (c : Clock) : Clock × Clock :=
+  let (i₁, i₂) := c.i.split
+  let e₁ := c.e.increment i₁
+  let e₂ := c.e.increment i₂
+  (⟨i₁, e₁⟩, ⟨i₂, e₂⟩)
 
 section ForkLemmas
 variable (c c' : Clock)
 
 @[simp, grind =] theorem i_fork_fst : c.fork.1.i = (c.i.split).1 := by rfl
 @[simp, grind =] theorem i_fork_snd : c.fork.2.i = (c.i.split).2 := by rfl
-@[simp, grind =] theorem e_fork_fst : c.fork.1.e = c.e := by rfl
-@[simp, grind =] theorem e_fork_snd : c.fork.2.e = c.e := by rfl
+@[simp, grind =] theorem e_fork_fst : c.fork.1.e = c.e.increment (c.i.split).1 := by rfl
+@[simp, grind =] theorem e_fork_snd : c.fork.2.e = c.e.increment (c.i.split).2 := by rfl
 
 /-!
 `c` (strictly) happens-before both results of `c.fork`
 -/
-@[simp, grind .] theorem le_fork_snd : c ≤ c.fork.snd := by grind
-@[simp, grind .] theorem le_fork_fst : c ≤ c.fork.fst := by grind
+@[simp, grind .] theorem le_fork_snd : c ≤ c.fork.snd := by sorry
+@[simp, grind .] theorem le_fork_fst : c ≤ c.fork.fst := by sorry
 
-@[simp, grind .] theorem not_fork_fst_le (h : c.i ≠ .zero) : ¬(c.fork.fst ≤ c) := by grind
-@[simp, grind .] theorem not_fork_snd_le (h : c.i ≠ .zero) : ¬(c.fork.snd ≤ c) := by grind
+@[simp, grind .] theorem not_fork_fst_le (h : c.i ≠ .zero) : ¬(c.fork.fst ≤ c) := by sorry
+@[simp, grind .] theorem not_fork_snd_le (h : c.i ≠ .zero) : ¬(c.fork.snd ≤ c) := by sorry
 
 /--
 The results of a `fork` are independent.
 -/
-theorem indep_fork (h : c.i ≠ .zero) : c.fork.fst # c.fork.snd := by grind
+theorem indep_fork (h : c.i ≠ .zero) : c.fork.fst # c.fork.snd := by sorry
 
 variable {c c'} in
 /--
@@ -460,22 +639,55 @@ theorem not_sum_lt (h : i₁ # i₂) : ¬(sum i₁ i₂ ≤ i₁) ∧ ¬(sum i�
 end SumLemmas
 end CanonicalIdTree
 
+namespace EventTree
+
+/--
+Join two event trees by assiging each point to the pointwise maximum.
+-/
+def join : EventTree → EventTree → EventTree
+  | leaf n₁, leaf n₂ => leaf (max n₁ n₂)
+  | leaf n₁, node n₂ l₂ r₂ =>
+    if n₁ ≤ n₂ then
+      node n₂ l₂ r₂
+    else
+      node n₁ (l₂.lift (n₂ - n₁)) (r₂.lift (n₂ - n₁))
+  | node n₁ l₁ r₁, leaf n₂ =>
+    if n₂ ≤ n₁ then
+      node n₁ l₁ r₁
+    else
+      node n₂ (l₁.lift (n₁ - n₂)) (r₁.lift (n₁ - n₂))
+  | node n₁ l₁ r₁, node n₂ l₂ r₂ =>
+    if n₁ ≤ n₂ then
+      node n₂ (join (l₁.lift (n₂ - n₁)) l₂) (join (r₁.lift (n₂ - n₁)) r₂)
+    else
+      node n₁ (join l₁ (l₂.lift (n₁ - n₂))) (join r₁ (r₂.lift (n₁ - n₂)))
+  termination_by e => e.depth
+
+end EventTree
+
+namespace CanonicalEventTree
+def join (e₁ : CanonicalEventTree) (e₂ : CanonicalEventTree) : CanonicalEventTree where
+  raw := e₁.raw.join e₂.raw
+  eq_normalize := by
+    sorry
+
+end CanonicalEventTree
 
 namespace Clock
 def join (c₁ : Clock) (c₂ : Clock) : Clock where
   i := .sum c₁.i c₂.i
-  e := (max c₁.e c₂.e) + 1
+  e := .join c₁.e c₂.e
 
 section JoinLemmas
 variable {c₁ c₂ c' : Clock}
 
 @[simp, grind =] theorem i_join : (c₁.join c₂).i = c₁.i.sum c₂.i := by rfl
-@[simp, grind =] theorem e_join : (c₁.join c₂).e = max c₁.e c₂.e + 1 := by rfl
+@[simp, grind =] theorem e_join : (c₁.join c₂).e = c₁.e.join c₂.e := by rfl
 
 /--
-`c₁` and `c₂` both happen-before `c₁.join c₂`
+`c₁` and `c₂` both happen-before `c₁.join c₂`, assuming that `c₁ # c₂`
 -/
-theorem le_join (c₁ c₂ : Clock) : c₁ ≤ c₁.join c₂ ∧ c₂ ≤ c₁.join c₂ := by grind
+theorem le_join (c₁ c₂ : Clock) : c₁ ≤ c₁.join c₂ ∧ c₂ ≤ c₁.join c₂ := by sorry
 
 @[simp, grind .] theorem le_join_fst : c₁ ≤ c₁.join c₂ := (le_join c₁ c₂).1
 @[simp, grind .] theorem le_join_snd : c₂ ≤ c₁.join c₂ := (le_join c₁ c₂).2
