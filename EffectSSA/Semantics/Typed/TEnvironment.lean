@@ -82,9 +82,6 @@ variable {Γ : Context τ} (env : TEnvironment Γ)
 @[simp, grind =] theorem env_getAs?_eq (h : Γ[v]? = some t) (env : TEnvironment Γ) :
     (env.env.getAs? v t) = some (env.get ⟨v, h⟩) := by
   simp [get]
-@[simp, grind =] theorem env_getAs_eq (h : Γ[v]? = some t) (env : TEnvironment Γ) :
-    (env.env.getAs v t) = some (env.get ⟨v, h⟩) := by
-  simp [get, Environment.getAs]
 
 -- get?
 

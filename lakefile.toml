@@ -5,7 +5,7 @@ defaultTargets = ["EffectSSA"]
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
-rev = "v4.27.0-rc1"
+rev = "v4.29.0-rc4"
 
 [[lean_lib]]
 name = "EffectSSA"

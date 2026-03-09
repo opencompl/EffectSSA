@@ -27,7 +27,7 @@ theorem Instruction.isSome_exec {i : Instruction τ} {env : Environment τ}
   obtain ⟨env, rfl⟩ : ∃ (env' : TEnvironment _), env = env' := ⟨⟨env, wt_env⟩, rfl⟩
   clear wt_env
   unfold exec execM
-  cases wt_i <;> (simp; (repeat rw [TEnvironment.env_getAs_eq (by assumption)]); try grind)
+  cases wt_i <;> (simp; (repeat rw [TEnvironment.env_getAs?_eq (by assumption)]); try grind)
   next => simp
 
 def TInstruction.exec (i : TInstruction Γ Δ) (env : TEnvironment Γ) (es : TTrace Γ) :

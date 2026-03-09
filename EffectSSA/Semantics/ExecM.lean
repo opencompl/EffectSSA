@@ -15,11 +15,10 @@ variable (τ : Ty) [MemoryModel τ]
 --------------------------------------------------------------------------------
 -/
 
-/-- `ExecM` is the monad in which programs are executed. -/
-def ExecM := StateT (Option <| Trace τ) TypeErrM
-  where
-    /-- `TypeErrM α` represents either a type-error, or a value of type `α`. -/
-    TypeErrM := Option
+/-- `ExecT` adds the mutable state needed to execute programs to a monad. -/
+def ExecT := StateT (Option <| Trace τ)
+
+abbrev ExecM := ExecT τ Option
 
 /-!
 ## Definitions
@@ -32,16 +31,14 @@ variable {τ}
 
 /-! Show that `ExecM` is in fact a (lawful) monad. -/
 section Monad
-instance : Monad (ExecM τ) := by unfold ExecM ExecM.TypeErrM; infer_instance
-instance : LawfulMonad (ExecM τ) := by unfold ExecM ExecM.TypeErrM; infer_instance
-instance : MonadState (Option <| Trace τ) (ExecM τ) := by unfold ExecM ExecM.TypeErrM; infer_instance
-instance : MonadStateOf (Option <| Trace τ) (ExecM τ) := by unfold ExecM ExecM.TypeErrM; infer_instance
 
-instance : Monad (ExecM.TypeErrM) := by unfold ExecM.TypeErrM; infer_instance
-instance : LawfulMonad (ExecM.TypeErrM) := by unfold ExecM.TypeErrM; infer_instance
+instance : Monad (ExecM τ) := StateT.instMonad
+instance : LawfulMonad (ExecM τ) := StateT.instLawfulMonad
+instance : MonadState (Option <| Trace τ) (ExecM τ) := by unfold ExecM ExecT; infer_instance
+instance : MonadStateOf (Option <| Trace τ) (ExecM τ) := by unfold ExecM ExecT; infer_instance
 
-instance : MonadLift ExecM.TypeErrM (ExecM τ) := by unfold ExecM; infer_instance
-instance : LawfulMonadLift ExecM.TypeErrM (ExecM τ) := by unfold ExecM; infer_instance
+instance : MonadLift Option (ExecM τ) := StateT.instMonadLift
+instance : LawfulMonadLift Option (ExecM τ) := StateT.instLawfulMonadLift
 end Monad
 
 /-! ### run -/
@@ -49,7 +46,7 @@ end Monad
 /--
 Run an `ExecM` by providing a possibly missing initial trace.
 -/
-def run (x : ExecM τ α) (es? : Option (Trace τ)) : ExecM.TypeErrM (α × Option (Trace τ)) := do
+def run (x : ExecM τ α) (es? : Option (Trace τ)) : Option (α × Option (Trace τ)) := do
   StateT.run x es?
 
 /-!
@@ -59,7 +56,7 @@ def run (x : ExecM τ α) (es? : Option (Trace τ)) : ExecM.TypeErrM (α × Opti
 section Lemmas
 
 @[simp, grind =]
-theorem run_liftM (x : ExecM.TypeErrM α) (es?) :
+theorem run_liftM (x : Option α) (es?) :
     run (τ:=τ) (liftM x) es? = (do
       let a ← x
       some (a, es?)) := by rfl
