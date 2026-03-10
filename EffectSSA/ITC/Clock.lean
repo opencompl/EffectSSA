@@ -661,7 +661,18 @@ namespace CanonicalEventTree
 def join (e₁ : CanonicalEventTree) (e₂ : CanonicalEventTree) : CanonicalEventTree where
   raw := e₁.raw.join e₂.raw
   eq_normalize := by
-    sorry
+    rcases e₁ with ⟨e₁, he₁⟩
+    rcases e₂ with ⟨e₂, he₂⟩
+    simp only
+    fun_induction EventTree.join e₁ e₂
+    · grind
+    · grind
+    · grind
+    · grind
+    · grind
+    · grind
+
+#exit
 
 section JoinLemmas
 variable {e₁ e₂ : CanonicalEventTree} {x : Rat}
