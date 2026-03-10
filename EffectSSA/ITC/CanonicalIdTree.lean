@@ -163,5 +163,19 @@ def cases' {motive : CanonicalIdTree → Sort u}
 
 end Recursion
 
+/-!
+## Denotation
+An IdTree represents a subset of the interval `[0,1)` on rational numbers.
+-/
+section Denote
+
+def denote (e : CanonicalIdTree) : Rat → Bool := go e.raw
+  where go : IdTree → Rat → Bool
+    | .zero,      _ => false
+    | .one,       x => 0 ≤ x ∧ x < 1
+    | .node l r,  x => if x < 0.5 then go l (2 * x) else go r (2 * x - 1)
+
+end Denote
+
 end CanonicalIdTree
 end EffectSSA.ITC

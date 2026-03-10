@@ -101,34 +101,18 @@ theorem le_of_maxValue_le_rootValue (h : e₁.maxValue ≤ e₂.rootValue) : e�
 theorem maxValue_le_maxValue_of_le (h : e₁ ≤ e₂) : e₁.maxValue ≤ e₂.maxValue := by
   induction e₁ generalizing e₂ <;> cases e₂ <;> simp_all <;> grind
 
+/--
+The characteristic equation of `≤` on event trees
+-/
+theorem le_iff_denote_le : e₁ ≤ e₂ ↔ ∀ x, e₁.denote x ≤ e₂.denote x := by
+  sorry
+
 end Basic
 
 /-! #### Reflexivity and Transitivity -/
 
-@[simp, grind .] theorem le_refl : e ≤ e := by
-  induction e <;> grind
-
-theorem le_trans : e₁ ≤ e₂ → e₂ ≤ e₃ → e₁ ≤ e₃ := by
-  -- TODO: prove transitivity
-  stop
-  intro h₁ h₂
-  induction e₁ generalizing e₂ e₃
-  case leaf => grind
-  case node n₁ l₁ r₁ hm ihl ihr =>
-    cases e₂
-    case leaf => grind [le_of_maxValue_le_rootValue]
-    case node n₂ l₂ r₂ _ =>
-      cases e₃
-      case leaf => grind
-      case node n₃ l₃ r₃ _ =>
-        simp_all
-        and_intros
-        · grind
-        · apply ihl (lift (n₂ - n₁) l₂)
-          · grind
-          · rw [lift_le_iff]
-            grind
-        · sorry
+@[simp, grind .] theorem le_refl : e ≤ e := by induction e <;> grind
+theorem le_trans : e₁ ≤ e₂ → e₂ ≤ e₃ → e₁ ≤ e₃ := by grind [le_iff_denote_le]
 
 instance : Std.IsPreorder CanonicalEventTree where
   le_refl _ := le_refl
@@ -294,7 +278,7 @@ end CanonicalIdTree
 namespace Clock
 
 /-- Two clocks are unrelated iff their event components are unrelated -/
-@[simp, grind =] theorem unrel_iff : c₁ # c₂ ↔ c₁.e # c₂.e := by grind
+@[simp, grind =] theorem unrel_iff_unrel : c₁ # c₂ ↔ c₁.e # c₂.e := by grind
 
 end Clock
 end UnrelLemmas
@@ -403,6 +387,14 @@ theorem not_le_split (h : i ≠ zero) : ¬(i ≤ i.split.1) ∧ ¬(i ≤ i.split
 @[simp, grind .] theorem indep_split (h : i ≠ zero) : i.split.fst # i.split.snd := by
   induction i using split.induct_unfolding <;> grind
 
+@[grind →]
+theorem denote_split_fst_of_snd : i.split.snd.denote x = true → i.split.fst.denote x = false := by
+  sorry
+
+@[grind →]
+theorem denote_split_snd_of_fst : i.split.fst.denote x = true → i.split.snd.denote x = false := by
+  sorry
+
 end SplitLemmas
 end CanonicalIdTree
 
@@ -458,24 +450,36 @@ variable {id : CanonicalIdTree} {e l r: CanonicalEventTree} {n : Nat}
     = let (n, l, r) := e.intoNode
       node' n l (increment i r) := rfl
 
--- @[simp, grind =] theorem rootValue_increment :
---     (increment id e).rootValue = e.rootValue + if id = .one then 1 else 0 := by grind
+/--
+`increment` either increases the value at point `x`, or leaves it as-is.
+Thus, at every point, the original value is less than or equal to the new value.
+-/
+@[simp] theorem denote_le_denote_increment :
+    e.denote x ≤ (e.increment id).denote x := by
+  sorry
+grind_pattern denote_le_denote_increment => e.denote x, (e.increment id).denote x
+
+/--
+If the `id` is non-zero, then `increment` increased the value at atleast one
+point, thus there exists some point `x` in the domain represented by `id`, at
+which the new value is strictly larger.
+-/
+@[simp] theorem exists_denote_lt_denote_increment (h : id ≠ .zero) :
+    ∃ x, id.denote x ∧ e.denote x < (e.increment id).denote x := by
+  sorry
+grind_pattern exists_denote_lt_denote_increment => e.denote, (e.increment id).denote
+
+/--
+`increment` does not change any value that is outside of the domain allowed by
+the given `id`.
+-/
+@[simp, grind =] theorem denote_increment_eq_of (h : id.denote x = false) :
+    (e.increment id).denote x = e.denote x := by
+  sorry
 
 @[grind .] theorem le_increment (e : CanonicalEventTree) :
     e ≤ e.increment id := by
-  induction id
-  · grind
-  · grind
-  · simp [increment_node]
-    cases e
-    · grind
-    · simp [node']
-      split
-      · simp
-      · simp
-
-  -- simp
-  -- sorry
+  grind [le_iff_denote_le]
 
 end IncrLemmas
 end CanonicalEventTree
@@ -488,6 +492,7 @@ def fork (c : Clock) : Clock × Clock :=
   (⟨i₁, e₁⟩, ⟨i₂, e₂⟩)
 
 section ForkLemmas
+open CanonicalEventTree
 variable (c c' : Clock)
 
 @[simp, grind =] theorem i_fork_fst : c.fork.1.i = (c.i.split).1 := by rfl
@@ -499,15 +504,23 @@ variable (c c' : Clock)
 `c` (strictly) happens-before both results of `c.fork`
 -/
 @[simp, grind .] theorem le_fork_snd : c ≤ c.fork.snd := by grind
-@[simp, grind .] theorem le_fork_fst : c ≤ c.fork.fst := by sorry
+@[simp, grind .] theorem le_fork_fst : c ≤ c.fork.fst := by grind
 
-@[simp, grind .] theorem not_fork_fst_le (h : c.i ≠ .zero) : ¬(c.fork.fst ≤ c) := by sorry
-@[simp, grind .] theorem not_fork_snd_le (h : c.i ≠ .zero) : ¬(c.fork.snd ≤ c) := by sorry
+@[simp, grind .] theorem not_fork_fst_le (h : c.i ≠ .zero) : ¬(c.fork.fst ≤ c) := by
+  have := c.e.exists_denote_lt_denote_increment h
+  grind [le_iff_denote_le]
+
+@[simp, grind .] theorem not_fork_snd_le (h : c.i ≠ .zero) : ¬(c.fork.snd ≤ c) := by
+  have := c.e.exists_denote_lt_denote_increment h
+  grind [le_iff_denote_le]
 
 /--
 The results of a `fork` are independent.
 -/
-theorem indep_fork (h : c.i ≠ .zero) : c.fork.fst # c.fork.snd := by sorry
+theorem indep_fork (h : c.i ≠ .zero) : c.fork.fst # c.fork.snd := by
+  have ⟨x₁, hx₁⟩ := c.e.exists_denote_lt_denote_increment (id := c.i.split.fst) <| by grind
+  have ⟨x₂, hx₂⟩ := c.e.exists_denote_lt_denote_increment (id := c.i.split.snd) <| by grind
+  grind [le_iff_denote_le]
 
 variable {c c'} in
 /--
@@ -649,6 +662,23 @@ def join (e₁ : CanonicalEventTree) (e₂ : CanonicalEventTree) : CanonicalEven
   eq_normalize := by
     sorry
 
+section JoinLemmas
+variable {e₁ e₂ : CanonicalEventTree} {x : Rat}
+
+@[simp, grind =]
+theorem denote_join : (e₁.join e₂).denote x = max (e₁.denote x) (e₂.denote x) := by
+  sorry
+
+/--
+`e₁` and `e₂` both happen-before `e₁.join e₂`
+-/
+theorem le_join (e₁ e₂ : CanonicalEventTree) : e₁ ≤ e₁.join e₂ ∧ e₂ ≤ e₁.join e₂ := by
+  grind [le_iff_denote_le]
+
+@[simp, grind .] theorem le_join_fst : e₁ ≤ e₁.join e₂ := (le_join e₁ e₂).1
+@[simp, grind .] theorem le_join_snd : e₂ ≤ e₁.join e₂ := (le_join e₁ e₂).2
+
+end JoinLemmas
 end CanonicalEventTree
 
 namespace Clock
@@ -665,10 +695,8 @@ variable {c₁ c₂ c' : Clock}
 /--
 `c₁` and `c₂` both happen-before `c₁.join c₂`, assuming that `c₁ # c₂`
 -/
-theorem le_join (c₁ c₂ : Clock) : c₁ ≤ c₁.join c₂ ∧ c₂ ≤ c₁.join c₂ := by sorry
-
-@[simp, grind .] theorem le_join_fst : c₁ ≤ c₁.join c₂ := (le_join c₁ c₂).1
-@[simp, grind .] theorem le_join_snd : c₂ ≤ c₁.join c₂ := (le_join c₁ c₂).2
+@[simp, grind .] theorem le_join_fst : c₁ ≤ c₁.join c₂ := by grind
+@[simp, grind .] theorem le_join_snd : c₂ ≤ c₁.join c₂ := by grind
 
 /--
 If `c₁` and `c₂` are both independent from `c'`,
