@@ -181,13 +181,8 @@ attribute [local grind] normalize
 @[simp, grind =] theorem normalize_lift : (e.lift k).normalize = (e.normalize).lift k := by
   cases e <;> grind
 
--- @[simp] theorem normalize_normalize : (e.normalize).normalize = e.normalize := by
---   stop
---   induction e with
---   | leaf n => rfl
---   | node n l r ihl ihr =>
---     simp [normalize]
---     grind
+@[simp, grind =] theorem normalize_normalize : (e.normalize).normalize = e.normalize := by
+  induction e <;> grind
 
 end Lemmas
 
