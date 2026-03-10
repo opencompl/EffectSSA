@@ -23,7 +23,7 @@ namespace CanonicalEventTree
 section Lemmas
 variable {e f : CanonicalEventTree}
 
-attribute [simp, grind =_] CanonicalEventTree.eq_normalize
+attribute [simp, grind =] CanonicalEventTree.eq_normalize
 
 @[ext, grind ext]
 theorem ext : e.raw = f.raw → e = f := by
@@ -121,9 +121,9 @@ variable {e : CanonicalEventTree} {l r : CanonicalEventTree} {n : Nat} {hmin}
 @[simp, grind =] theorem raw_node' : (node' n l r).raw = (EventTree.node n l.raw r.raw).normalize := by
   grind [node']
 
-@[simp, grind .] theorem eq_zero_iff : e = zero ↔ e.raw = .leaf 0 := by grind
-@[simp, grind .] theorem eq_leaf_iff : e = leaf n ↔ e.raw = .leaf n := by grind
-@[simp, grind .] theorem eq_node_iff : e = node n l r hmin ↔ e.raw = .node n l.raw r.raw := by grind
+@[simp] theorem eq_zero_iff : e = zero ↔ e.raw = .leaf 0 := by grind
+@[simp] theorem eq_leaf_iff : e = leaf n ↔ e.raw = .leaf n := by grind
+@[simp] theorem eq_node_iff : e = node n l r hmin ↔ e.raw = .node n l.raw r.raw := by grind
 
 @[simp] theorem leaf_zero_eq_zero : leaf 0 = zero := rfl
 
