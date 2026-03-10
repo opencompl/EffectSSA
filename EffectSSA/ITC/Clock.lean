@@ -410,7 +410,7 @@ node as-is
 def intoNode (e : CanonicalEventTree) : Nat × CanonicalEventTree × CanonicalEventTree :=
   match he : e.raw with
   | .leaf n => (n, .leaf 0, .leaf 0)
-  | .node n l r => (n, ⟨l, by grind⟩, ⟨r, by grind⟩)
+  | .node n l r => (n, ⟨l, by grind [eq_normalize]⟩, ⟨r, by grind [eq_normalize]⟩)
 
 /--
 Increment the left-most branch of the event-tree that is within the domain
