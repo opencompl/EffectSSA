@@ -1,6 +1,8 @@
 import EffectSSA.ITC.CanonicalIdTree
 import EffectSSA.ITC.CanonicalEventTree
 
+import Batteries.Util.ProofWanted
+
 /-!
 # Simplified Interval Tree Clock
 
@@ -526,8 +528,7 @@ variable {c c'} in
 /--
 If `c` is independent from `c'`, then the same holds for either result of `c.fork`.
 -/
-theorem indep_fork_congr (h : c # c') : c.fork.fst # c' ∧ c.fork.snd # c' := by
-  sorry
+proof_wanted indep_fork_congr (h : c # c') : c.fork.fst # c' ∧ c.fork.snd # c'
 
 end ForkLemmas
 end Clock
@@ -702,9 +703,7 @@ variable {c₁ c₂ c' : Clock}
 If `c₁` and `c₂` are both independent from `c'`,
 then the same holds for `c₁.join c₂`.
 -/
-theorem indep_join_congr (h₁ : c₁ # c') (h₂ : c₂ # c') : c₁.join c₂ # c' := by
-  -- TODO: finish proof
-  sorry
+proof_wanted indep_join_congr (h₁ : c₁ # c') (h₂ : c₂ # c') : c₁.join c₂ # c'
 
 end JoinLemmas
 end Clock
