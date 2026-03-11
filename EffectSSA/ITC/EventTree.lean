@@ -76,6 +76,8 @@ variable {e : EventTree} {l r : EventTree} {n m k : Nat}
 
 attribute [local grind] lift sink
 
+/-! ### rootValue, minValue, maxValue -/
+
 @[simp, grind =] theorem rootValue_leaf : (leaf n).rootValue = n := rfl
 @[simp, grind =] theorem rootValue_node : (node n l r).rootValue = n := rfl
 
@@ -84,6 +86,17 @@ attribute [local grind] lift sink
 
 @[simp, grind =] theorem maxValue_leaf : (leaf n).maxValue = n := rfl
 @[simp, grind =] theorem maxValue_node : (node n l r).maxValue = n + max l.maxValue r.maxValue := rfl
+
+@[simp] theorem rootValue_le_minValue : e.rootValue ≤ e.minValue := by cases e <;> grind
+grind_pattern rootValue_le_minValue => e.rootValue, e.minValue
+
+@[simp] theorem minValue_le_maxValue : e.minValue ≤ e.maxValue := by induction e <;> grind
+grind_pattern minValue_le_maxValue => e.minValue, e.maxValue
+
+@[simp] theorem rootValue_le_maxValue : e.rootValue ≤ e.maxValue := by cases e <;> grind
+grind_pattern rootValue_le_maxValue => e.rootValue, e.maxValue
+
+/-! ### lift, sink -/
 
 @[simp, grind =] theorem lift_zero : e.lift 0 = e := by cases e <;> rfl
 @[simp, grind =] theorem sink_zero : e.sink 0 h = e := by
@@ -106,26 +119,26 @@ attribute [local grind] lift sink
 @[simp, grind =] theorem maxValue_sink : (e.sink k hk).maxValue = e.maxValue - k := by
   induction e <;> grind
 
-@[simp, grind =] theorem lift_lift : (e.lift k).lift m = e.lift (k + m) := by cases e <;> grind
+@[simp] theorem lift_lift : (e.lift k).lift m = e.lift (k + m) := by cases e <;> grind
 @[simp] theorem sink_sink : (e.sink k hk).sink m hm = e.sink (k + m) (by grind) := by
   induction e <;> grind
 -- ^^ Adding `sink_sink` to the global grind set seems to cause a cycle in grind
 --    Thus, we keep it out of the grind-set, and only reintroduce it locally
 
-
+@[simp] theorem sink_lift : (e.lift k).sink m hk = if k ≤ m then e.sink (m - k) (by grind) else e.lift (k - m) := by
+  cases e <;> grind
 
 @[simp] theorem sink_eq_self : e.sink k hk = e ↔ k = 0 := by grind
 
-@[simp] theorem rootValue_le_minValue : e.rootValue ≤ e.minValue := by cases e <;> grind
-grind_pattern rootValue_le_minValue => e.rootValue, e.minValue
+@[simp] theorem lift_inj : lift k e₁ = lift k e₂ ↔ e₁ = e₂ := by
+  cases e₁ <;> cases e₂ <;> simp
 
-@[simp] theorem minValue_le_maxValue : e.minValue ≤ e.maxValue := by induction e <;> grind
-grind_pattern minValue_le_maxValue => e.minValue, e.maxValue
+@[simp] theorem sink_inj : sink k e₁ hk₁ = sink k e₂ hk₂ ↔ e₁ = e₂ := by
+  cases e₁ <;> cases e₂ <;> simp <;> grind
 
-@[simp] theorem rootValue_le_maxValue : e.rootValue ≤ e.maxValue := by cases e <;> grind
-grind_pattern rootValue_le_maxValue => e.rootValue, e.maxValue
+/-! ### depth -/
 
-@[simp, grind =] theorem depth_leaf : (leaf n).depth = 1 := rfl
+@[simp, grind =] theorem depth_leaf : (leaf n).depth = 0 := rfl
 @[simp, grind =] theorem depth_node : (node n l r).depth = 1 + max l.depth r.depth := rfl
 @[simp, grind =] theorem depth_lift : depth (e.lift k) = depth e := by
   cases e <;> rfl
