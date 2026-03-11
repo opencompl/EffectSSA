@@ -14,7 +14,7 @@ A `CanonicalEventTree` is an `EventTree` which is guaranteed to be in normal for
 -/
 structure CanonicalEventTree where
   raw : EventTree
-  eq_normalize : raw.normalize = raw := by solve | rfl | simp; try grind
+  eq_normalize : raw.normalize = raw := by solve | rfl | simp -failIfUnchanged; try grind
   deriving DecidableEq
 
 namespace CanonicalEventTree
@@ -121,13 +121,16 @@ variable {e : CanonicalEventTree} {l r : CanonicalEventTree} {n : Nat} {hmin}
 @[simp, grind =] theorem raw_node' : (node' n l r).raw = (EventTree.node n l.raw r.raw).normalize := by
   grind [node']
 
+
 @[simp] theorem eq_zero_iff : e = zero ↔ e.raw = .leaf 0 := by grind
 @[simp] theorem eq_leaf_iff : e = leaf n ↔ e.raw = .leaf n := by grind
 @[simp] theorem eq_node_iff : e = node n l r hmin ↔ e.raw = .node n l.raw r.raw := by grind
 
 @[simp] theorem leaf_zero_eq_zero : leaf 0 = zero := rfl
 
-@[simp, grind =] theorem mk_leaf_eq_leaf {h} : (⟨.leaf n, h⟩ : CanonicalEventTree) = leaf n := rfl
+@[simp, grind =] theorem mk_leaf {h} : (⟨.leaf n, h⟩ : CanonicalEventTree) = leaf n := rfl
+@[simp, grind =] theorem mk_node {l r h} :
+    mk (.node n l r) h = node n ⟨l, by grind⟩ ⟨r, by grind⟩ (by grind) := by rfl
 
 /-! #### Basic Definitions -/
 
@@ -207,6 +210,16 @@ attribute [local grind] denote
         n + r.denote (2 * x - 1)
       else
         0 := by rfl
+
+@[grind =] theorem denote_node' :
+    (node' n l r).denote x
+    = if 0 ≤ x ∧ x < 0.5 then
+        n + l.denote (2 * x)
+      else if 0.5 ≤ x ∧ x < 1 then
+        n + r.denote (2 * x - 1)
+      else
+        0 := by
+  sorry
 
 @[simp, grind =]
 theorem denote_sink : (e.sink k hk).denote x = e.denote x - k :=

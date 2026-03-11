@@ -632,44 +632,86 @@ end SumLemmas
 end CanonicalIdTree
 
 /--
+`e.liftTo k` returns an event tree where each value will be assigned to the
+maximum of the current value and `k`.
+
+This is analogous to `e.join (leaf k)`; we define this as a standalone operation
+to avoid the non-structural recursion in the paper definition of join. [1]
+-/
+def CanonicalEventTree.liftTo (k : Nat) : CanonicalEventTree → CanonicalEventTree
+  | leaf n     => .leaf (max n k)
+  | e@⟨.node n l r, _⟩ =>
+    if n ≤ k then
+      node' n (liftTo (k - n) ⟨l, by grind⟩) (liftTo (k - n) ⟨r, by grind⟩)
+    else
+      e
+  termination_by e => e.raw.depth
+
+/--
 Join two event trees by assiging each point to the pointwise maximum.
 
-This function actively normalizes the result, hence it returns a
-`CanonicalEventTree`.
+The definition of join in [5] as written doesn't have a clear termination
+measure, so we adapt it. In particular, we've introduced `liftTo` for the
+action of joining a tree with a leaf (on either side; join is symmetric).
 -/
-def EventTree.join : EventTree → EventTree → CanonicalEventTree
-  /-
-  The definition of join in [5] as written doesn't have a clear termination
-  measure, so we have to adapt it a little bit. In particular, notice
-  how most recursive instances of join on the rhs just serve to normalize
-  arguments. Thus, we introduce a `go` intermediate, which will perform
-  the actual recursive calls, so that all argument shuffling can just call `go`.
-  -/
-  | leaf n₁, leaf n₂ => .leaf (max n₁ n₂)
-  | leaf n₁, node n₂ l₂ r₂        => go n₁ (.leaf 0) (.leaf 0) n₂ l₂ r₂
-  | node n₁ l₁ r₁, leaf n₂        => go n₁ l₁ r₁ n₂ (.leaf 0) (.leaf 0)
-  | node n₁ l₁ r₁, node n₂ l₂ r₂  => go n₁ l₁ r₁ n₂ l₂ r₂
-  termination_by e₁ e₂ => (max e₁.depth e₂.depth, 1)
-  where
-    go (n₁ : Nat) (l₁ r₁ : EventTree) (n₂ : Nat) (l₂ r₂ : EventTree) : CanonicalEventTree :=
+def CanonicalEventTree.join : CanonicalEventTree → CanonicalEventTree → CanonicalEventTree
+  | leaf n₁, e₂ => e₂.liftTo n₁
+  | e₁, leaf n₂ => e₁.liftTo n₂
+  | ⟨.node n₁ l₁ r₁, h₁⟩, ⟨.node n₂ l₂ r₂, h₂⟩ =>
+      let l₁ := mk l₁
+      let r₁ := mk r₁
+      let l₂ := mk l₂
+      let r₂ := mk r₂
       if n₁ ≤ n₂ then
         .node' n₁ (join l₁ (l₂.lift (n₂ - n₁))) (join r₁ (r₂.lift (n₂ - n₁)))
       else
         .node' n₂ (join l₂ (l₁.lift (n₂ - n₁))) (join r₂ (r₁.lift (n₂ - n₁)))
-    termination_by (max (1 + max l₁.depth r₁.depth) (1 + max l₂.depth r₂.depth), 0)
+  termination_by e₁ e₂ => max e₁.raw.depth e₂.raw.depth
+
 
 namespace CanonicalEventTree
 
--- set_option trace.grind.ematch.instance true in
-def join (e₁ : CanonicalEventTree) (e₂ : CanonicalEventTree) : CanonicalEventTree :=
-  e₁.raw.join e₂.raw
-
 section JoinLemmas
-variable {e₁ e₂ : CanonicalEventTree} {x : Rat}
+variable {e₁ e₂ l r : CanonicalEventTree} {x : Rat}
+
+/-! ### liftTo -/
+
+@[simp, grind =] theorem liftTo_leaf : (leaf n).liftTo k = leaf (max n k) := by
+  unfold liftTo; rfl
+@[simp, grind =] theorem liftTo_node :
+    (node n l r h).liftTo k
+    = if n ≤ k then
+        node' n (liftTo (k - n) l) (liftTo (k - n) r)
+      else
+        node n l r h := by
+  conv => lhs; unfold liftTo
+  rfl
+
+/-! ### join -/
+
+@[simp, grind =] theorem leaf_join : (leaf n).join e₂ = e₂.liftTo n := by
+  unfold join; rfl
+@[simp, grind =] theorem join_leaf : e₁.join (leaf m) = e₁.liftTo m := by
+  unfold join; cases e₁ <;> grind [node]
+
+@[simp, grind =] theorem leaf_join_leaf : (leaf n).join (leaf m) = leaf (max m n) := by
+  grind
+
+/-! ### denotation -/
+
+@[grind =]
+theorem denote_liftTo :
+    (e₁.liftTo k).denote x
+    = max (e₁.denote x) (if 0 ≤ x ∧ x < 1 then k else 0) := by
+  induction e₁ generalizing x k <;> grind
 
 @[simp, grind =]
 theorem denote_join : (e₁.join e₂).denote x = max (e₁.denote x) (e₂.denote x) := by
-  sorry
+  fun_induction e₁.join e₂
+  · grind
+  · grind
+  · sorry
+  · sorry
 
 /--
 `e₁` and `e₂` both happen-before `e₁.join e₂`
