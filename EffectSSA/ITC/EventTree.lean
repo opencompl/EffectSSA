@@ -107,8 +107,12 @@ attribute [local grind] lift sink
   induction e <;> grind
 
 @[simp, grind =] theorem lift_lift : (e.lift k).lift m = e.lift (k + m) := by cases e <;> grind
-@[simp, grind =] theorem sink_sink : (e.sink k hk).sink m hm = e.sink (k + m) (by grind) := by
+@[simp] theorem sink_sink : (e.sink k hk).sink m hm = e.sink (k + m) (by grind) := by
   induction e <;> grind
+-- ^^ Adding `sink_sink` to the global grind set seems to cause a cycle in grind
+--    Thus, we keep it out of the grind-set, and only reintroduce it locally
+
+
 
 @[simp] theorem sink_eq_self : e.sink k hk = e ↔ k = 0 := by grind
 
@@ -166,13 +170,11 @@ attribute [local grind] normalize
       node (n + minVal) (l'.sink minVal) (r'.sink minVal) :=
   rfl
 
-@[simp, grind =] theorem normalize_rootValue : e.normalize.rootValue = e.minValue := by
+@[simp, grind =] theorem rootValue_normalize : e.normalize.rootValue = e.minValue := by
   induction e <;> grind
-
-@[simp, grind =] theorem normalize_maxValue : e.normalize.maxValue = e.maxValue := by
+@[simp, grind =] theorem maxValue_normalize : e.normalize.maxValue = e.maxValue := by
   induction e <;> grind
-
-@[simp, grind =] theorem normalize_minValue : e.normalize.minValue = e.minValue := by
+@[simp, grind =] theorem minValue_normalize : e.normalize.minValue = e.minValue := by
   induction e <;> grind
 
 @[simp, grind =] theorem normalize_sink : (e.sink k hk).normalize = (e.normalize).sink k (by grind) := by
@@ -182,7 +184,8 @@ attribute [local grind] normalize
   cases e <;> grind
 
 @[simp, grind =] theorem normalize_normalize : (e.normalize).normalize = e.normalize := by
-  induction e <;> grind
+  induction e <;> grind [sink_sink]
+
 
 end Lemmas
 
