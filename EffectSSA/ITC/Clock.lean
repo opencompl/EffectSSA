@@ -1,5 +1,6 @@
 import EffectSSA.ITC.CanonicalIdTree
 import EffectSSA.ITC.CanonicalEventTree
+import EffectSSA.ITC.Denote
 
 import Batteries.Util.ProofWanted
 
@@ -467,7 +468,7 @@ point, thus there exists some point `x` in the domain represented by `id`, at
 which the new value is strictly larger.
 -/
 @[simp] theorem exists_denote_lt_denote_increment (h : id ≠ .zero) :
-    ∃ x, id.denote x ∧ e.denote x < (e.increment id).denote x := by
+    ∃ x, id.denote x.val ∧ e.denote x < (e.increment id).denote x := by
   sorry
 grind_pattern exists_denote_lt_denote_increment => e.denote, (e.increment id).denote
 
@@ -475,7 +476,7 @@ grind_pattern exists_denote_lt_denote_increment => e.denote, (e.increment id).de
 `increment` does not change any value that is outside of the domain allowed by
 the given `id`.
 -/
-@[simp, grind =] theorem denote_increment_eq_of (h : id.denote x = false) :
+@[simp, grind =] theorem denote_increment_eq_of (h : id.denote x.val = false) :
     (e.increment id).denote x = e.denote x := by
   sorry
 
@@ -672,7 +673,7 @@ def CanonicalEventTree.join : CanonicalEventTree → CanonicalEventTree → Cano
 namespace CanonicalEventTree
 
 section JoinLemmas
-variable {e₁ e₂ l r : CanonicalEventTree} {x : Rat}
+variable {e₁ e₂ l r : CanonicalEventTree} {x : FRat}
 
 /-! ### liftTo -/
 
@@ -699,19 +700,36 @@ variable {e₁ e₂ l r : CanonicalEventTree} {x : Rat}
 
 /-! ### denotation -/
 
-@[grind =]
-theorem denote_liftTo :
-    (e₁.liftTo k).denote x
-    = max (e₁.denote x) (if 0 ≤ x ∧ x < 1 then k else 0) := by
+@[simp, grind =]
+theorem denote_liftTo : (e₁.liftTo k).denote x = max (e₁.denote x) k := by
   induction e₁ generalizing x k <;> grind
 
 @[simp, grind =]
 theorem denote_join : (e₁.join e₂).denote x = max (e₁.denote x) (e₂.denote x) := by
-  fun_induction e₁.join e₂
+  fun_induction e₁.join e₂ generalizing x
   · grind
   · grind
-  · sorry
-  · sorry
+  case case3 n₁ l₁ r₁ h₁ n₂ l₂ r₂ h₁ l₁' r₁' l₂' r₂' _ ihl ihr =>
+    have hl₁ (h) : ⟨l₁, h⟩ = l₁' := rfl
+    have hr₁ (h) : ⟨r₁, h⟩ = r₁' := rfl
+    have hl₂ (h) : ⟨l₂, h⟩ = l₂' := rfl
+    have hr₂ (h) : ⟨r₂, h⟩ = r₂' := rfl
+    simp [*, FRat.splitRec]
+    split
+    · grind
+    · grind
+  case case4 n₁ l₁ r₁ h₁ n₂ l₂ r₂ h₁ l₁' r₁' l₂' r₂' _ ihl ihr =>
+    have hl₁ (h) : ⟨l₁, h⟩ = l₁' := rfl
+    have hr₁ (h) : ⟨r₁, h⟩ = r₁' := rfl
+    have hl₂ (h) : ⟨l₂, h⟩ = l₂' := rfl
+    have hr₂ (h) : ⟨r₂, h⟩ = r₂' := rfl
+    have : n₂ - n₁ = 0 := by grind
+    simp only [denote, this, lift_zero] at ihl ihr
+    simp [*, FRat.splitRec]
+    split
+    · grind
+    · grind
+
 
 /--
 `e₁` and `e₂` both happen-before `e₁.join e₂`
