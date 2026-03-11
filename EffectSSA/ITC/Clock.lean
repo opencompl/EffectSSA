@@ -631,48 +631,38 @@ theorem not_sum_lt (h : i₁ # i₂) : ¬(sum i₁ i₂ ≤ i₁) ∧ ¬(sum i�
 end SumLemmas
 end CanonicalIdTree
 
-namespace EventTree
-
 /--
 Join two event trees by assiging each point to the pointwise maximum.
--/
-def join : EventTree → EventTree → EventTree
-  | leaf n₁, leaf n₂ => leaf (max n₁ n₂)
-  | leaf n₁, node n₂ l₂ r₂ =>
-    if n₁ ≤ n₂ then
-      node n₂ l₂ r₂
-    else
-      node n₁ (l₂.lift (n₂ - n₁)) (r₂.lift (n₂ - n₁))
-  | node n₁ l₁ r₁, leaf n₂ =>
-    if n₂ ≤ n₁ then
-      node n₁ l₁ r₁
-    else
-      node n₂ (l₁.lift (n₁ - n₂)) (r₁.lift (n₁ - n₂))
-  | node n₁ l₁ r₁, node n₂ l₂ r₂ =>
-    if n₁ ≤ n₂ then
-      node n₂ (join (l₁.lift (n₂ - n₁)) l₂) (join (r₁.lift (n₂ - n₁)) r₂)
-    else
-      node n₁ (join l₁ (l₂.lift (n₁ - n₂))) (join r₁ (r₂.lift (n₁ - n₂)))
-  termination_by e => e.depth
 
-end EventTree
+This function actively normalizes the result, hence it returns a
+`CanonicalEventTree`.
+-/
+def EventTree.join : EventTree → EventTree → CanonicalEventTree
+  /-
+  The definition of join in [5] as written doesn't have a clear termination
+  measure, so we have to adapt it a little bit. In particular, notice
+  how most recursive instances of join on the rhs just serve to normalize
+  arguments. Thus, we introduce a `go` intermediate, which will perform
+  the actual recursive calls, so that all argument shuffling can just call `go`.
+  -/
+  | leaf n₁, leaf n₂ => .leaf (max n₁ n₂)
+  | leaf n₁, node n₂ l₂ r₂        => go n₁ (.leaf 0) (.leaf 0) n₂ l₂ r₂
+  | node n₁ l₁ r₁, leaf n₂        => go n₁ l₁ r₁ n₂ (.leaf 0) (.leaf 0)
+  | node n₁ l₁ r₁, node n₂ l₂ r₂  => go n₁ l₁ r₁ n₂ l₂ r₂
+  termination_by e₁ e₂ => (max e₁.depth e₂.depth, 1)
+  where
+    go (n₁ : Nat) (l₁ r₁ : EventTree) (n₂ : Nat) (l₂ r₂ : EventTree) : CanonicalEventTree :=
+      if n₁ ≤ n₂ then
+        .node' n₁ (join l₁ (l₂.lift (n₂ - n₁))) (join r₁ (r₂.lift (n₂ - n₁)))
+      else
+        .node' n₂ (join l₂ (l₁.lift (n₂ - n₁))) (join r₂ (r₁.lift (n₂ - n₁)))
+    termination_by (max (1 + max l₁.depth r₁.depth) (1 + max l₂.depth r₂.depth), 0)
 
 namespace CanonicalEventTree
-def join (e₁ : CanonicalEventTree) (e₂ : CanonicalEventTree) : CanonicalEventTree where
-  raw := e₁.raw.join e₂.raw
-  eq_normalize := by
-    rcases e₁ with ⟨e₁, he₁⟩
-    rcases e₂ with ⟨e₂, he₂⟩
-    simp only
-    fun_induction EventTree.join e₁ e₂
-    · grind
-    · grind
-    · grind
-    · grind
-    · grind
-    · grind
 
-#exit
+-- set_option trace.grind.ematch.instance true in
+def join (e₁ : CanonicalEventTree) (e₂ : CanonicalEventTree) : CanonicalEventTree :=
+  e₁.raw.join e₂.raw
 
 section JoinLemmas
 variable {e₁ e₂ : CanonicalEventTree} {x : Rat}

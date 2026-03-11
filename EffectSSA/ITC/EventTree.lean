@@ -68,7 +68,7 @@ def sink (k : Nat) (e : EventTree) (hk : k ≤ e.rootValue := by grind) : EventT
 
 /-- The depth of the tree; primarily used a termination measure. -/
 def depth : EventTree → Nat
-  | leaf _ => 1
+  | leaf _ => 0
   | node _ l r => 1 + max l.depth r.depth
 
 section BasicLemmas
