@@ -23,7 +23,7 @@ namespace CanonicalEventTree
 section Lemmas
 variable {e f : CanonicalEventTree}
 
-attribute [simp, grind =] CanonicalEventTree.eq_normalize
+attribute [simp, grind =_] CanonicalEventTree.eq_normalize
 
 @[ext, grind ext]
 theorem ext : e.raw = f.raw → e = f := by
