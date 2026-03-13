@@ -133,6 +133,29 @@ def snoc (x : τ.Val) (env : Environment τ) : Environment τ :=
 def eraseVar (env : Environment τ) (v : Var) : Environment τ :=
   ⟨env.toList.eraseIdx v.toNat⟩
 
+/-
+TODO: #21 Fully erasing values from the environment feels a bit dangerous, at it loses
+historical information. In particular, we lose the ability to phrase a CompCert-style
+equation lemma, since we can no longer evaluate an old linear operation under a
+more recent environment. Such an equation lemma might become very useful once we
+start to consider rewrites...
+
+For now, we really have to erase value from the environment, to match how linear
+types are erased from the typing context; this essentially means that linear
+variable indices get reused, so if we kept such variables around in the environment,
+then the indices would get out of sync.
+
+This could be fixed by refactoring a context to be a list of optional types,
+rather than a straight list of types. Then, `Context.eraseVar` would set the
+relevant type to `none`, rather than dropping it from the list. By doing so,
+our variable indices would become more stable, and we would be able to keep
+the "stale" values around in the context.
+
+This would mean that our semantics no longer crashes on programs that violate
+linearity, but this is not an issue; we really only care about the semantics of
+well-formed programs, and linearity is easy enough to decide statically.
+-/
+
 /--
 `env.limitTo vs` returns an environment containing just the variables `vs`, and
 the values the original environment `env` assigns to these variables.
