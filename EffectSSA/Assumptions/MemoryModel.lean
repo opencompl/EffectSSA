@@ -1,4 +1,5 @@
 import EffectSSA.Assumptions.MemorySignature
+import EffectSSA.Assumptions.Compat
 import EffectSSA.Trace.Defs
 
 /-!
@@ -12,7 +13,7 @@ namespace EffectSSA
 ## MemoryModel class
 -/
 
-class MemoryModel τ extends MemorySignature τ where
+class MemoryModel τ extends MemorySignature τ, Compat (Event τ) where
   /--
   `read ty p ev` should return the value (of type `ty`) stored at location `p`,
   given a trace of previous events `ev`.
@@ -32,17 +33,10 @@ class MemoryModel τ extends MemorySignature τ where
   -/
   LegalTrace : Trace τ → Prop
   [instDecideLegal : DecidablePred LegalTrace]
-
-  /--
-  `Compat` is a compatibility / non-interference relation between events,
-  also written as `(· ⌣ₑ ·)`.
-  Intuitively, two events are compatible if they may be freely reordered without
-  changing the result of the events themselves (if either is a `load`) or any
-  subsequent events.
-  What this means precisely is formalized in `LawfulMemoryModel`.
-  -/
-  Compat : Event τ → Event τ → Prop
-  [instDecideCompat : DecidableRel Compat]
+  /-- Compatibility of events should be decidable. -/
+  [instDecideCompat : DecidableCompat (Event τ)]
+  /-- Compatibility of events should be symmetric. -/
+  [instSymmCompat : Std.Symm (· ⌣ · : Event τ → Event τ → _)]
 
 
 /-! ## API -/
@@ -52,5 +46,5 @@ def Trace.Legal : Trace τ → Prop := MemoryModel.LegalTrace
 instance : DecidablePred (@Trace.Legal τ _) :=
   μ.instDecideLegal
 
-@[inherit_doc] infixl:60 " ⌣ₑ " => MemoryModel.Compat
-attribute [instance] MemoryModel.instDecideCompat
+attribute [reducible, instance] MemoryModel.instDecideCompat
+attribute [instance] MemoryModel.instSymmCompat
