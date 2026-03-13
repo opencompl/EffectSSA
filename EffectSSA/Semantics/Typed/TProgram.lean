@@ -13,6 +13,8 @@ means these semantics can never return a type error.
 namespace EffectSSA
 variable {τ} [MemoryModel τ] {Γ Δ : Context τ}
 
+noncomputable section -- TODO: #19 remove once ITC has been implemented
+
 open Semantics (Environment TEnvironment)
 
 /-!

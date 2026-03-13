@@ -8,7 +8,9 @@ context is unrestricted, and it will return an ambient trace iff the returnTypes
 are unrestricted. Thus, we encode this into `TTrace Γ` intrinsically typed trace.
 -/
 namespace EffectSSA
-variable {τ} [MemorySignature τ]
+variable {τ} [MemoryModel τ]
+
+noncomputable section -- TODO: #19 remove once ITC has been implemented
 
 @[grind] def Trace.WellTyped (es? : Option (Trace τ)) (Γ : Context τ) : Prop :=
   es?.isSome ↔ Γ.isUnrestricted
