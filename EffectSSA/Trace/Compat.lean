@@ -13,36 +13,50 @@ trace compatibility. That said, a coercion from events to traces exists, so
 namespace EffectSSA
 variable {τ} [MemoryModel τ]
 
-namespace Trace
+noncomputable section
+-- TODO: #19 make computable once ITC is implemented
 
 /--
-Compatibility relation on traces, written as `es ⌣ ds`
+Two traces are compatible when they are legal to merge, which is exactly when
+the event are pairwise either ordered by their clocks, or the side effects are
+compatible (i.e, they are compatible as `ClockedEvent`s).
 
-Two traces are compatible if their events are pairwise compatible according
-to the memory model. Undefined behavior (UB) is not compatible with anything.
+Note that a trace with UB is not compatible with anything.
 -/
-inductive Compat : Trace τ → Trace τ → Prop
-  | seq :
-      (∀ x ∈ xs, ∀ y ∈ ys, x ⌣ₑ y)
-      → Trace.Compat (.seq xs) (.seq ys)
-infixl:60 " ⌣ " => Compat
+
+structure Trace.Compat (es : Trace τ) (ds : Trace τ) : Prop where
+  ub_left : ¬es.isUB
+  ub_right : ¬ds.isUB
+  /-- All pairs of clocked events need to pairwise compatible -/
+  events : ∀ e ∈ es.events, ∀ d ∈ ds.events, e ⌣ d
+instance : Compat (Trace τ) where compat := Trace.Compat
 
 /-!
-Compatibility is decidable.
+## Decidability
+Compatibility of both ClockedEvents and Traces is decidable.
 -/
-section Decide
 
-theorem seq_compat_seq_iff {xs ys : List (Event τ)} :
-    (.seq xs ⌣ .seq ys) ↔ ∀ x ∈ xs, ∀ y ∈ ys, x ⌣ₑ y :=
-  ⟨fun (Compat.seq h) => h, Compat.seq⟩
+@[grind =] theorem ClockedEvent.compat_iff (e₁ : ClockedEvent τ c₁) (e₂ : ClockedEvent τ c₂) :
+    e₁ ⌣ e₂ ↔ (e₁.clock # e₂.clock → e₁.event ⌣ e₂.event) := by rfl
 
-instance : DecidableRel (@Compat τ _)
-  | .seq _, .seq _ => decidable_of_iff _ seq_compat_seq_iff.symm
-  | .ub, _ | _, .ub => .isFalse (by rintro ⟨⟩)
+instance [DecidableCompat (Event τ)] : DecidableHCompat (ClockedEvent τ c₁) (ClockedEvent τ c₂) :=
+  fun x y => decidable_of_iff' _ (ClockedEvent.compat_iff x y)
 
-end Decide
+@[grind =] theorem Trace.compat_iff {es ds : Trace τ} :
+    es ⌣ ds ↔ ¬es.isUB ∧ ¬ds.isUB ∧ (∀ e ∈ es.events, ∀ d ∈ ds.events, e ⌣ d) := by
+  show es.Compat ds ↔ _
+  grind [Trace.Compat]
 
+instance [DecidableCompat (Event τ)] : DecidableCompat (Trace τ) := fun _es _ds =>
+  decidable_of_iff' _ Trace.compat_iff
 
+/-!
+## ClockedEvent Compatibility
+-/
+namespace ClockedEvent
+variable (e₁ : ClockedEvent τ c₁) (e₂ : ClockedEvent τ c₂)
 
-
-end Trace
+/--
+Compatibility of clocked events is symmetric, when compatibility of events is.
+-/
+@[symm] theorem compat_symm : e₁ ⌣ e₂ → e₂ ⌣ e₁ := by grind
