@@ -22,8 +22,12 @@ The preferred spelling in theorems is `unrel`
 ## Lemmas
 -/
 namespace Unrel
+variable (x y : α)
 
 /-- `· # ·` is decidable when `· ≤ ·` is -/
-instance [DecidableLE  α] (x y : α) : Decidable (x # y) := by infer_instance
+instance [DecidableLE α] (x y : α) : Decidable (x # y) := by infer_instance
+
+/-- `· # ·` is reflexive only when `· ≤ ·` is irreflexive. -/
+@[grind =] theorem unrel_refl_iff : x # x ↔ ¬(x ≤ x) := by grind
 
 end Unrel
