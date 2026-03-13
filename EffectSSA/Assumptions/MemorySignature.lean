@@ -42,7 +42,7 @@ abbrev Ptr : Type := MemorySignature.Ptr τ
 abbrev DVal : τ.DType → Type := MemorySignature.DVal
 
 attribute [instance] Ty.instDecidableEqDType
-attribute [instance] MemorySignature.instDecidableEqPtr
-attribute [instance] MemorySignature.instDecidableEqTVal
+attribute [reducible, instance] MemorySignature.instDecidableEqPtr
+attribute [reducible, instance] MemorySignature.instDecidableEqTVal
 
 end Ty

@@ -72,9 +72,8 @@ def merge (es₁ : Trace τ) (es₂ : Trace τ) : Trace τ :=
   let clock := es₁.clock.merge es₂.clock
   let events₁ := es₁.events.map (.cast_le (c' := clock) (by grind))
   let events₂ := es₂.events.map (.cast_le (c' := clock) (by grind))
-  let ubTrace := { clock, isUB := true, events := [] }
   if h : es₁.isUB ∨ es₂.isUB ∨ ¬(es₁ ⌣ es₂) then
-    ubTrace
+    .ub
   else
     let events := mergeEvents events₁ (dedup events₁ events₂)
     { clock, events, isUB := false,

@@ -88,10 +88,20 @@ end ClockedEvent
 /-! ### Trace API -/
 namespace Trace
 
-
 /-- `∅` is the empty (non-UB) trace, without any events. -/
 instance : EmptyCollection (Trace τ) where
   emptyCollection := { clock := .initial, events := [], isUB := false }
+
+/--
+The canonical UB trace.
+
+Note that merging a trace with UB will always yield UB, so the precise clock
+value of a trace with UB no longer matters.
+-/
+def ub : Trace τ where
+  clock := .initial
+  events := []
+  isUB := true
 
 /--
 Add a new event to the front of a trace,
