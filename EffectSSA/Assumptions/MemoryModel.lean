@@ -35,8 +35,6 @@ class MemoryModel τ extends MemorySignature τ, Compat (Event τ) where
   [instDecideLegal : DecidablePred LegalTrace]
   /-- Compatibility of events should be decidable. -/
   [instDecideCompat : DecidableCompat (Event τ)]
-  /-- Compatibility of events should be symmetric. -/
-  [instSymmCompat : Std.Symm (· ⌣ · : Event τ → Event τ → _)]
 
 
 /-! ## API -/
@@ -47,4 +45,3 @@ instance : DecidablePred (@Trace.Legal τ _) :=
   μ.instDecideLegal
 
 attribute [reducible, instance] MemoryModel.instDecideCompat
-attribute [instance] MemoryModel.instSymmCompat
