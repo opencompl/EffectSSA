@@ -15,6 +15,8 @@ equivalence.
 -/
 namespace EffectSSA.Semantics
 
+noncomputable section -- TODO: #19 remove once ITC has been implemented
+
 /-!
 ## ClosingEnvironment Definition
 --------------------------------------------------------------------------------

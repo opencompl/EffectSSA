@@ -16,7 +16,7 @@ namespace EffectSSA
 variable (τ : Ty) [MemorySignature τ]
 
 open ITC (Clock)
-noncomputable section -- TODO: remove once ITC has been implemented
+noncomputable section -- TODO: #19 remove once ITC has been implemented
 -- ^^ The following definitions use `Clock` axioms, and thus are noncomputable
 --    untill we actually implement the Clock module.
 
@@ -34,7 +34,6 @@ inductive Event where
   | alloc (t : τ.DType) (p : τ.Ptr)
   /-- Location `p` was freed -/
   | free (t : τ.DType) (p : τ.Ptr)
-  | split
   deriving DecidableEq
 
 /--

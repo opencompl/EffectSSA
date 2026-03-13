@@ -2,7 +2,6 @@ import EffectSSA.Assumptions.MemoryModel
 import EffectSSA.Syntax
 import EffectSSA.Trace
 import EffectSSA.Semantics.Basic
-import EffectSSA.Semantics.Merge
 import EffectSSA.Semantics.Environment
 import EffectSSA.Semantics.ExecM
 
@@ -15,6 +14,8 @@ for whole programs.
 namespace EffectSSA
 open Semantics
 variable {τ : Ty} [MemoryModel τ]
+
+noncomputable section -- TODO: #19 remove once ITC has been implemented
 
 /-!
 ## Instruction Semantics
@@ -66,11 +67,11 @@ def Instruction.execM (env : Environment τ) : (i : Instruction τ) → ExecM τ
     return env.snoc trace
   -- Split / Merge
   | .split eff => do
-    let trace := Semantics.split (← env.getEff? eff)
+    let traces := (← env.getEff? eff).split
     let env := env.eraseVar eff
-    return env.snoc trace |>.snoc trace
+    return env.snoc traces.fst |>.snoc traces.snd
   | .merge eff₁ eff₂ => do
-    let trace := Semantics.merge (← env.getEff? eff₁) (← env.getEff? eff₂)
+    let trace := (← env.getEff? eff₁).merge (← env.getEff? eff₂)
     let env := env.eraseVar eff₁ |>.eraseVar eff₂
     return env.snoc trace
   -- Effect state bookkeeping operations

@@ -10,13 +10,14 @@ just add a single event to a trace. These include:
 * `store`
 * `alloc`
 * `free`
-* `split`
 
 Note that these semantic functions will be used to describe both the implicit
 and EffectSSA variations of each respective operation.
 -/
 namespace EffectSSA
 variable {τ : Ty} [MemoryModel τ]
+
+noncomputable section -- TODO: #19 remove once ITC has been implemented
 
 /--
 `e :ℓ> es` adds an event `e` to a trace `es`, so long as the resulting trace
@@ -56,9 +57,3 @@ assuming `es` describes all previous events.
 -/
 def free (t : τ.DType) (p : τ.Ptr) (es : Trace τ) : Trace τ :=
   .free t p :ℓ> es
-
-/--
-Split effects, assuming `es` describes all previous events.
--/
-def split (es : Trace τ) : Trace τ :=
-  .split :ℓ> es
