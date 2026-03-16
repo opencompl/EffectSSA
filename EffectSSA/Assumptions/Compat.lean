@@ -28,7 +28,7 @@ class HCompat (α : Type u) (β : Type v) where
 
 @[inherit_doc] infixl:60 " ⌣ " => HCompat.hCompat
 
-/-- An instance of `Copmat` implies an instance of `HCompat` -/
+/-- An instance of `Compat` implies an instance of `HCompat` -/
 instance [Compat α] : HCompat α α where
   hCompat := Compat.compat
 
