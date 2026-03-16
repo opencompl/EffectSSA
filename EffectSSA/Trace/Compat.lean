@@ -36,9 +36,6 @@ instance : Compat (Trace τ) where compat := Trace.Compat
 Compatibility of both ClockedEvents and Traces is decidable.
 -/
 
-@[grind =] theorem ClockedEvent.compat_iff (e₁ : ClockedEvent τ c₁) (e₂ : ClockedEvent τ c₂) :
-    e₁ ⌣ e₂ ↔ (e₁.clock # e₂.clock → e₁.event ⌣ e₂.event) := by rfl
-
 instance [DecidableCompat (Event τ)] : DecidableHCompat (ClockedEvent τ c₁) (ClockedEvent τ c₂) :=
   fun x y => decidable_of_iff' _ (ClockedEvent.compat_iff x y)
 

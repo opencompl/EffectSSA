@@ -169,13 +169,15 @@ Lemmas needed to prove invariants for further definitions.
 namespace ClockedEvent
 variable (x : ClockedEvent τ c₁) (y : ClockedEvent τ c₂)
 
+@[grind =] theorem compat_iff : x ⌣ y ↔ (x.clock # y.clock → x.event ⌣ y.event) := by rfl
+
 @[simp, grind =] theorem cast_le_compat (h : c₁ ≤ c₁') :
     x.cast_le h ⌣ y ↔ x ⌣ y := by
-  sorry
+  grind [cast_le]
 
 @[simp, grind =] theorem compat_cast_le (h : c₂ ≤ c₂') :
     x ⌣ y.cast_le h ↔ x ⌣ y := by
-  sorry
+  grind [cast_le]
 
 @[grind =>] theorem compat_of_not_unrel (h : ¬(x.clock # x.clock)) : x ⌣ y := by
   sorry
