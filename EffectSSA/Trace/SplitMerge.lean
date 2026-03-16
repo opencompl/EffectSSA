@@ -1,4 +1,5 @@
 import EffectSSA.Assumptions.LawfulMemoryModel
+import EffectSSA.Upstream.List
 
 import EffectSSA.Trace.Defs
 import EffectSSA.Trace.Compat
@@ -70,7 +71,6 @@ variable {c} {es₁ es₂ : List (ClockedEvent τ c)}
   · grind
   · grind
   case case3 ih =>
-
     specialize ih (by grind) (by grind) (by grind)
     simp only [List.pairwise_cons, mem_mergeEvents, List.mem_cons, ih, and_true]
     intro e h
@@ -90,6 +90,21 @@ variable {c} {es₁ es₂ : List (ClockedEvent τ c)}
 @[grind .] theorem compat_dedup (h : es₂.Pairwise (· ⌣ ·)) : (dedup es₁ es₂).Pairwise (· ⌣ ·) := by
   induction es₂ <;> simp [dedup]; grind
 
+@[grind .] theorem compat_of_mem_dedup {e₁ e₂} (h₂ : e₂ ∈ dedup es₁ es₂) (h₁ : e₁ ∈ es₁)
+    (h : es₁.Pairwise (· ⌣ ·)) : e₁ ⌣ e₂ := by
+  unfold dedup at h₂
+  fun_induction List.filter
+  case case1 => contradiction
+  case case2 y es₂ hy ih =>
+    replace hy : y ∈ es₁ := by grind
+    replace h₂ : e₂ = y ∨ e₂ ∈ es₂ ∧ e₂ ∈ es₁ := by grind
+    rcases h₂ with (h₂|h₂)
+    · subst h₂
+      apply List.rel_of_pairwise <;> assumption
+    · rcases h₂
+      apply List.rel_of_pairwise <;> assumption
+  case case3 => grind
+
 end Lemmas
 
 def merge (es₁ : Trace τ) (es₂ : Trace τ) : Trace τ :=
@@ -102,8 +117,14 @@ def merge (es₁ : Trace τ) (es₂ : Trace τ) : Trace τ :=
     let events := mergeEvents events₁ (dedup events₁ events₂)
     { clock, events, isUB := false,
       compat := by
-        have := es₁.compat
-        have := es₂.compat
-        grind
+        have h₁ := es₁.compat (by grind)
+        have h₂ := es₂.compat (by grind)
+        rintro -
+        apply compat_mergeEvents
+        · intros e₁ h₁ e₂ h₂
+          apply compat_of_mem_dedup h₂ h₁
+          grind
+        · grind
+        · grind
     }
 where
