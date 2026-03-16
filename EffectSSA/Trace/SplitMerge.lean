@@ -1,3 +1,5 @@
+import EffectSSA.Assumptions.LawfulMemoryModel
+
 import EffectSSA.Trace.Defs
 import EffectSSA.Trace.Compat
 
@@ -5,7 +7,7 @@ import EffectSSA.Trace.Compat
 # Split & Merge Operations
 -/
 namespace EffectSSA
-variable {τ : Ty} [MemoryModel τ]
+variable {τ : Ty} [LawfulMemoryModel τ]
 
 noncomputable section
 
@@ -46,7 +48,6 @@ def dedup {c} (es : List (ClockedEvent τ c)) : List (ClockedEvent τ c) → Lis
   List.filter (· ∈ es)
 
 def mergeEvents {c} : List (ClockedEvent τ c) → List (ClockedEvent τ c) → List (ClockedEvent τ c)
-  -- TODO: implement
   | [], ys => ys
   | xs, [] => xs
   | x :: xs, y :: ys =>
@@ -65,7 +66,26 @@ variable {c} {es₁ es₂ : List (ClockedEvent τ c)}
     (hc : ∀ e₁ ∈ es₁, ∀ e₂ ∈ es₂, e₁ ⌣ e₂)
     (h₁ : es₁.Pairwise (· ⌣ ·)) (h₂ : es₂.Pairwise (· ⌣ ·)) :
     (mergeEvents es₁ es₂).Pairwise (· ⌣ ·) := by
-  fun_induction mergeEvents <;> (try simp) <;> grind
+  fun_induction mergeEvents
+  · grind
+  · grind
+  case case3 ih =>
+
+    specialize ih (by grind) (by grind) (by grind)
+    simp only [List.pairwise_cons, mem_mergeEvents, List.mem_cons, ih, and_true]
+    intro e h
+    rcases h with ((_|_)|_)
+    · grind
+    · apply ClockedEvent.compat_symm
+      grind
+    · simp at h₁ h₂; grind
+  case case4 ih =>
+    specialize ih (by grind) (by grind) (by grind)
+    simp only [List.pairwise_cons, mem_mergeEvents, List.mem_cons, ih, and_true]
+    rintro e (_|rfl|_)
+    · simp at h₁; grind
+    · grind
+    · grind
 
 @[grind .] theorem compat_dedup (h : es₂.Pairwise (· ⌣ ·)) : (dedup es₁ es₂).Pairwise (· ⌣ ·) := by
   induction es₂ <;> simp [dedup]; grind
