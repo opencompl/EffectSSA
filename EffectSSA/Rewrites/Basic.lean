@@ -31,7 +31,7 @@ structure TRewrite (Γ : Context τ) (ts : List τ.Typ) extends raw : Rewrite τ
 ## Semantics Correctness Constraints
 --------------------------------------------------------------------------------
 -/
-variable {τ} [MemoryModel τ] {Γ : Context τ}
+variable {τ} [LawfulMemoryModel τ] {Γ : Context τ}
 
 grind_pattern TRewrite.wt_src => (TRewrite.raw self).rSrc
 grind_pattern TRewrite.wt_tgt => (TRewrite.raw self).rTgt

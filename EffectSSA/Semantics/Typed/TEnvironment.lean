@@ -6,7 +6,7 @@ import EffectSSA.Semantics.Lemmas
 # Intrinsically Typed Environments
 -/
 namespace EffectSSA
-variable {τ} [MemoryModel τ]
+variable {τ} [LawfulMemoryModel τ]
 
 structure Semantics.TEnvironment (Γ : Context τ) where
   env : Environment τ

@@ -11,7 +11,7 @@ well-typed programs. This is particularly useful, since the welltypedness
 means these semantics can never return a type error.
 -/
 namespace EffectSSA
-variable {τ} [MemoryModel τ] {Γ Δ : Context τ}
+variable {τ} [LawfulMemoryModel τ] {Γ Δ : Context τ}
 
 noncomputable section -- TODO: #19 remove once ITC has been implemented
 
