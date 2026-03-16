@@ -13,7 +13,7 @@ for whole programs.
 -/
 namespace EffectSSA
 open Semantics
-variable {τ : Ty} [MemoryModel τ]
+variable {τ : Ty} [LawfulMemoryModel τ]
 
 noncomputable section -- TODO: #19 remove once ITC has been implemented
 

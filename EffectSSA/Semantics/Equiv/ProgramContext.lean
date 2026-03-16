@@ -85,7 +85,7 @@ That is, plug program `p` into the hole of context `C`, and evaluate the
 resulting program, returning `none` when the program is malformed, or has more
 than a single return variable.
 -/
-def ProgramContext.execProgram [MemoryModel τ] (C : ProgramContext τ) (p : Program τ) :
+def ProgramContext.execProgram [LawfulMemoryModel τ] (C : ProgramContext τ) (p : Program τ) :
     Option τ.Val := do
   let (env, es) ← C.pre.execClosed
   let (env, es) ← p.exec env es
@@ -101,7 +101,7 @@ Execute a (typed) program under the given (typed) context.
 That is, plug program `p` into the hole of context `C`, and evaluate the
 resulting program.
 -/
-def TProgramContext.execProgram [MemoryModel τ] (C : TProgramContext Γ ts) (p : TProgram Γ ts) :
+def TProgramContext.execProgram [LawfulMemoryModel τ] (C : TProgramContext Γ ts) (p : TProgram Γ ts) :
     τ.TVal C.finalType :=
   let (env, es) := C.pre.execClosed
   let (env, es) := p.exec env es
@@ -117,6 +117,6 @@ variable {ts} (C : TProgramContext Γ ts)
 @[simp, grind =] theorem TProgramContext.ctx_pre : C.ctx.pre = C.pre.program := by rfl
 @[simp, grind =] theorem TProgramContext.ctx_post : C.ctx.post = C.post.program := by rfl
 
-@[simp, grind =] theorem TProgramContext.ctx_exec_eq [MemoryModel τ] (p : TProgram Γ ts) :
+@[simp, grind =] theorem TProgramContext.ctx_exec_eq [LawfulMemoryModel τ] (p : TProgram Γ ts) :
     C.ctx.execProgram p.program = some (C.execProgram p).toVal := by
   simp [execProgram, ProgramContext.execProgram]

@@ -5,7 +5,7 @@ import EffectSSA.Semantics.Program
 # Lemmas about semantics
 -/
 namespace EffectSSA
-variable {τ} [MemoryModel τ]
+variable {τ} [LawfulMemoryModel τ]
 
 /-!
 ## Unfoldings

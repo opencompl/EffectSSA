@@ -8,7 +8,7 @@ import EffectSSA.Semantics.Lemmas
 -/
 namespace EffectSSA
 open Semantics (ProgramContext TProgramContext)
-variable {τ} [MemoryModel τ] {Γ : Context τ} {ts : List τ.Typ}
+variable {τ} [LawfulMemoryModel τ] {Γ : Context τ} {ts : List τ.Typ}
 
 /-
 TODO: we might want to define equivalence of untyped programs as well, although

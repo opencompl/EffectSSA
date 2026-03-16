@@ -11,7 +11,7 @@ namespace EffectSSA
 open Semantics (TProgramContext TEnvironment)
 namespace Rewrites
 
-variable {τ}
+variable {τ} [LawfulMemoryModel τ]
 
 def createEff_consumeEff : TRewrite (τ:=τ) ∅ [] where
   rSrc := {
@@ -26,14 +26,13 @@ def createEff_consumeEff : TRewrite (τ:=τ) ∅ [] where
     returnVars := []
   }
 
-variable [MemoryModel τ] in
 theorem createEff_consumeEff.correct : (@createEff_consumeEff τ).Correct := by
   intro C
   simp [TProgramContext.execProgram]
-  have h_src (env) (es? : Option _) :
+  have h_src (env) (es?) :
       (@createEff_consumeEff τ).src.exec env es? = ((∅ : TEnvironment ∅), es?) := by
     rfl
-  have h_tgt (env) (es? : Option _) (h : es?.isSome) :
+  have h_tgt (env) (es?) :
       (@createEff_consumeEff τ).tgt.exec env es? = ((∅ : TEnvironment ∅), es?) := by
     simp only [TProgram.exec, Program.exec, Program.execM, TRewrite.tgt, createEff_consumeEff,
       InstructionSeq.execM_cons, InstructionSeq.execM_nil, bind_pure,
@@ -41,9 +40,7 @@ theorem createEff_consumeEff.correct : (@createEff_consumeEff τ).Correct := by
       ExecM.run_liftM, Option.bind_eq_bind, Option.bind_some, Option.get_bind, Option.get_some,
       Prod.mk.injEq]
     refine ⟨rfl, ?_⟩
-
+    congr
     simp [Instruction.exec, Instruction.execM]
     grind
   rw [h_src, h_tgt]
-  simp only [TProgram.isSome_snd_execClosed_of]
-  exact Context.isUnrestricted_empty
