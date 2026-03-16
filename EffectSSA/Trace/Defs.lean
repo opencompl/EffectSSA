@@ -179,7 +179,6 @@ variable (x : ClockedEvent τ c₁) (y : ClockedEvent τ c₂)
     x ⌣ y.cast_le h ↔ x ⌣ y := by
   grind [cast_le]
 
-@[grind =>] theorem compat_of_not_unrel (h : ¬(x.clock # x.clock)) : x ⌣ y := by
-  sorry
+@[grind =>] theorem compat_of_not_unrel (h : ¬(x.clock # y.clock)) : x ⌣ y := by grind
 
 end ClockedEvent
