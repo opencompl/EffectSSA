@@ -40,3 +40,10 @@ abbrev DecidableHCompat (α β) [HCompat α β] := DecidableRel (· ⌣ · : α 
 
 /-- An abbreviation for `DecidableRel` of the compatibility relation on `α`. -/
 abbrev DecidableCompat (α) [Compat α] := DecidableHCompat α α
+
+/-- An abbreviation for `Std.Symm` of the compatibility relation on `α`. -/
+abbrev SymmCompat (α) [Compat α] := Std.Symm (· ⌣ · : α → α → Prop)
+
+/-- A symmetric compatibility relation satisfies `a ⌣ b → b ⌣ a`. -/
+abbrev SymmCompat.symm (α) [Compat α] [SymmCompat α] (a b : α) : a ⌣ b → b ⌣ a :=
+  Std.Symm.symm a b
