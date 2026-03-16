@@ -45,5 +45,5 @@ abbrev DecidableCompat (α) [Compat α] := DecidableHCompat α α
 abbrev SymmCompat (α) [Compat α] := Std.Symm (· ⌣ · : α → α → Prop)
 
 /-- A symmetric compatibility relation satisfies `a ⌣ b → b ⌣ a`. -/
-abbrev SymmCompat.symm (α) [Compat α] [SymmCompat α] (a b : α) : a ⌣ b → b ⌣ a :=
+@[symm] abbrev SymmCompat.symm {α} [Compat α] [SymmCompat α] (a b : α) : a ⌣ b → b ⌣ a :=
   Std.Symm.symm a b
