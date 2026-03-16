@@ -17,6 +17,10 @@ attribute [local simp] List.pairwise_map
 ## Split
 -/
 
+/--
+Split a single trace into two, by splitting the clock value, while duplicating
+all events.
+-/
 def split (es : Trace τ) : Trace τ × Trace τ :=
   ( { es with
         clock  := es.clock.split.fst
