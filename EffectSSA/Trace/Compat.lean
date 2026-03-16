@@ -56,4 +56,5 @@ variable (e₁ : ClockedEvent τ c₁) (e₂ : ClockedEvent τ c₂)
 /--
 Compatibility of clocked events is symmetric, when compatibility of events is.
 -/
-@[symm] theorem compat_symm : e₁ ⌣ e₂ → e₂ ⌣ e₁ := by grind
+@[symm] theorem compat_symm [SymmCompat (Event τ)] : e₁ ⌣ e₂ → e₂ ⌣ e₁ := by
+  grind [SymmCompat.symm (α := Event τ)]

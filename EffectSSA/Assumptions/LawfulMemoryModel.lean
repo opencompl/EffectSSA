@@ -63,3 +63,8 @@ class LawfulMemoryModel τ extends MemoryModel τ where
   -/
   read_eq_read_of_load (h : e ⌣ (Event.load t p)) (es : Trace τ) :
     read t p (e :> es) = read t p es
+
+
+/-- When the memory model is lawful, the compatibility of events is symmetric. -/
+instance [LawfulMemoryModel τ] : SymmCompat (Event τ) where
+  symm := LawfulMemoryModel.compat_symm
