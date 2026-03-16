@@ -54,10 +54,19 @@ namespace ClockedEvent
 variable (e₁ : ClockedEvent τ c₁) (e₂ : ClockedEvent τ c₂)
 
 /--
+Compatibility of clocked events is reflexive
+-/
+@[refl] theorem compat_refl : e₁ ⌣ e₁ := by grind
+instance : Std.Refl (· ⌣ · : ClockedEvent τ c → ClockedEvent τ c → Prop) where refl := compat_refl
+
+/--
 Compatibility of clocked events is symmetric, when compatibility of events is.
 -/
 @[symm] theorem compat_symm [SymmCompat (Event τ)] : e₁ ⌣ e₂ → e₂ ⌣ e₁ := by
   grind [SymmCompat.symm (α := Event τ)]
+
+instance [SymmCompat (Event τ)] : SymmCompat (ClockedEvent τ c) where
+  symm x y := compat_symm x y
 
 @[grind =] theorem compat_symm_iff [SymmCompat (Event τ)] : e₁ ⌣ e₂ ↔ e₂ ⌣ e₁ := by
   grind [compat_symm]
