@@ -1,5 +1,4 @@
 import EffectSSA.Syntax.Untyped
-import EffectSSA.Syntax.Typed.TVar
 import EffectSSA.Types
 
 /-!

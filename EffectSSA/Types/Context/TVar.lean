@@ -1,5 +1,4 @@
-import EffectSSA.Syntax.Untyped
-import EffectSSA.Types
+import EffectSSA.Types.Context.Basic
 
 /-!
 # Intrinsically Well-typed Variables
