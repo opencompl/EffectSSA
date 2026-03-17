@@ -23,8 +23,8 @@ noncomputable section -- TODO: #19 remove once ITC has been implemented
 -/
 
 /--
-A program context is, intuitively, a program with a "hole" in it, that may be
-filled by substituting in another program.
+An `n`-ary program context is, intuitively, a program with a `n` "holes" in it,
+that may be filled by substituting in another program.
 
 At the same time, we want the context to be able to contain intermediate
 let-bindings, without affecting the "shape" of the hole. Thus, a context is
@@ -40,28 +40,25 @@ over context when defining contextual equivalence, we don't lose any expressive
 power by disallowing multiple return variables, but it does make things easier.
 -/
 structure ProgramContext τ : Type where
-  pre  : Program τ
-  post : Program τ
+  ctx : List (Program τ)
+
+structure HoleSpec τ where
+  /-- The context in which to type the hole. -/
+  Γ : Context τ
+  /-- Return variables to be passed to the next hole. -/
+  retInteral : List τ.Typ
+  /-- Return variables to be passed to the context -/
+  retExternal : List τ.Typ
 
 /--
 A typed program context `TProgramContext Γ ts` bundles proofs that the "hole"
 of the context is shapped exactly like a `TProgram Γ ts`.
 -/
-structure TProgramContext (Γ : Context τ) (ts : List τ.Typ) where
-  ctx : ProgramContext τ
-  /--
-  The return type of the context (when filled).
-
-  Recall that we expect a program context to return only a single variable at the
-  end. Furthermore, an explicit goal of using contextual equivalence is to be able
-  to equate traces where events have been moved around in irrelvevant ways,
-  without having to explicitly define when that is the case. That is why we don't
-  want the precise structure of the trace to leak out of the context and thus we
-  mandate that the return type *must* be a plain data type.
-  -/
-  finalType : τ.DType
-  wt_pre : ctx.pre.WellTyped ∅ Γ.toList
-  wt_post : ctx.post.WellTyped ⟨ts⟩ [finalType]
+inductive ProgramContext.WellFormed : Context τ → ProgramContext τ → (η : List (HoleSpec τ)) → Type where
+  /-- A context without any holes is just a program. -/
+  | nil {P : Program τ} : P.WellTyped Γ [t] → WellFormed Γ ⟨[P]⟩ []
+  /--  -/
+  | cons {P : Program τ} : WellFormed Γ ⟨P :: C⟩ (σ :: η)
 
 
 /-! ### Grind Attributes -/
