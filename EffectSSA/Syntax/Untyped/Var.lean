@@ -4,8 +4,10 @@ import Qq
 /-!
 # Variables
 
-This file defines `Var`, the type of program variables with an upper bound.
+This file defines `Var`, the type of program variables.
 
+See also the `TVar` module, which defines intrinsically-typed variables (indexed
+by a particular context).
 -/
 namespace EffectSSA
 
@@ -15,8 +17,7 @@ namespace EffectSSA
 -/
 
 /--
-`Var` is a de Bruijn index representing a variable, given an upper bound `n`
-on the number of available variables.
+`Var` is a de Bruijn index representing a variable.
 -/
 @[grind]
 structure Var where
