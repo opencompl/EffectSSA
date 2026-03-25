@@ -114,15 +114,15 @@ theorem TInstructionSeq.exec_instruction {is : TInstructionSeq Γ Δ} {env : TEn
   obtain ⟨es, rfl⟩ : ∃ (es' : TTrace Γ), es = es'.get? := ⟨⟨es, wt_es⟩, rfl⟩
   simp [exec, execM]
 
-def TProgram.exec (p : TProgram Γ ts) (env : TEnvironment Γ) (es? : TTrace Γ) :
-    TEnvironment ⟨ts⟩ × TTrace ⟨ts⟩ :=
+def TProgram.exec (p : TProgram Γ Δ) (env : TEnvironment Γ) (es? : TTrace Γ) :
+    TEnvironment Δ × TTrace Δ :=
   let res := (p.program.exec env es?).get <| Program.isSome_exec p.wt env.wt es?.wt
   have wt₁ := by simp [res, Environment.WellTyped, Program.exec, Program.execM]
   have wt₂ := by simp [res, Trace.WellTyped, Program.exec, Program.execM]
   ⟨⟨res.1, wt₁⟩, ⟨res.2, wt₂⟩⟩
 
-@[grind] def TProgram.execClosed (p : TProgram (τ:=τ) ∅ ts) :
-    TEnvironment ⟨ts⟩ × TTrace ⟨ts⟩  :=
+@[grind] def TProgram.execClosed (p : TProgram (τ:=τ) ∅ Δ) :
+    TEnvironment Δ × TTrace Δ  :=
   p.exec ∅ ∅
 
 section Lemmas

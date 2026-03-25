@@ -78,21 +78,19 @@ end InstructionSeq
 namespace Program
 
 @[grind =] theorem wellTyped_iff :
-    WellTyped Γ ⟨is, vs⟩ ts ↔ ∃ (Δ : Context _),
-      ( (Δ.eraseVars vs).isUnrestricted
-      ∧ is.WellTypedWith Γ Δ
-      ∧ vs.length = ts.length
-      ∧ ∀ (i) (hi : i < vs.length), ∃ t,
-          ts[i]? = some t ∧ Δ[vs[i]]? = some t) := by
+    WellTyped Γ ⟨is, vs⟩ Ξ ↔ ∃ (Δ : Context _),
+      is.WellTypedWith Γ Δ
+      ∧ (Δ.eraseVars vs).isUnrestricted
+      ∧ vs.length = Ξ.size
+      ∧ ∀ (i) (hi : i < vs.length), Δ[vs[i]]? = Ξ[Var.ofNat i]? := by
   grind
 
 @[simp, typecheck, grind =]
 theorem wellTyped_nil_iff {Γ : Context τ} :
-    WellTyped Γ ⟨.nil, vs⟩ ts ↔
-      ( (Γ.eraseVars vs).isUnrestricted
-      ∧ vs.length = ts.length
-      ∧ ∀ (i) (hi : i < vs.length), ∃ t,
-          ts[i]? = some t ∧ Γ[vs[i]]? = some t) := by
+    WellTyped Γ ⟨.nil, vs⟩ Ξ ↔
+        (Γ.eraseVars vs).isUnrestricted
+      ∧ vs.length = Ξ.size
+      ∧ ∀ (i) (hi : i < vs.length), Γ[vs[i]]? = Ξ[Var.ofNat i]? := by
   grind
 
 end Program
@@ -118,11 +116,6 @@ theorem InstructionSeq.WellTyped.unique
 
 @[grind →]
 theorem Program.WellTyped.unique {p : Program τ}
-    (h₁ : p.WellTyped Γ ts) (h₂ : p.WellTyped Γ us) :
-      ts = us := by
-  rcases h₁ with ⟨Δ₁, h₁, h_un₁, h_ts_len, h_ts⟩
-  rcases p with ⟨is, vs⟩
-  induction is generalizing Γ
-  · apply List.ext_getElem?
-    grind
-  · grind
+    (h₁ : p.WellTyped Γ Ξ) (h₂ : p.WellTyped Γ Θ) :
+      Ξ = Θ := by
+  grind

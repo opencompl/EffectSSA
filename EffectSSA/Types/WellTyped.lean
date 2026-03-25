@@ -88,22 +88,22 @@ TODO: InstructionSeq.WellTypedWith should just be renamed to InstructionSeq.Well
 -/
 
 /--
-`WellTyped Γ p ts` holds for a program `p`, when the constituent instruction
+`WellTyped Γ p Ξ` holds for a program `p`, when the constituent instruction
 sequence `p` is welltyped under `Γ`, returning an *unrestricted* context `Δ`
 such that the i-th return variable of `p` is assigned the respective type
-`ts[i]` in context `Δ`
+`Ξ[i]` in context `Δ`
 
 NOTE: The unrestricted requirement enforces that linear variables
 must either be used *at least* once or returned.
 -/
 @[grind =]
-def Program.WellTyped (Γ : Context τ) (p : Program τ) (ts : List τ.Typ) : Prop :=
+def Program.WellTyped (Γ : Context τ) (p : Program τ) (Ξ : Context τ) : Prop :=
   ∃ (Δ : Context τ),
     InstructionSeq.WellTypedWith Γ p.instructions Δ
     -- All internal (i.e., non-return) variables that are still in scope must
     -- be unrestricted (i.e., non-linear)
     ∧ (Δ.eraseVars p.returnVars).isUnrestricted
-    -- And the returnVariables' types match `ts`
-    ∧ p.returnVars.length = ts.length
+    -- And the returnVariables' types match `Ξ`
+    ∧ p.returnVars.length = Ξ.size
     ∧ ∀ (i : Nat), (hi : i < p.returnVars.length) →
-        Δ[p.returnVars[i]]? = ts[i]?
+        Δ[p.returnVars[i]]? = Ξ[Var.ofNat i]?

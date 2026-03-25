@@ -47,7 +47,7 @@ structure ProgramContext τ : Type where
 A typed program context `TProgramContext Γ ts` bundles proofs that the "hole"
 of the context is shapped exactly like a `TProgram Γ ts`.
 -/
-structure TProgramContext (Γ : Context τ) (ts : List τ.Typ) where
+structure TProgramContext (Γ : Context τ) (Δ : Context τ) where
   ctx : ProgramContext τ
   /--
   The return type of the context (when filled).
@@ -60,8 +60,8 @@ structure TProgramContext (Γ : Context τ) (ts : List τ.Typ) where
   mandate that the return type *must* be a plain data type.
   -/
   finalType : τ.DType
-  wt_pre : ctx.pre.WellTyped ∅ Γ.toList
-  wt_post : ctx.post.WellTyped ⟨ts⟩ [finalType]
+  wt_pre : ctx.pre.WellTyped ∅ Γ
+  wt_post : ctx.post.WellTyped Δ (.ofList [finalType])
 
 
 /-! ### Grind Attributes -/
@@ -74,9 +74,9 @@ grind_pattern TProgramContext.wt_post => (TProgramContext.ctx self).post
 -/
 variable {τ} {Γ Δ : Context τ}
 
-def TProgramContext.pre (C : TProgramContext Γ ts) : TProgram ∅ Γ.toList where
+def TProgramContext.pre (C : TProgramContext Γ Δ) : TProgram ∅ Γ where
   program := C.ctx.pre
-def TProgramContext.post (C : TProgramContext Γ ts) : TProgram ⟨ts⟩ [C.finalType] where
+def TProgramContext.post (C : TProgramContext Γ Δ) : TProgram Δ (.ofList [C.finalType]) where
   program := C.ctx.post
 
 /--

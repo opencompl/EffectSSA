@@ -12,6 +12,10 @@ in `Δ` which preserves the relevant types.
 
 It can be seen as a substitution, or as a computable witness that `Δ` is somehow
 "included" in `Γ`.
+
+Note that `Hom` is a structure, but a `CoeFun` instance exists, letting us apply
+an `f : Γ.Hom Δ` as if it was a function. See `Hom.apply` for the interpretation
+of a context morphism as a function.
 -/
 structure Hom (Γ Δ : Context τ) where
   raw : Var → Var
@@ -22,9 +26,13 @@ attribute [grind .] Hom.ty_eq
 /--
 Applying a context homomorphism `f : Γ.Hom Δ` to a typed variable in `Γ` yields
 a variable of the same type in `Δ`.
+
+A `CoeFun` instance exists, such that we can write `f v` to mean `f.apply v`.
 -/
 def Hom.apply (f : Γ.Hom Δ) (v : TVar Γ t) : TVar Δ t where
   toVar := f.raw v
+instance (Γ Δ : Context τ) : CoeFun (Γ.Hom Δ) (fun _ => ∀ {t}, TVar Γ t → TVar Δ t) where
+  coe f := f.apply
 
 /--
 A context decomposition `Γ.Decomp Δ₁ Δ₂` is a witness that `Γ = Δ₁ ∘ Δ₂`, in the

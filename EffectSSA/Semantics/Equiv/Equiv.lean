@@ -8,7 +8,7 @@ import EffectSSA.Semantics.Lemmas
 -/
 namespace EffectSSA
 open Semantics (ProgramContext TProgramContext)
-variable {τ} [LawfulMemoryModel τ] {Γ : Context τ} {ts : List τ.Typ}
+variable {τ} [LawfulMemoryModel τ] {Γ Δ : Context τ}
 
 /-
 TODO: we might want to define equivalence of untyped programs as well, although
@@ -21,10 +21,10 @@ equivalence.
 namespace TProgram
 
 @[grind =]
-def Equiv (p : TProgram Γ ts) (q : TProgram Γ ts) : Prop :=
-  ∀ (C : TProgramContext Γ ts), C.execProgram p = C.execProgram q
+def Equiv (p : TProgram Γ Δ) (q : TProgram Γ Δ) : Prop :=
+  ∀ (C : TProgramContext Γ Δ), C.execProgram p = C.execProgram q
 
-instance : Setoid (TProgram Γ ts) where
+instance : Setoid (TProgram Γ Δ) where
   r := Equiv
   iseqv := {
     refl := by grind
@@ -37,7 +37,7 @@ instance : Setoid (TProgram Γ ts) where
 --------------------------------------------------------------------------------
 -/
 section Lemmas
-variable {p q : TProgram Γ ts}
+variable {p q : TProgram Γ Δ}
 
 /-- `_ ≈ _` is the preferred spelling -/
 theorem equiv_iff : p.Equiv q ↔ p ≈ q := by rfl
