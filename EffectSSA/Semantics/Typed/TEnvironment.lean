@@ -39,18 +39,18 @@ instance : CoeOut (TEnvironment Γ × α) (Environment τ × α) where
 ## Definitions
 --------------------------------------------------------------------------------
 -/
+noncomputable section -- TODO: #19 remove once ITC has been implemented
+
 namespace Semantics.TEnvironment
 
 def get (env : TEnvironment Γ) (v : TVar Γ t) : τ.TVal t :=
-  env.env.getAs? v.toVar t |>.get <| by
-    have := env.wt v
-    grind
+  env.env.getAs? v.toVar t |>.get <| by grind
 
 /--
-Limit a typed environment to the given variables, yielding a smaller
+Limit a typed environment to the given variables, yielding a smaller environment
 -/
 def limitTo (env : TEnvironment Γ) (vs : TVarList Γ Δ) : TEnvironment Δ where
-  env := .ofList <| vs.map (env.get · |>.toVal)
+  env := .ofList <| vs.map (env.get · |>.toVal) |>.map (·.getD default)
   wt := by grind [Environment.getAs?, Environment.get?]
 
 /-- Empty environment. -/
@@ -67,28 +67,22 @@ end Semantics.TEnvironment
 namespace Semantics.TEnvironment
 variable {Γ : Context τ} (env : TEnvironment Γ)
 
-@[simp, grind =] theorem length_toList_env : env.env.toList.length = Γ.size := by grind
+/-! ### getAs? -/
 
--- getAs?
-
-@[simp, grind =] theorem env_getAs?_isSome_eq :
-    (env.env.getAs? v t).isSome = decide (Γ[v]? = some t) := by
-  simp [env.wt v t]
-
-@[simp, grind =] theorem env_getAs?_isSome :
-    (env.env.getAs? v t).isSome ↔ Γ[v]? = some t := by
-  simp
+@[simp, grind =] theorem env_getAs?_isSome_of (h : Γ[v]? = some t) :
+    (env.env.getAs? v t).isSome := by
+  grind
 
 @[simp, grind =] theorem env_getAs?_eq (h : Γ[v]? = some t) (env : TEnvironment Γ) :
     (env.env.getAs? v t) = some (env.get ⟨v, h⟩) := by
   simp [get]
 
--- get?
+/-! ### get? -/
 
 open Ty (TVal) in
 @[grind =>] theorem env_get?_eq_getAs?_of (h : Γ[v]? = some t) :
     env.env.get? v = TVal.toVal <$> env.env.getAs? v t := by
-  have := (env.wt v _).mp h
+  have := (env.wt.isSome_getAs? v _) h
   obtain ⟨x, hx⟩ : ∃ x, env.env.getAs? v t = some x := by grind
   simp only [hx, Option.map_eq_map, Option.map_some]
   simp only [Environment.getAs?, Option.bind_eq_bind, Option.bind_eq_some_iff,

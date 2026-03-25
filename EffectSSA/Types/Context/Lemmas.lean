@@ -13,13 +13,16 @@ namespace EffectSSA
 --------------------------------------------------------------------------------
 -/
 namespace Context
-variable {τ : Ty}  (v : Var)
+variable {τ : Ty} (v : Var) (Γ : Context τ)
+
+@[simp, grind =] theorem get?_eq : Γ.get? v = Γ[v]? := by rfl
+@[grind =] theorem getElem_eq : Γ[v]'h = Γ[v]?.get h := by rfl
 
 section OfList
-variable (Γ : List τ.Typ)
+variable (Γ : List (Option τ.Typ))
 
-@[simp, grind =] theorem getElem?_ofList : (ofList Γ)[v]? = Γ[v.toNat]? := by rfl
-@[simp, grind =] theorem getElem_ofList (h) : (ofList Γ)[v]'h = Γ[v.toNat] := by rfl
+@[simp, grind =] theorem getElem?_ofList : (ofList Γ)[v]? = Γ[v.toNat]?.join := by rfl
+@[grind =] theorem getElem_ofList : (ofList Γ)[v]'h = Γ[v.toNat]?.join.get h := by rfl
 @[simp, grind =] theorem size_ofList : (ofList Γ).size = Γ.length := by rfl
 
 @[simp] theorem toList_ofList : (ofList Γ).toList = Γ := by rfl
@@ -33,7 +36,8 @@ variable (Γ : Context τ)
 @[simp, grind =] theorem ofList_toList : ofList Γ.toList = Γ := by rfl
 
 @[simp, grind =] theorem toList_empty : toList (∅ : Context τ) = [] := by rfl
-@[simp, grind =] theorem toList_snoc : toList (Γ <: t) = t :: Γ.toList := by rfl
+@[simp, grind =] theorem toList_snoc : toList (Γ <: t) = some t :: Γ.toList := by rfl
+@[simp, grind =] theorem toList_snocStale : toList (Γ.snocStale) = none :: Γ.toList := by rfl
 
 end ToList
 end Context
@@ -45,22 +49,11 @@ end Context
 namespace Var
 variable {v : Var}
 
-theorem inBounds_iff_isSome : v.InBounds Γ ↔ Γ[v]?.isSome := by
-  cases Γ; grind [InBounds]
-theorem inBounds_iff_exists : v.InBounds Γ ↔ ∃ t, Γ[v]? = some t := by
-  cases Γ; grind [inBounds_iff_isSome]
-theorem inBounds_iff_lt_size : v.InBounds Γ ↔ v.toNat < Γ.size := by
-  grind [InBounds]
 
-@[grind .] theorem inBounds_of_isSome : Γ[v]?.isSome → v.InBounds Γ := by
-  grind [inBounds_iff_isSome]
+@[grind →] theorem lt_size_of_liveIn : v.LiveIn Γ → v.toNat < Γ.size := by
+  grind [LiveIn, Context.get?]
 
-@[grind .] theorem inBounds_of_lt : v.toNat < Γ.size → v.InBounds Γ := by
-  grind [InBounds]
-@[grind →] theorem lt_size_of_inBounds : v.InBounds Γ → v.toNat < Γ.size := by
-  grind [InBounds]
-
-instance : Decidable (v.InBounds Γ) := by unfold InBounds; infer_instance
+instance : Decidable (v.LiveIn Γ) := by unfold LiveIn; infer_instance
 
 end Var
 
@@ -73,21 +66,24 @@ end Var
 def Context.recOn' {motive : Context τ → Sort u}
     (Γ : Context τ)
     (empty : motive ∅)
+    (snocStale : ∀ Γ, motive Γ → motive (snocStale Γ))
     (snoc : ∀ Γ t, motive Γ → motive (Γ <: t)) :
     motive Γ :=
   go Γ.toList
 where
   go : (Γ : List _) → motive ⟨Γ⟩
   | [] => empty
-  | t :: Γ => snoc ⟨Γ⟩ t (go Γ)
+  | none :: Γ => snocStale ⟨Γ⟩ (go Γ)
+  | some t :: Γ => snoc ⟨Γ⟩ t (go Γ)
 
 @[elab_as_elim, cases_eliminator]
 def Context.casesOn' {motive : Context τ → Sort u}
     (Γ : Context τ)
     (empty : motive ∅)
+    (snocStale : ∀ Γ, motive (snocStale Γ))
     (snoc : ∀ Γ t, motive (Γ <: t)) :
     motive Γ :=
-  recOn' Γ empty (fun Γ t _ => snoc Γ t)
+  recOn' Γ empty (fun Γ _ => snocStale Γ) (fun Γ t _ => snoc Γ t)
 
 @[elab_as_elim, induction_eliminator]
 def Var.recOn' {motive : Var → Sort u}
@@ -122,12 +118,14 @@ theorem eq_of_toList {Γ Δ : Context τ} (h : Γ.toList = Δ.toList) : Γ = Δ 
   rcases Γ; rcases Δ; grind
 
 @[ext, grind ext]
-theorem eq_of_getElem?_eq {Γ Δ : Context τ} (h : ∀ (v : Var), Γ[v]? = Δ[v]?) :
+theorem eq_of_getElem?_eq {Γ Δ : Context τ}
+    (h_size : Γ.size = Δ.size)
+    (h_get : ∀ (v : Var), Γ[v]? = Δ[v]?) :
     Γ = Δ := by
   rcases Γ; rcases Δ
   apply eq_of_toList
   ext v
-  grind [h ⟨v⟩]
+  grind [h_get ⟨v⟩]
 
 /-! ### empty -/
 
@@ -140,28 +138,32 @@ theorem eq_of_getElem?_eq {Γ Δ : Context τ} (h : ∀ (v : Var), Γ[v]? = Δ[v
 
 /-! ### getElem -/
 
-@[simp, grind =] theorem getElem_snoc_zero : (Γ <: t)[Var.ofNat 0]'h = t := rfl
-@[simp, grind =] theorem getElem_snoc_succ :
-    (Γ <: t)[v + 1]'h = Γ[v]'(by grind) := rfl
-
+/-- When `v` is a known live variable, `Γ[v]?` is `some (Γ[v]'h)`. -/
 @[grind =]
-theorem getElem_snoc_eq :
-    (Γ <: t)[v]'h =
-      if hz : v = Var.ofNat 0 then
-        t
-      else
-        Γ[v - 1]'(by grind) := by
-  match v with
-  | .ofNat 0 => grind
-  | .ofNat (i + 1) => simp; grind
+theorem getElem?_eq_some_getElem {v : Var} {Γ : Context τ} (h : v.LiveIn Γ) :
+    Γ[v]? = some (Γ[v]'h) := by
+  grind
 
 /-! ### getElem? -/
+
+@[grind =] theorem getElem?_snoc :
+    (Γ <: t)[v]? = if v = Var.ofNat 0 then some t else Γ[v - 1]? := by
+  cases v <;> rfl
 
 @[simp, typecheck, grind =]
 theorem getElem?_snoc_zero : (Γ <: t)[Var.ofNat 0]? = some t := rfl
 @[simp, typecheck, grind =]
 theorem getElem?_snoc_succ : (Γ <: t)[v + 1]? = Γ[v]? := rfl
 
+@[grind =]
+theorem getElem?_snocStale :
+    Γ.snocStale[v]? = if v = Var.ofNat 0 then none else Γ[v - 1]? := by
+  cases v <;> rfl
+
+@[simp, typecheck, grind =]
+theorem getElem?_snocStale_zero : Γ.snocStale[Var.ofNat 0]? = none := rfl
+@[simp, typecheck, grind =]
+theorem getElem?_snocStale_succ : Γ.snocStale[v + 1]? = Γ[v]? := rfl
 
 end Context
 -- ^^ We have to close the section to avoid the following instance from picking
@@ -170,7 +172,10 @@ end Context
 
 instance : LawfulGetElem (Context τ) Var τ.Typ _ where
   getElem?_def Γ v _ := by
-    rcases Γ with ⟨Γ⟩; grind [Var.InBounds]
+    by_cases h : v.LiveIn Γ
+    · grind
+    · suffices Γ[v]? = none by grind
+      simpa [Var.LiveIn] using h
 
 namespace Context
 variable {Γ : Context τ} {v : Var}
@@ -180,116 +185,100 @@ variable {Γ : Context τ} {v : Var}
 @[simp, typecheck, grind .] theorem isUnrestricted_empty : @isUnrestricted τ ∅ := by
   grind [isUnrestricted]
 
-@[simp, typecheck, grind =] theorem isUnrestricted_snoc :
-    (Γ <: t).isUnrestricted ↔ Γ.isUnrestricted ∧ t.isUnrestricted  := by
-  unfold isUnrestricted Var.InBounds
+@[simp, typecheck, grind =] theorem isUnrestricted_snocStale :
+    Γ.snocStale.isUnrestricted ↔ Γ.isUnrestricted := by
   constructor
-  · intro h
-    and_intros
-    · intro v
-      have := h (v + 1)
-      grind
-    · have := h (Var.ofNat 0)
-      grind
-  · intro h v hv
-    have : (v = Var.ofNat 0) ∨ (∃ (v' : Var), v = v' + 1) := by
-      rcases v with _ | i
-      · left; rfl
-      · right; use Var.ofNat i; rfl
+  · intro h v t ht
+    apply h (v + 1)
     grind
+  · grind [isUnrestricted]
+
+@[simp, typecheck, grind =] theorem isUnrestricted_snoc :
+    (Γ <: t).isUnrestricted ↔ Γ.isUnrestricted ∧ t.isUnrestricted := by
+  by_cases h : Γ.isUnrestricted ∧ t.isUnrestricted
+  · suffices (Γ <: t).isUnrestricted by grind
+    grind [isUnrestricted]
+  · suffices ¬(Γ <: t).isUnrestricted by grind
+    suffices ∃ (v : Var) (t' : τ.Typ), (Γ <: t)[v]? = some t' ∧ ¬t'.isUnrestricted by
+      grind [isUnrestricted]
+    replace h : ¬t.isUnrestricted ∨ ¬Γ.isUnrestricted := by grind
+    rcases h with h|h
+    · use Var.ofNat 0, t; grind
+    · obtain ⟨v, t', h⟩ : ∃ (v : Var) (t' : τ.Typ), Γ[v]? = some t' ∧ ¬t'.isUnrestricted := by
+        grind [isUnrestricted]
+      use v + 1; grind
 
 @[grind →] theorem isUnrestricted_eq_false_of_getElem (v : Var) :
     Γ[v]? = some .eff → Γ.isUnrestricted = false := by
-  intro hv
-  have hv : v.InBounds Γ := by grind
-  have : (Γ[v]).isUnrestricted = false := by rcases Γ; grind
   grind [isUnrestricted]
 
-theorem isUnrestricted_iff_getElem? (Γ : Context τ) :
-    Γ.isUnrestricted ↔ ∀ (v : Var), ∀ t ∈ Γ[v]?, t.isUnrestricted := by
-  rcases Γ; grind [isUnrestricted, Var.inBounds_iff_exists]
 
 /-! ### eraseVar -/
 
 @[simp, grind =] theorem toList_eraseVar :
-  (Γ.eraseVar v).toList = Γ.toList.eraseIdx v.toNat := by rfl
+  (Γ.eraseVar v).toList = Γ.toList.set v.toNat none := by rfl
 
 @[simp, typecheck, grind =]
-theorem eraseVar_zero : (Γ <: t).eraseVar (Var.ofNat 0) = Γ := rfl
+theorem eraseVar_zero : (Γ <: t).eraseVar (Var.ofNat 0) = Γ.snocStale := rfl
 
 @[simp, typecheck, grind =]
 theorem eraseVar_succ : (Γ <: t).eraseVar (v + 1) = Γ.eraseVar v <: t := rfl
 
+@[simp, typecheck, grind =]
+theorem empty_eraseVar : (∅ : Context τ).eraseVar v = ∅ := by rfl
+
 @[grind =]
-theorem getElem?_eraseVar {w : Var} :
-    (Γ.eraseVar v)[w]? = Γ[if w.toNat < v.toNat then w else w + 1]? := by
-  rcases Γ with ⟨Γ⟩
-  grind [eraseVar]
+theorem snocStale_eraseVar :
+    Γ.snocStale.eraseVar v
+    = (if v = Var.ofNat 0 then Γ else Γ.eraseVar (v - 1)).snocStale := by
+  grind [eraseVar, snocStale]
+
+@[grind =]
+theorem getElem?_eraseVar {w : Var} : (Γ.eraseVar v)[w]? = if v = w then none else Γ[w]? := by
+  rcases Γ with ⟨Γ⟩; grind [eraseVar]
 
 /-! ### eraseVars -/
 
-@[simp, grind =] theorem toList_eraseVars :
-  (Γ.eraseVars vs n).toList = Γ.toList.eraseAllIdxP (⟨·⟩ ∈ vs) n := by rfl
+@[simp, typecheck, grind =]
+theorem eraseVars_nil : Γ.eraseVars [] n = Γ := by rfl
 
 @[simp, typecheck, grind =]
-theorem eraseVars_nil : Γ.eraseVars [] n = Γ := by simp [eraseVars]
+theorem eraseVars_cons : Γ.eraseVars (v :: vs) n = (Γ.eraseVars vs n).eraseVar (v + n) := by rfl
+
+/-- Erasing variables only marks them as stale, it does _not_ change the size of the context. -/
+@[simp, grind =] theorem size_eraseVars : (Γ.eraseVars vs n).size = Γ.size := by
+  induction vs <;> grind
+
+@[grind =]
+theorem getElem?_eraseVars {w : Var} :
+    (Γ.eraseVars vs n)[w]? = if w.toNat ≥ n ∧ (w - n) ∈ vs then none else Γ[w]? := by
+  induction vs <;> grind
+
+@[simp, grind =]
+theorem getElem?_eraseVars' {w : Var} :
+    (Γ.eraseVars vs)[w]? = if w ∈ vs then none else Γ[w]? := by
+  have : w - 0 = w := by rfl
+  grind
 
 @[simp, typecheck, grind =]
-theorem empty_eraseVars : (∅ : Context τ).eraseVars vs n = ∅ := by rfl
-
-@[grind =] theorem snoc_eraseVars :
-    (Γ <: t).eraseVars vs n =
-      let Γ' := Γ.eraseVars vs (n + 1)
-      if ⟨n⟩ ∈ vs then Γ' else Γ' <: t := by
-  apply eq_of_toList; grind
-
-@[simp, grind =] theorem snoc_eraseVars_of_mem (h : ⟨n⟩ ∈ vs) :
-    (Γ <: t).eraseVars vs n = Γ.eraseVars vs (n + 1) := by grind
-
-@[simp, grind =] theorem snoc_eraseVars_of_notMem (h : ⟨n⟩ ∉ vs) :
-    (Γ <: t).eraseVars vs n = Γ.eraseVars vs (n + 1) <: t := by grind
+theorem empty_eraseVars : (∅ : Context τ).eraseVars vs = ∅ := by grind
 
 @[grind .]
 theorem getElem?_eraseVars_of_getElem? {v : Var} (hΓ : Γ[v]? = some t) (hv : v ∉ vs) :
-    ∃ (w : Var), (Γ.eraseVars vs)[w]? = some t :=
-  go 0 hΓ hv
-where
-  go {Γ : Context τ} {v : Var} (n : Nat) (hΓ : Γ[v]? = some t) (hv : v + n ∉ vs) :
-      ∃ (w : Var), (Γ.eraseVars vs n)[w]? = some t := by
-    induction Γ generalizing v n
-    case empty => grind
-    case snoc Γ t' ih =>
-      cases v
-      case zero => use ⟨0⟩; grind
-      case succ v =>
-        replace hΓ : Γ[v]? = some t := by grind
-        obtain ⟨w, ih⟩ := ih (n+1) hΓ <| by
-          have : (v + 1 : Var) + n = v + (n + 1) := by ext; grind
-          grind
-        by_cases ⟨n⟩ ∈ vs
-        · use w; grind
-        · use w + 1; grind
+    (Γ.eraseVars vs)[v]? = some t := by
+  grind
 
 @[grind .] theorem getElem?_of_getElem?_eraseVars :
     (Γ.eraseVars vs)[v]? = some t → (∃ w ∉ vs, Γ[w]? = some t) := by
-  suffices ∀ n,
-    (Γ.eraseVars vs n)[v]? = some t → (∃ (w : Var), w + n ∉ vs ∧ Γ[w]? = some t)
-  by exact this 0
-  intro n hΓ
-  induction Γ generalizing v n
-  case empty => grind
-  case snoc Γ t' ih =>
-    have (w : Var) : w + (n + 1) = (w + 1) + n := by grind
-    by_cases hn : ⟨n⟩ ∈ vs
-    · grind [ih (n + 1)]
-    · replace hΓ : (eraseVars vs Γ (n + 1) <: t')[v]? = some t := by grind
-      cases v
-      · use ⟨0⟩; grind
-      · grind [ih (n + 1)]
-
-@[simp] theorem forall_getElem?_eraseVars (P : τ.Typ → Prop) :
-    (∀ (v : Var), ∀ t ∈ (Γ.eraseVars vs)[v]?, P t)
-    ↔ (∀ (v : Var), ∀ t ∈ Γ[v]?, ¬(v ∈ vs) → P t) := by
-  grind [Option.mem_def]
+  grind
 
 end Context
+
+/-!
+## Decidability
+-/
+
+/-- Unrestrictedness of a context is decidable. -/
+instance {τ} {Γ : Context τ} : Decidable (Γ.isUnrestricted) :=
+  decidable_of_bool (Γ.toList.all (fun t => t.all (·.isUnrestricted))) <| by
+    induction Γ <;> grind

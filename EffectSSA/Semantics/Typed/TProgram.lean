@@ -79,7 +79,7 @@ theorem InstructionSeq.isSome_exec {is : InstructionSeq τ} {env : Environment �
 def TInstructionSeq.exec (is : TInstructionSeq Γ Δ) (env : TEnvironment Γ) (es? : TTrace Γ) :
     TEnvironment Δ × TTrace Δ :=
   let res := (is.seq.exec env es?).get <| InstructionSeq.isSome_exec is.wt env.wt es?.wt
-  have wt₁ := by intro v t; induction is <;> grind
+  have wt₁ := by induction is <;> grind
   have wt₂ := by induction is <;> grind
   ⟨⟨res.1, wt₁⟩, ⟨res.2, wt₂⟩⟩
 
@@ -117,7 +117,7 @@ theorem TInstructionSeq.exec_instruction {is : TInstructionSeq Γ Δ} {env : TEn
 def TProgram.exec (p : TProgram Γ Δ) (env : TEnvironment Γ) (es? : TTrace Γ) :
     TEnvironment Δ × TTrace Δ :=
   let res := (p.program.exec env es?).get <| Program.isSome_exec p.wt env.wt es?.wt
-  have wt₁ := by simp [res, Environment.WellTyped, Program.exec, Program.execM]
+  have wt₁ := by simp [res, Program.exec, Program.execM]; grind
   have wt₂ := by simp [res, Trace.WellTyped, Program.exec, Program.execM]
   ⟨⟨res.1, wt₁⟩, ⟨res.2, wt₂⟩⟩
 

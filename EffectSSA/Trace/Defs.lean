@@ -91,6 +91,8 @@ namespace Trace
 instance : EmptyCollection (Trace τ) where
   emptyCollection := { clock := .initial, events := [], isUB := false }
 
+instance : Inhabited (Trace τ) where default := ∅
+
 /--
 The canonical UB trace.
 

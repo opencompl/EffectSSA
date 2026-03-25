@@ -101,7 +101,7 @@ Execute a (typed) program under the given (typed) context.
 That is, plug program `p` into the hole of context `C`, and evaluate the
 resulting program.
 -/
-def TProgramContext.execProgram [LawfulMemoryModel τ] (C : TProgramContext Γ ts) (p : TProgram Γ ts) :
+def TProgramContext.execProgram [LawfulMemoryModel τ] (C : TProgramContext Γ Δ) (p : TProgram Γ Δ) :
     τ.TVal C.finalType :=
   let (env, es) := C.pre.execClosed
   let (env, es) := p.exec env es
@@ -112,11 +112,11 @@ def TProgramContext.execProgram [LawfulMemoryModel τ] (C : TProgramContext Γ t
 ## Lemmas
 --------------------------------------------------------------------------------
 -/
-variable {ts} (C : TProgramContext Γ ts)
+variable (C : TProgramContext Γ Δ)
 
 @[simp, grind =] theorem TProgramContext.ctx_pre : C.ctx.pre = C.pre.program := by rfl
 @[simp, grind =] theorem TProgramContext.ctx_post : C.ctx.post = C.post.program := by rfl
 
-@[simp, grind =] theorem TProgramContext.ctx_exec_eq [LawfulMemoryModel τ] (p : TProgram Γ ts) :
+@[simp, grind =] theorem TProgramContext.ctx_exec_eq [LawfulMemoryModel τ] (p : TProgram Γ Δ) :
     C.ctx.execProgram p.program = some (C.execProgram p).toVal := by
-  simp [execProgram, ProgramContext.execProgram]
+  simp [execProgram, ProgramContext.execProgram]; grind

@@ -98,72 +98,36 @@ variable {env : Environment τ}
 @[simp, grind =] theorem get?_ofList (env : List τ.Val) :
   (ofList env).get? x = env[x.toNat]? := by rfl
 
-@[grind =] theorem get?_eraseVar :
-    (env.eraseVar w).get? v = env.get? (if v.toNat < w.toNat then v else v + 1) := by
-  grind [get?, eraseVar]
-
-@[grind =] theorem getAs?_eraseVar :
-    (env.eraseVar w).getAs? v t = env.getAs? (if v.toNat < w.toNat then v else v + 1) t := by
-  grind [getAs?]
 
 /-! ### limitTo? -/
 
 @[simp, grind =] theorem limitTo?_nil : env.limitTo? [] = some ∅ := by rfl
 
+/-! ### empty -/
+
+@[simp, grind =] theorem toList_empty : (∅ : Environment τ).toList = [] := by rfl
+
+/-! ### snoc -/
+
+@[simp, grind =] theorem toList_snoc : (snoc env x).toList = x :: env.toList := by rfl
+
 /-! ### WellTyped lemmas -/
 variable {Γ : Context τ}
 
-@[simp, grind .] theorem wellTyped_empty : WellTyped (τ := τ) ∅ ∅ := by simp [WellTyped]
+@[simp, grind .] theorem wellTyped_empty : WellTyped (τ := τ) ∅ ∅ := by grind
 
 @[simp, grind .] theorem wellTyped_snoc {Γ : Context τ} {env : Environment τ} {x : τ.Val}
     (hΓ : WellTyped Γ env) (hx : x.1 = t):
     WellTyped (Γ <: t) (env.snoc x) := by
-  intro v u
-  rcases v with ⟨⟨⟩|_⟩ <;> grind [getAs?]
+  constructor
+  · grind
+  · intro v u
+    rcases v with ⟨⟨⟩|_⟩ <;> grind [getAs?]
 
 @[simp, grind .]
-theorem wellTyped_eraseVar {Γ : Context τ} {env : Environment τ} {v : Var}
-    (hΓ : WellTyped Γ env) :
-    WellTyped (Γ.eraseVar v) (env.eraseVar v) := by
+theorem wellTyped_eraseVar {Γ : Context τ} {env : Environment τ} {v : Var} :
+    WellTyped Γ env → WellTyped (Γ.eraseVar v) env := by
   grind
-
-/--
-If a context `env` is well-typed w.r.t. a context `Γ`, then `env` has precisely
-as many variables as `Γ` has types.
--/
-@[grind →] theorem size_eq_of_wellTyped (wt : WellTyped Γ env) : env.size = Γ.size := by
-  rcases env with ⟨env⟩
-  rcases Γ with ⟨Γ⟩
-  simp only [size, Context.size]
-  induction Γ generalizing env
-  case nil =>
-    simp only [List.length_nil, List.length_eq_zero_iff]
-    ext i
-    specialize wt ⟨i⟩
-    simp_all [getAs?]
-  case cons t Γ ih =>
-    show env.length = Γ.length + 1
-    cases env
-    case nil =>
-      exfalso; simpa [getAs?] using wt ⟨0⟩ t
-    case cons x env =>
-      suffices env.length = Γ.length by simpa
-      apply ih
-      intro v t
-      specialize wt (v + 1) t
-      grind [getAs?]
-
-@[grind →]
-theorem isSome_get?_of_wellTyped (wt : WellTyped Γ env) :
-    ∀ x, Γ[x]?.isSome → (env.get? x).isSome := by
-  intro x hx
-  have : x.InBounds Γ := by grind
-  cases env; grind
-
--- @[grind <=]
--- theorem isSome_get?_of_wellTyped {Γ} {env : Environment τ} (wt : WellTyped Γ env) :
---     ∀ x, Γ[x]?.isSome → (env.get? x).isSome :=
---   isSome_get?_of_wellTyped wt
 
 end Semantics.Environment
 

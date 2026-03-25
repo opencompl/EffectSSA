@@ -34,6 +34,14 @@ inductive Ty.TVal : τ.Typ → Type where
 def Ty.Val : Type := Σ t, τ.TVal t
 -- FIXME: maybe `Ty.Val` ought to be a structure? We'll evaluate later.
 
+/--
+An environment maps variables to values.
+
+Note that environments do *not* distinguish between live or dead variables,
+which means that our semantics will not throw an error when linearity conditions
+are violated. This is fine; well-formed guarantees the absence of (type) errors,
+but the abscense of errors does not guarantee well-formedness
+-/
 structure Semantics.Environment τ [MemoryModel τ] where
   ofList :: toList : List τ.Val
 
@@ -62,6 +70,12 @@ instance : Coe (τ.TVal .eff) (Trace τ) where coe := fun (.eff e) => e
 instance : Coe (τ.TVal .ptr) τ.Ptr where coe := fun (.ptr p) => p
 instance : Coe (τ.TVal <| .data t) (τ.DVal t) where coe := fun (.data x) => x
 end TVal
+
+noncomputable
+instance : Inhabited (τ.TVal .eff) where default := .eff default
+
+noncomputable
+instance : Inhabited τ.Val := ⟨.eff, default⟩
 
 /-- Coerce a statically typed value into a dynamically typed value. -/
 @[grind] abbrev TVal.toVal : τ.TVal t → τ.Val := (⟨t, ·⟩)
@@ -122,7 +136,7 @@ def getData? (env : Environment τ) (v : Var) (t : τ.DType) : Option (τ.DVal t
 /--
 `env.snoc x` adds a new variable to environment `env` assigning value `x` to it.
 -/
-def snoc (x : τ.Val) (env : Environment τ) : Environment τ :=
+def snoc (env : Environment τ) (x : τ.Val) : Environment τ :=
   ⟨env.toList.cons x⟩
 
 /-! #### Environment Modification -/
@@ -177,6 +191,13 @@ end Semantics.Environment
 -/
 namespace Semantics.Environment
 
-@[grind =]
-def WellTyped (Γ : Context τ) (env : Environment τ) : Prop :=
-  ∀ (v : Var) (t : τ.Typ), Γ[v]? = some t ↔ (env.getAs? v t).isSome
+/--
+An environment `env` is welltyped w.r.t. context `Γ` when:
+* `env` has as many values as `Γ` has variables (including stale variables), and
+* all _live_ variables of `Γ` have a value, of the appropriate type, assigned by `env`.
+
+Note that the values which `env` assigns to _stale_ variables are not constrained.
+-/
+@[grind, grind cases] structure WellTyped (Γ : Context τ) (env : Environment τ) : Prop where
+  length_eq : env.size = Γ.size
+  isSome_getAs? : ∀ (v : Var) (t : τ.Typ), Γ[v]? = some t → (env.getAs? v t).isSome
