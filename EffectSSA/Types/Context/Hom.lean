@@ -1,5 +1,6 @@
 import EffectSSA.Types.Context.Basic
 import EffectSSA.Types.Context.TVar
+import EffectSSA.Syntax.Untyped.Substitute
 
 /-!
 # Context Homomorphisms
@@ -18,10 +19,25 @@ an `f : Γ.Hom Δ` as if it was a function. See `Hom.apply` for the interpretati
 of a context morphism as a function.
 -/
 structure Hom (Γ Δ : Context τ) where
-  raw : Var → Var
-  ty_eq : ∀ (v : Var), ∀ t ∈ Γ[v]?, Δ[raw v]? = some t
+  /-- The substitution of (raw) variables underlying a context morphism. -/
+  applyVar : Var → Var
+  /-- `applyVar` preserves types and staleness of variables. -/
+  ty_eq : ∀ (v : Var), v.toNat < Γ.size → Γ[v]? = Δ[applyVar v]? := by grind
+  /--
+  If `v` is in bounds of the domain `Γ`,
+  then `applyVar v` is in bounds of the codomain `Δ`.
+  -/
+  applyVar_lt_size : v.toNat < Γ.size → (applyVar v).toNat < Δ.size := by grind
 
 attribute [grind .] Hom.ty_eq
+attribute [grind .] Hom.applyVar_lt_size
+
+/-!
+## Definitions
+--------------------------------------------------------------------------------
+-/
+namespace Hom
+variable {τ} {Γ Δ : Context τ}
 
 /--
 Applying a context homomorphism `f : Γ.Hom Δ` to a typed variable in `Γ` yields
@@ -29,10 +45,34 @@ a variable of the same type in `Δ`.
 
 A `CoeFun` instance exists, such that we can write `f v` to mean `f.apply v`.
 -/
-def Hom.apply (f : Γ.Hom Δ) (v : TVar Γ t) : TVar Δ t where
-  toVar := f.raw v
+def apply (f : Γ.Hom Δ) (v : TVar Γ t) : TVar Δ t where
+  toVar := f.applyVar v
 instance (Γ Δ : Context τ) : CoeFun (Γ.Hom Δ) (fun _ => ∀ {t}, TVar Γ t → TVar Δ t) where
   coe f := f.apply
+
+/--
+Every context homomorphism induces an untyped substitution by forgetting the
+type preservation proof.
+-/
+def asSubstitution (f : Γ.Hom Δ) : Substitution where
+  apply := f.applyVar
+
+instance : CoeHead (Γ.Hom Δ) Substitution where
+  coe := Hom.asSubstitution
+
+/-! ### Standard Morphisms -/
+
+/-- Identity morphism -/
+@[grind] def id (Γ : Context τ) : Γ.Hom Γ where
+  applyVar v := v
+
+
+end Hom
+
+/-!
+## Decomposition
+--------------------------------------------------------------------------------
+-/
 
 /--
 A context decomposition `Γ.Decomp Δ₁ Δ₂` is a witness that `Γ = Δ₁ ∘ Δ₂`, in the

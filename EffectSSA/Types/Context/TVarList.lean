@@ -39,6 +39,7 @@ Note that this includes that if `Δ[i]` is stale, the corresponding variable
 structure TVarList (Γ : Context τ) (Δ : Context τ) where
   toList : List Var
   length_eq : toList.length = Δ.size := by grind
+  lt_size : ∀ (i : Fin Δ.size), toList[i].toNat < Γ.size := by grind
   wt : ∀ (i : Fin Δ.size), Γ[toList[i]]? = Δ[Var.ofNat i]? := by grind
 
 
@@ -51,6 +52,8 @@ grind_pattern TVar.wt => TVar.toVar self
 attribute [grind =] TVarList.wt
 
 grind_pattern TVarList.length_eq => TVarList.toList self
+
+attribute [grind .] TVarList.lt_size
 
 /-!
 ## Definitions
@@ -69,9 +72,13 @@ a `TVar Γ t`.
 Thus, the induced morphism just looks up the corresponding entry in the list.
 -/
 def asHom (vs : TVarList Γ Δ) : Δ.Hom Γ where
-  raw v := vs.toList[v.toNat]?.getD v
+  applyVar v := vs.toList[v.toNat]?.getD v
   ty_eq := by
-    intro v t (hv : _ = some _)
+    intro v hv
+    have := vs.wt ⟨v.toNat, by grind⟩
+    grind
+  applyVar_lt_size := by
+    intro v hv
     have := vs.wt ⟨v.toNat, by grind⟩
     grind
 
