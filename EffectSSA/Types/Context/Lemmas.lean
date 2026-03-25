@@ -60,6 +60,8 @@ theorem inBounds_iff_lt_size : v.InBounds Γ ↔ v.toNat < Γ.size := by
 @[grind →] theorem lt_size_of_inBounds : v.InBounds Γ → v.toNat < Γ.size := by
   grind [InBounds]
 
+instance : Decidable (v.InBounds Γ) := by unfold InBounds; infer_instance
+
 end Var
 
 /-!
@@ -136,10 +138,6 @@ theorem eq_of_getElem?_eq {Γ Δ : Context τ} (h : ∀ (v : Var), Γ[v]? = Δ[v
 @[simp, grind =] theorem size_empty : size (∅ : Context τ) = 0 := rfl
 @[simp, grind =] theorem size_snoc : size (Γ <: t) = Γ.size + 1 := rfl
 
-@[grind →]
-theorem isSome_getElem?_of_inBounds : v.InBounds Γ → Γ[v]?.isSome := by
-  rcases Γ; grind
-
 /-! ### getElem -/
 
 @[simp, grind =] theorem getElem_snoc_zero : (Γ <: t)[Var.ofNat 0]'h = t := rfl
@@ -157,10 +155,25 @@ theorem getElem_snoc_eq :
   | .ofNat 0 => grind
   | .ofNat (i + 1) => simp; grind
 
+/-! ### getElem? -/
+
 @[simp, typecheck, grind =]
 theorem getElem?_snoc_zero : (Γ <: t)[Var.ofNat 0]? = some t := rfl
 @[simp, typecheck, grind =]
 theorem getElem?_snoc_succ : (Γ <: t)[v + 1]? = Γ[v]? := rfl
+
+
+end Context
+-- ^^ We have to close the section to avoid the following instance from picking
+--    up unneccesary variables, that for some reason are being put in the
+--    instance even when explicitly `omit`ed.
+
+instance : LawfulGetElem (Context τ) Var τ.Typ _ where
+  getElem?_def Γ v _ := by
+    rcases Γ with ⟨Γ⟩; grind [Var.InBounds]
+
+namespace Context
+variable {Γ : Context τ} {v : Var}
 
 /-! ### isUnrestricted -/
 
