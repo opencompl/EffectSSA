@@ -1,4 +1,5 @@
 import EffectSSA.Types.Context.Basic
+import EffectSSA.Types.Context.Lemmas
 
 /-!
 # Intrinsically Well-typed Variables
@@ -14,15 +15,6 @@ structure TVar (Γ : Context τ) (t : τ.Typ) where
   ofVar ::
     toVar : Var
     wt : Γ[toVar]? = some t := by grind
-
-/--
-`vs : TVarList Γ ts` is a list of variables, such that `vs[i]`
-is assinged the respective type `ts[i]` in `Γ`.
--/
-structure TVarList (Γ : Context τ) (ts : List τ.Typ) where
-  toList : List Var
-  length_eq : toList.length = ts.length := by grind
-  wt : ∀ (i : Fin ts.length), Γ[toList[i]]? = some ts[i] := by grind
 
 /-!
 ## Coercions
@@ -40,58 +32,17 @@ instance : CoeOut (TVar Γ t) Var where coe := TVar.toVar
 -/
 
 grind_pattern TVar.wt => TVar.toVar self
-attribute [grind =] TVarList.wt
-
-grind_pattern TVarList.length_eq => TVarList.toList self
 
 /-!
-## TVarList Definitions
---------------------------------------------------------------------------------
+## Definitions
 -/
-namespace TVarList
 
-@[grind] abbrev length (vs : TVarList Γ ts) : Nat := vs.toList.length
+namespace TVar
 
-/--
-Map a function into a non-dependent type `α` over a TVarList
--/
-def map (f : ∀ {i : Fin ts.length}, TVar Γ ts[i] → α) (vs : TVarList Γ ts) : List α :=
-  vs.toList.zipIdx.attach.map fun ⟨⟨v, i⟩, h⟩ =>
-    have : vs.toList.length = ts.length := by grind
-    let i : Fin ts.length := ⟨i, by grind⟩
-    let v : TVar Γ ts[i] := ⟨v, by
-      have : vs.toList[i] = v := by
-        show vs.toList[i] = v; grind
-      grind⟩
-    f v
+/-- Get the index of a (typed) variable. -/
+abbrev toNat (v : TVar Γ t) : Nat := v.toVar.toNat
 
-def get (vs : TVarList Γ ts) (i : Fin ts.length) : TVar Γ ts[i] :=
-  .ofVar <| vs.toList[i]'(by grind)
-
-end TVarList
-
-/-!
-## TVarList Lemmas
---------------------------------------------------------------------------------
--/
-namespace TVarList
-variable {ts} (f : ∀ {i : Fin ts.length}, TVar Γ ts[i] → α) (vs : TVarList Γ ts)
-
-@[simp] theorem length_map : (vs.map f).length = vs.length := by
-  simp [map]
-
-@[grind =]
-theorem getElem?_map  (i : Nat) :
-    (vs.map @f)[i]? =
-      if hi : i < ts.length then
-        some <| f <| vs.get ⟨i, hi⟩
-      else
-        none := by
-  split
-  · simp [map];
-    use vs.toList[i]'(by grind)
-    and_intros
-    · grind
-    · use (by grind)
-      congr
-  · simp; grind
+/-- The index of a typed variable is in bounds of the context is typed with. -/
+@[simp] theorem toNat_lt (v : TVar Γ t) : v.toNat < Γ.size := by
+  grind
+grind_pattern TVar.toNat_lt => v.toNat

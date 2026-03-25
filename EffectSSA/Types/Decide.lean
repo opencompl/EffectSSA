@@ -71,26 +71,26 @@ def InstructionSeq.typeCheck (Γ : Context τ) : (p : InstructionSeq τ) → p.T
         | .isFalse h => .isFalse <| by grind
         | .isTrue Δ' h => .isTrue Δ'
 
-inductive Program.TypeCheckResult (Γ : Context τ) (p : Program τ) (ts : List τ.Typ) where
-  | isTrue (Δ : Context τ) (h : Program.WellTyped Γ p ts := by grind)
-  | isFalse (h : ¬Program.WellTyped Γ p ts := by grind)
+inductive Program.TypeCheckResult (Γ : Context τ) (p : Program τ) (Ξ : Context τ) where
+  | isTrue (Δ : Context τ) (h : Program.WellTyped Γ p Ξ := by grind)
+  | isFalse (h : ¬Program.WellTyped Γ p Ξ := by grind)
 
 /-!
 ## Program `Decidable` instance
 --------------------------------------------------------------------------------
 -/
 
-instance : Decidable (Program.WellTyped Γ p ts) :=
+instance : Decidable (Program.WellTyped Γ p Ξ) :=
   match p.instructions.typeCheck Γ with
   | .isTrue Δ h₁ =>
       let vs := p.returnVars
       if hun : ¬(Δ.eraseVars vs).isUnrestricted then
         .isFalse (by grind)
-      else if hlen : vs.length ≠ ts.length then
+      else if hlen : vs.length ≠ Ξ.size then
         .isFalse (by grind)
-      else if hret : ∃ (i : Fin vs.length), Δ[vs[i]]? ≠ ts[i]? then
+      else if hret : ∃ (i : Fin vs.length), Δ[vs[i]]? ≠ Ξ[Var.ofNat i]? then
         .isFalse (by grind)
       else
-        have hret : ∀ (i : Fin vs.length), Δ[vs[i]]? = ts[i]? := by grind
+        have hret : ∀ (i : Fin vs.length), Δ[vs[i]]? = Ξ[Var.ofNat i]? := by grind
         .isTrue ⟨Δ, h₁, by grind, by grind, fun i hi => hret ⟨i, hi⟩⟩
   | .isFalse h => .isFalse (by grind)

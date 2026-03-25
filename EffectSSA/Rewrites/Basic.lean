@@ -23,9 +23,9 @@ structure Rewrite τ where
 A rewrite is wellformed, if both fragments are welltyped, under the same context
 and with the same expected return types.
 -/
-structure TRewrite (Γ : Context τ) (ts : List τ.Typ) extends raw : Rewrite τ where
-  wt_src : raw.rSrc.WellTyped Γ ts := by typecheck
-  wt_tgt : raw.rTgt.WellTyped Γ ts := by typecheck
+structure TRewrite (Γ : Context τ) (Δ : Context τ) extends raw : Rewrite τ where
+  wt_src : raw.rSrc.WellTyped Γ Δ := by typecheck
+  wt_tgt : raw.rTgt.WellTyped Γ Δ := by typecheck
 
 /-!
 ## Semantics Correctness Constraints
@@ -36,13 +36,13 @@ variable {τ} [LawfulMemoryModel τ] {Γ : Context τ}
 grind_pattern TRewrite.wt_src => (TRewrite.raw self).rSrc
 grind_pattern TRewrite.wt_tgt => (TRewrite.raw self).rTgt
 
-def TRewrite.src (rw : TRewrite Γ ts) : TProgram Γ ts where
+def TRewrite.src (rw : TRewrite Γ Δ) : TProgram Γ Δ where
   program := rw.raw.rSrc
-def TRewrite.tgt (rw : TRewrite Γ ts) : TProgram Γ ts where
+def TRewrite.tgt (rw : TRewrite Γ Δ) : TProgram Γ Δ where
   program := rw.raw.rTgt
 
 /--
 A rewrite is correct, if the source and target fragments are equivalent.
 -/
-@[grind] def TRewrite.Correct (r : TRewrite Γ ts) : Prop :=
+@[grind] def TRewrite.Correct (r : TRewrite Γ Δ) : Prop :=
   r.src ≈ r.tgt

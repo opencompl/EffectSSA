@@ -49,7 +49,7 @@ def get (env : TEnvironment Γ) (v : TVar Γ t) : τ.TVal t :=
 /--
 Limit a typed environment to the given variables, yielding a smaller
 -/
-def limitTo (env : TEnvironment Γ) (vs : TVarList Γ ts) : TEnvironment ⟨ts⟩ where
+def limitTo (env : TEnvironment Γ) (vs : TVarList Γ Δ) : TEnvironment Δ where
   env := .ofList <| vs.map (env.get · |>.toVal)
   wt := by grind [Environment.getAs?, Environment.get?]
 

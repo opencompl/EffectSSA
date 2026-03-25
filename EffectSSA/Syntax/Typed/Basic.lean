@@ -17,9 +17,9 @@ structure TInstructionSeq (Γ : Context τ) (Δ : Context τ) where
   seq : InstructionSeq τ
   wt : seq.WellTypedWith Γ Δ := by grind
 
-structure TProgram (Γ : Context τ) (ts : List τ.Typ) where
+structure TProgram (Γ : Context τ) (Δ : Context τ) where
   program : Program τ
-  wt : program.WellTyped Γ ts := by grind
+  wt : program.WellTyped Γ Δ := by grind
 
 /-!
 ## Coercions
@@ -31,7 +31,7 @@ variable {Γ : Context τ}
 
 instance : CoeOut (TInstruction Γ Δ) (Instruction τ) where coe := TInstruction.instruction
 instance : CoeOut (TInstructionSeq Γ Δ) (InstructionSeq τ) where coe := TInstructionSeq.seq
-instance : CoeOut (TProgram Γ ts) (Program τ) where coe := TProgram.program
+instance : CoeOut (TProgram Γ Δ) (Program τ) where coe := TProgram.program
 
 /-!
 ## Grind Attributes
@@ -93,15 +93,14 @@ def TInstructionSeq.cons (i : TInstruction Γ Δ) (is : TInstructionSeq Δ Ξ) :
     TInstructionSeq Γ Ξ where
   seq := i ;> is
 
-def TProgram.mk' {Δ} (is : TInstructionSeq Γ Δ) (vs : TVarList Δ ts)
+def TProgram.mk' {Δ} (is : TInstructionSeq Γ Δ) (vs : TVarList Δ Ξ)
     (h : (Δ.eraseVars vs.toList).isUnrestricted) :
-    TProgram Γ ts where
+    TProgram Γ Ξ where
   program := ⟨is.seq, vs.toList⟩
   wt := by
-    have (i : ℕ) (hi : i < vs.toList.length) : ∃ t,
-        ts[i]? = some t ∧ Δ[vs.toList[i]]? = some t := by
-      have := vs.wt ⟨i, by grind⟩
-      grind
+    use Δ, is.wt, h, vs.length_eq
+    intro i hi
+    have := vs.wt ⟨i, by grind⟩
     grind
 
 /-!
@@ -110,15 +109,15 @@ def TProgram.mk' {Δ} (is : TInstructionSeq Γ Δ) (vs : TVarList Δ ts)
 
 /-- The (internal) context after executing the instruction sequence of `p`. -/
 @[grind =]
-noncomputable def TProgram.returnContext (p : TProgram Γ ts) : Context τ :=
+noncomputable def TProgram.returnContext (p : TProgram Γ Ξ) : Context τ :=
   p.wt.choose
 
 @[grind =]
-def TProgram.instructions (p : TProgram Γ ts) : TInstructionSeq Γ p.returnContext where
+def TProgram.instructions (p : TProgram Γ Ξ) : TInstructionSeq Γ p.returnContext where
   seq := p.program.instructions
   wt := by grind
 
-def TProgram.returnVars (p : TProgram Γ ts) : TVarList p.returnContext ts where
+def TProgram.returnVars (p : TProgram Γ Ξ) : TVarList p.returnContext Ξ where
   toList := p.program.returnVars
   wt := by
     obtain ⟨Δ, wt_is, _, _, _⟩ := p.wt
@@ -134,9 +133,9 @@ def TProgram.returnVars (p : TProgram Γ ts) : TVarList p.returnContext ts where
 @[simp, grind =] theorem TInstructionSeq.seq_cons :
   (cons i is).seq = i.instruction ;> is.seq := by rfl
 
-@[simp, grind =] theorem TProgram.instructions_program (p : TProgram Γ ts) :
+@[simp, grind =] theorem TProgram.instructions_program (p : TProgram Γ Ξ) :
     p.program.instructions = p.instructions := by rfl
-@[simp, grind =] theorem TProgram.returnVars_program (p : TProgram Γ ts) :
+@[simp, grind =] theorem TProgram.returnVars_program (p : TProgram Γ Ξ) :
     p.program.returnVars = p.returnVars.toList := by rfl
 
 namespace TInstruction
@@ -165,7 +164,7 @@ open Ty.Typ (ptr eff data)
 end TInstruction
 
 namespace TProgram
-variable {Γ Δ : Context τ} (is : TInstructionSeq Γ Δ) (vs : TVarList Δ ts)
+variable {Γ Δ Ξ : Context τ} (is : TInstructionSeq Γ Δ) (vs : TVarList Δ Ξ)
 
 @[simp, grind =] theorem program_mk' : (mk' is vs h).program = ⟨is.seq, vs.toList⟩ := by rfl
 @[simp, grind =] theorem returnVars_mk' : (mk' is vs h).returnContext = Δ := by grind
@@ -220,15 +219,15 @@ def TInstructionSeq.indOn {motive : ∀ {Γ Δ : Context τ}, TInstructionSeq Γ
       cons i is (indOn is nil cons)
 
 @[elab_as_elim, cases_eliminator]
-def TProgram.casesOn' {motive : ∀ {Γ : Context τ} {ts}, TProgram Γ ts → Prop}
-    {Γ ts} (p : TProgram Γ ts)
-    (mk' : ∀ {Γ Δ : Context τ} {ts} (is : TInstructionSeq Γ Δ) (vs : TVarList Δ ts)
+def TProgram.casesOn' {motive : ∀ {Γ Ξ : Context τ}, TProgram Γ Ξ → Prop}
+    {Γ Ξ} (p : TProgram Γ Ξ)
+    (mk' : ∀ {Γ Δ Ξ : Context τ} (is : TInstructionSeq Γ Δ) (vs : TVarList Δ Ξ)
       (h : (Δ.eraseVars vs.toList).isUnrestricted),
       motive (.mk' is vs h)) :
     motive p :=
   let ⟨⟨is, vs⟩, ⟨Δ, wt_is, h_un, length_eq, wt_vs⟩⟩ := p
   let is : TInstructionSeq Γ Δ := ⟨is, wt_is⟩
-  let vs : TVarList Δ ts := { toList := vs }
+  let vs : TVarList Δ Ξ := { toList := vs }
   mk' is vs h_un
 
 /-!
@@ -236,23 +235,22 @@ def TProgram.casesOn' {motive : ∀ {Γ : Context τ} {ts}, TProgram Γ ts → P
 --------------------------------------------------------------------------------
 -/
 
-@[simp, grind =] theorem TProgram.isUnrestricted_returnContext (p : TProgram Γ ts) :
-    p.returnContext.isUnrestricted ↔ Context.isUnrestricted ⟨ts⟩ := by
+@[simp, grind =] theorem TProgram.isUnrestricted_returnContext (p : TProgram Γ Ξ) :
+    p.returnContext.isUnrestricted ↔ Ξ.isUnrestricted := by
   cases p with | @mk' _ Δ _ is vs h =>
-  simp only [returnVars_mk', Context.isUnrestricted_iff_getElem?, Option.mem_def,
-    Context.getElem?_ofList]
+  simp only [returnVars_mk', Context.isUnrestricted_iff_getElem?, Option.mem_def]
   constructor
   · intro hΔ v t ht
     let w := vs.toList[v.toNat]'(by grind)
     apply hΔ w _
     grind [vs.wt ⟨v.toNat, by grind⟩]
-  · intro hts v t hvt
+  · intro hΞ v t hvt
     rw [Context.isUnrestricted_iff_getElem?, Context.forall_getElem?_eraseVars] at h
     by_cases hv : v ∈ vs.toList
-    · obtain ⟨i, hi⟩ : ∃ (i : Fin ts.length), vs.toList[i]'(by grind) = v := by
+    · obtain ⟨i, hi⟩ : ∃ (i : Fin Ξ.toList.length), vs.toList[i]'(by grind) = v := by
         obtain ⟨i, hi⟩ := List.getElem?_of_mem hv
         use ⟨i, by grind⟩
         grind
-      apply hts (.ofNat i)
+      apply hΞ (.ofNat i)
       grind
     · grind
