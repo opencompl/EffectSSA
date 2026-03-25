@@ -238,19 +238,17 @@ def TProgram.casesOn' {motive : ∀ {Γ Ξ : Context τ}, TProgram Γ Ξ → Pro
 @[simp, grind =] theorem TProgram.isUnrestricted_returnContext (p : TProgram Γ Ξ) :
     p.returnContext.isUnrestricted ↔ Ξ.isUnrestricted := by
   cases p with | @mk' _ Δ _ is vs h =>
-  simp only [returnVars_mk', Context.isUnrestricted_iff_getElem?, Option.mem_def]
+  simp only [Context.isUnrestricted, returnVars_mk']
   constructor
   · intro hΔ v t ht
-    let w := vs.toList[v.toNat]'(by grind)
-    apply hΔ w _
     grind [vs.wt ⟨v.toNat, by grind⟩]
   · intro hΞ v t hvt
-    rw [Context.isUnrestricted_iff_getElem?, Context.forall_getElem?_eraseVars] at h
+    replace h (v : Var) {t : τ.Typ} : v ∉ vs.toList → Δ[v]? = some t → t.isUnrestricted = true := by
+      simpa [Context.isUnrestricted] using h v
     by_cases hv : v ∈ vs.toList
     · obtain ⟨i, hi⟩ : ∃ (i : Fin Ξ.toList.length), vs.toList[i]'(by grind) = v := by
         obtain ⟨i, hi⟩ := List.getElem?_of_mem hv
         use ⟨i, by grind⟩
         grind
-      apply hΞ (.ofNat i)
       grind
     · grind

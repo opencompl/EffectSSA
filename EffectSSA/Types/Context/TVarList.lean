@@ -32,6 +32,9 @@ unifying them.
 /--
 `vs : TVarList Γ Δ` is a list of variables,
 such that `vs[i]` is assigned the respective type `Δ[i]` in `Γ`.
+
+Note that this includes that if `Δ[i]` is stale, the corresponding variable
+`vs[i]` is required to be stale, too.
 -/
 structure TVarList (Γ : Context τ) (Δ : Context τ) where
   toList : List Var
@@ -69,9 +72,7 @@ def asHom (vs : TVarList Γ Δ) : Δ.Hom Γ where
   raw v := vs.toList[v.toNat]?.getD v
   ty_eq := by
     intro v t (hv : _ = some _)
-    have := vs.wt ⟨v.toNat, by
-      change Δ.toList[v.toNat]? = _ at hv
-      grind⟩
+    have := vs.wt ⟨v.toNat, by grind⟩
     grind
 
 /--
@@ -87,15 +88,16 @@ abbrev get (vs : TVarList Γ Δ) : TVar Δ t → TVar Γ t :=
 Map a function into a non-dependent type `α` over a TVarList, yielding a regular
 (homogeneous) list.
 
-Note that the function is _only_ applied to variables which are live, according
-to `Δ`, any stale variables are ignored.
+Note that the function is _only_ applied to variables which are live,
+any stale variables are mapped to `none` in the resulting list.
 -/
-def map (f : ∀ {t}, TVar Γ t → α) (vs : TVarList Γ Δ) : List α :=
-  Δ.toList.zipIdx.attach.map fun ⟨⟨t, i⟩, h⟩ =>
-    let v : TVar Δ t := ⟨.ofNat i, by
-      show Δ.toList[i]? = some t
-      grind⟩
-    f (vs.get v)
+def map (f : ∀ {t}, TVar Γ t → α) (vs : TVarList Γ Δ) : List (Option α) :=
+  Δ.toList.zipIdx.attach.map fun ⟨⟨t?, i⟩, h⟩ =>
+    t?.attach.map fun ⟨t, ht⟩ =>
+      let v : TVar Δ t := ⟨.ofNat i, by
+        show Δ.toList[i]?.join = some t
+        grind⟩
+      f (vs.get v)
 
 /-!
 ## Lemmas
@@ -104,19 +106,21 @@ def map (f : ∀ {t}, TVar Γ t → α) (vs : TVarList Γ Δ) : List α :=
 section Lemmas
 variable {ts} (f : ∀ {t}, TVar Γ t → α) (vs : TVarList Γ Δ)
 
-@[simp] theorem length_map : (vs.map f).length = Δ.size := by
+attribute [grind =] List.mk_mem_zipIdx_iff_getElem?
+
+@[simp, grind =] theorem length_map : (vs.map f).length = Δ.size := by
   simp [map]
 
 @[grind =]
 theorem getElem?_map (i : Nat) :
     (vs.map @f)[i]? =
       let i := Var.ofNat i
-      if hi : i.InBounds Δ then
-        some <| @f Δ[i] <| vs.get ⟨i, by grind⟩
+      if hi : i.LiveIn Δ then
+        some <| some <| @f Δ[i] <| vs.get ⟨i, by grind⟩
+      else if i.toNat < Δ.size then
+        some none
       else
         none := by
-  by_cases hi : (Var.ofNat i).InBounds Δ
-  · grind [map]
-  · simp [hi]; grind
+  grind [map, Var.LiveIn, Context.get?]
 
 end Lemmas
