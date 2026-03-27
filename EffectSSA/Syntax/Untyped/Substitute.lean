@@ -28,12 +28,12 @@ variable `σ j`.
 def Instruction.substitute (σ : Substitution) : Instruction τ → Instruction τ
   -- Basic memory ops with implicit effects
   | .loadI t p    => .loadI t (σ.apply p)
-  | .storeI t p x => .storeI t (σ.apply p) x
+  | .storeI t p x => .storeI t (σ.apply p) (σ.apply x)
   | .allocI t p   => .allocI t (σ.apply p)
   | .freeI t p    => .freeI t (σ.apply p)
   -- Basic memory ops in EffectSSA form
   | .loadE t eff p    => .loadE t (σ.apply eff) (σ.apply p)
-  | .storeE t eff p x => .storeE t (σ.apply eff) (σ.apply p) x
+  | .storeE t eff p x => .storeE t (σ.apply eff) (σ.apply p) (σ.apply x)
   | .allocE t eff p   => .allocE t (σ.apply eff) (σ.apply p)
   | .freeE t eff p    => .freeE t (σ.apply eff) (σ.apply p)
   -- Effect Bookkeeping
