@@ -18,6 +18,8 @@ variable {τ : Ty} (v : Var) (Γ : Context τ)
 @[simp, grind =] theorem get?_eq : Γ.get? v = Γ[v]? := by rfl
 @[grind =] theorem getElem_eq : Γ[v]'h = Γ[v]?.get h := by rfl
 
+@[grind =] theorem eq_get? : Γ.toList[v.toNat]?.join = Γ[v]? := by rfl
+
 section OfList
 variable (Γ : List (Option τ.Typ))
 
@@ -39,6 +41,11 @@ variable (Γ : Context τ)
 @[simp, grind =] theorem toList_snoc : toList (Γ <: t) = some t :: Γ.toList := by rfl
 @[simp, grind =] theorem toList_snocStale : toList (Γ.snocStale) = none :: Γ.toList := by rfl
 
+@[simp, grind =] theorem toList_take (Γ : Context τ) (n : Nat) : (Γ.take n).toList = Γ.toList.take n := by rfl
+@[simp, grind =] theorem toList_drop (Γ : Context τ) (n : Nat) : (Γ.drop n).toList = Γ.toList.drop n := by rfl
+
+@[simp, grind =] theorem toList_append (Γ Δ : Context τ) : toList (Γ ++ Δ) = Δ.toList ++ Γ.toList := by rfl
+
 end ToList
 end Context
 
@@ -51,6 +58,21 @@ variable {v : Var}
 
 
 @[grind →] theorem lt_size_of_liveIn : v.LiveIn Γ → v.toNat < Γ.size := by
+  grind [LiveIn, Context.get?]
+
+@[simp] theorem not_liveIn_empty : ¬v.LiveIn (∅ : Context τ) := by
+  grind [LiveIn, Context.get?]
+
+@[simp, grind =] theorem liveIn_snoc :
+    v.LiveIn (Γ <: t) ↔ v = Var.ofNat 0 ∨ (v - 1).LiveIn Γ := by
+  cases v; grind [LiveIn, Context.get?]
+
+@[simp, grind =] theorem liveIn_snocStale :
+    v.LiveIn Γ.snocStale ↔ v ≠ Var.ofNat 0 ∧ (v - 1).LiveIn Γ := by
+  cases v; grind [LiveIn, Context.get?]
+
+@[simp, grind =] theorem liveIn_append :
+    v.LiveIn (Γ ++ Δ) ↔ v.LiveIn Δ ∨ (¬v.toNat < Δ.size ∧ (v - Δ.size).LiveIn Γ) := by
   grind [LiveIn, Context.get?]
 
 instance : Decidable (v.LiveIn Γ) := by unfold LiveIn; infer_instance
@@ -135,6 +157,9 @@ theorem eq_of_getElem?_eq {Γ Δ : Context τ}
 
 @[simp, grind =] theorem size_empty : size (∅ : Context τ) = 0 := rfl
 @[simp, grind =] theorem size_snoc : size (Γ <: t) = Γ.size + 1 := rfl
+@[simp, grind =] theorem size_snocStale : size Γ.snocStale = Γ.size + 1 := rfl
+@[simp, grind =] theorem size_append (Γ Δ : Context τ) : (Γ ++ Δ).size = Γ.size + Δ.size := by
+  simp [size, toList_append, Nat.add_comm]
 
 /-! ### getElem -/
 
@@ -179,6 +204,14 @@ instance : LawfulGetElem (Context τ) Var τ.Typ _ where
 
 namespace Context
 variable {Γ : Context τ} {v : Var}
+
+/-! ### snoc_inj -/
+
+@[simp, grind =] theorem snoc_inj {Γ Γ' : Context τ} {t t' : τ.Typ} :
+    Γ <: t = Γ' <: t' ↔ Γ = Γ' ∧ t = t' := by
+  constructor
+  · intro h; grind [eq_of_toList, congr_arg toList h]
+  · grind
 
 /-! ### isUnrestricted -/
 
@@ -237,6 +270,14 @@ theorem snocStale_eraseVar :
 theorem getElem?_eraseVar {w : Var} : (Γ.eraseVar v)[w]? = if v = w then none else Γ[w]? := by
   rcases Γ with ⟨Γ⟩; grind [eraseVar]
 
+/-- Erasing variables only marks them as stale, it does _not_ change the size of the context. -/
+@[simp, grind =] theorem size_eraseVar : (Γ.eraseVar v).size = Γ.size := by
+  grind
+
+@[simp, grind =] theorem liveIn_eraseVar :
+    v.LiveIn (Γ.eraseVar w) ↔ (v ≠ w ∧ v.LiveIn Γ) := by
+  grind [Var.LiveIn]
+
 /-! ### eraseVars -/
 
 @[simp, typecheck, grind =]
@@ -270,6 +311,125 @@ theorem getElem?_eraseVars_of_getElem? {v : Var} (hΓ : Γ[v]? = some t) (hv : v
 
 @[grind .] theorem getElem?_of_getElem?_eraseVars :
     (Γ.eraseVars vs)[v]? = some t → (∃ w ∉ vs, Γ[w]? = some t) := by
+  grind
+
+@[simp, grind =] theorem liveIn_eraseVars :
+    v.LiveIn (Γ.eraseVars ws) ↔ (v ∉ ws ∧ v.LiveIn Γ) := by
+  grind [Var.LiveIn]
+
+@[simp, grind =] theorem eraseVar_eraseVar (Γ : Context τ) (v w : Var) :
+    (Γ.eraseVar v).eraseVar w = (Γ.eraseVar w).eraseVar v := by
+  grind [eraseVar]
+
+@[simp, grind =] theorem eraseVar_eraseVar_same (Γ : Context τ) (v : Var) :
+    (Γ.eraseVar v).eraseVar v = Γ.eraseVar v := by
+  grind [eraseVar]
+
+/-! ### set -/
+
+@[simp, grind =] theorem size_set : (Γ.set v t).size = Γ.size := by grind [set]
+
+@[simp, grind =] theorem eraseVar_set_same : (Γ.set v t).eraseVar v = Γ.eraseVar v := by
+  grind [set, eraseVar]
+
+@[grind =] theorem getElem?_set : (Γ.set v t)[w]? = if v = w then (if v.toNat < Γ.size then t else none) else Γ[w]? := by
+  grind [set]
+
+/-! ### append -/
+
+@[simp, grind =] theorem append_empty : (Γ ++ ∅) = Γ := by rfl
+@[simp, grind =] theorem empty_append : (∅ ++ Γ) = Γ := by
+  apply eq_of_toList; grind
+
+@[simp, grind =] theorem append_snoc : Γ ++ (Δ <: t) = (Γ ++ Δ) <: t := by rfl
+@[simp, grind =] theorem append_snocStale : Γ ++ Δ.snocStale = (Γ ++ Δ).snocStale := by rfl
+
+@[simp, grind =] theorem append_assoc : (Γ ++ Δ) ++ Ξ = Γ ++ (Δ ++ Ξ) := by
+  apply eq_of_toList; grind
+
+@[simp, grind =] theorem getElem?_append {v : Var} {Γ Δ : Context τ} :
+    (Γ ++ Δ)[v]? = if v.toNat < Δ.size then Δ[v]? else Γ[v - Δ.size]? := by
+  rw [← eq_get?]; grind
+
+@[grind =] theorem eraseVar_append (Γ Δ : Context τ) (v : Var) :
+    (Γ ++ Δ).eraseVar v =
+      if v.toNat < Δ.size then Γ ++ Δ.eraseVar v else Γ.eraseVar (v - Δ.size) ++ Δ := by
+  grind
+
+/-! ### take/drop -/
+
+@[simp, grind =] theorem take_zero : (Γ : Context τ).take 0 = ∅ := by rfl
+@[simp, grind =] theorem drop_zero : (Γ : Context τ).drop 0 = Γ := by rfl
+
+@[simp, grind =] theorem snoc_take_succ : (Γ <: t).take (n + 1) = Γ.take n <: t := by rfl
+@[simp, grind =] theorem snoc_drop_succ : (Γ <: t).drop (n + 1) = Γ.drop n := by rfl
+
+@[simp, grind =] theorem snocStale_take_succ : Γ.snocStale.take (n + 1) = (Γ.take n).snocStale := by rfl
+@[simp, grind =] theorem snocStale_drop_succ : Γ.snocStale.drop (n + 1) = Γ.drop n := by rfl
+
+@[simp, grind =] theorem empty_take : (∅ : Context τ).take n = ∅ := by grind [take]
+@[simp, grind =] theorem empty_drop : (∅ : Context τ).drop n = ∅ := by grind [drop]
+
+@[simp, grind =] theorem size_take (Γ : Context τ) (n : Nat) : (Γ.take n).size = min n Γ.size := by
+  simp [size, take, List.length_take]
+@[simp, grind =] theorem size_drop (Γ : Context τ) (n : Nat) : (Γ.drop n).size = Γ.size - n := by
+  simp [size, drop, List.length_drop]
+
+@[simp, grind =] theorem getElem?_take {v : Var} {n : Nat} :
+    (Γ.take n)[v]? = if v.toNat < n then Γ[v]? else none := by
+  grind [take]
+
+@[simp, grind =] theorem getElem?_drop {v : Var} {n : Nat} :
+    (Γ.drop n)[v]? = Γ[v + n]? := by
+  grind [drop]
+
+@[simp, grind =] theorem take_take (Γ : Context τ) (m n : Nat) :
+    (Γ.take m).take n = Γ.take (min m n) := by
+  apply eq_of_toList; simp [take, List.take_take, Nat.min_comm]
+
+@[simp, grind =] theorem drop_drop (Γ : Context τ) (m n : Nat) :
+    (Γ.drop m).drop n = Γ.drop (m + n) := by
+  apply eq_of_toList; simp [drop, List.drop_drop]
+
+@[simp, grind =] theorem liveIn_take {v : Var} {n : Nat} :
+    v.LiveIn (Γ.take n) ↔ v.toNat < n ∧ v.LiveIn Γ := by
+  grind [Var.LiveIn]
+
+@[simp, grind =] theorem liveIn_drop {v : Var} {n : Nat} :
+    v.LiveIn (Γ.drop n) ↔ (v + n).LiveIn Γ := by
+  grind [Var.LiveIn]
+
+@[simp, grind =] theorem take_append_drop (Γ : Context τ) (n : Nat) :
+    Γ.drop n ++ Γ.take n = Γ := by
+  induction n generalizing Γ
+  · grind
+  · cases Γ <;> grind
+
+/-! ### staleVars -/
+
+@[simp, grind =] theorem mem_staleVars_iff {v : Var} {Γ : Context τ} :
+    v ∈ Γ.staleVars ↔ v.toNat < Γ.size ∧ Γ[v]? = none := by
+  suffices Γ.toList[v.toNat]? = some none ↔ v.toNat < Γ.size ∧ ¬Var.LiveIn Γ v by
+    simp [staleVars]; grind
+  grind [Var.LiveIn, Context.get?]
+
+@[simp, grind =] theorem staleVars_append {Γ Δ : Context τ} :
+    (Γ ++ Δ).staleVars = Δ.staleVars ++ (Γ.staleVars.map (fun v : Var => v + Δ.size)) := by
+  suffices
+    (Γ.toList.zipIdx Δ.toList.length).filterMap (fun x => if x.1.isSome = true then none else some { toNat := x.2 })
+    = (Γ.staleVars.map (fun v : Var => v + Δ.size))
+  by grind [staleVars]
+  rw [List.zipIdx_eq_map_add]
+  grind [staleVars]
+
+/-- Erasing a single stale variable does not change the context. -/
+@[simp, grind =] theorem eraseVar_staleVars (hv : v ∈ Γ.staleVars) :
+    Γ.eraseVar v = Γ := by
+  grind
+
+/-- Erasing a subset of stale variable does not change the context. -/
+@[simp, grind =] theorem eraseVars_of_subset_staleVars (hvs : vs ⊆ Γ.staleVars) :
+    Γ.eraseVars vs = Γ := by
   grind
 
 end Context

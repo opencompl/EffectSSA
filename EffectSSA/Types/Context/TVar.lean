@@ -31,10 +31,11 @@ instance : CoeOut (TVar Γ t) Var where coe := TVar.toVar
 --------------------------------------------------------------------------------
 -/
 
-grind_pattern TVar.wt => TVar.toVar self
+attribute [simp, grind! .] TVar.wt
 
 /-!
 ## Definitions
+--------------------------------------------------------------------------------
 -/
 
 namespace TVar
