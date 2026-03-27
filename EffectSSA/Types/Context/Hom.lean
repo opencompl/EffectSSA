@@ -115,6 +115,7 @@ theorem map_staleVars : Γ.staleVars.map f.applyVar ⊆ Δ.staleVars := by
   intro v hv
   obtain ⟨w, hw, rfl⟩ : ∃ w ∈ Γ.staleVars, v = f.applyVar w := by grind
   grind
+grind_pattern map_staleVars => Γ.staleVars.map f.applyVar, Δ.staleVars
 
 /-! ### Context.isUnrestricted -/
 
