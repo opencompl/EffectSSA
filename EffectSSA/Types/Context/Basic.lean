@@ -23,6 +23,10 @@ A `Context τ` is a mapping from variables to (optional) types.
 A linear variable, when used, will be replaced by a `none` to indicate that the
 corresponding variable is no longer available. By keeping the entry in the
 context, we prevent having to reuse variable indices.
+
+As is conventional, contexts grow towards the right, written as `Γ <: t`.
+Additionally, indexing happens from right-to-left, such that the `t` in `Γ <: t`
+is actually index `0`. Hence, we model a context as a regular List internally.
 -/
 structure Context (τ : Ty) where
   ofList :: toList : List (Option τ.Typ)
@@ -66,6 +70,8 @@ instance : EmptyCollection (Context τ) where emptyCollection := ⟨[]⟩
 
 /--
 `Γ <: t` expands the context `Γ` with a new (live) variable of type `t`.
+
+The new variable will have index `0`.
 -/
 def snoc (Γ : Context τ) (t : τ.Typ) : Context τ :=
   ⟨Γ.toList.cons (some t)⟩
@@ -89,6 +95,13 @@ def isUnrestricted (Γ : Context τ) : Prop :=
 /-! ### vars -/
 
 /--
+`Γ.set v t` sets variable `v` to `t`, or
+returns `Γ` unchanged if `v` is not in bounds of `Γ`.
+-/
+def set (Γ : Context τ) (v : Var) (t? : Option τ.Typ) : Context τ :=
+  ⟨Γ.toList.set v.toNat t?⟩
+
+/--
 `Γ.eraseVar v` marks variable `v` as stale, or returns `Γ` unchanged if `v` is
 not in bounds of `Γ`.
 -/
@@ -107,5 +120,28 @@ For example:
 def eraseVars (vs : List Var) (Γ : Context τ) (n : Nat := 0) : Context τ :=
   let f := fun v Γ => Γ.eraseVar (v + n)
   vs.foldr f Γ
+
+/-- `Γ.staleVars` returns the list of variables in `Γ` which are stale. -/
+def staleVars (Γ : Context τ) : List Var :=
+  Γ.toList.zipIdx.filterMap fun (t?, i) =>
+    if t?.isSome then none else some (Var.ofNat i)
+
+/-! ### drop / take -/
+
+/-- Removes the first (i.e, right-most) `n` types of the context `Γ`. -/
+def drop (Γ : Context τ) (n : Nat) : Context τ :=
+  ⟨Γ.toList.drop n⟩
+
+/-- Extracts the first (i.e, right-most) `n` types of the context `Γ`. -/
+def take (Γ : Context τ) (n : Nat) : Context τ :=
+  ⟨Γ.toList.take n⟩
+
+/-! ### append -/
+
+instance : Append (Context τ) where
+  append Γ Δ := ⟨Δ.toList ++ Γ.toList⟩
+  -- ^^ Recall that contexts grow towards the right,
+  --    but are internally implemented as lists that grow towards the left.
+  --    Hence, we invert the arguments here.
 
 end Context
