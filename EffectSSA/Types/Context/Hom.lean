@@ -123,8 +123,9 @@ grind_pattern map_staleVars => Γ.staleVars.map f.applyVar, Δ.staleVars
 If the codomain of a context morphism is unrestricted,
 the domain is unrestricted as well.
 -/
-theorem isUnrestricted_of_isUnrestricted (f : Γ.Hom Δ) :
+@[grind →] theorem isUnrestricted_of_isUnrestricted (f : Nonempty (Γ.Hom Δ)) :
     Δ.isUnrestricted → Γ.isUnrestricted := by
+  rcases f with ⟨f⟩
   intro hΔ v t hv
   apply hΔ (f.applyVar v)
   grind
