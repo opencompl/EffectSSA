@@ -49,3 +49,13 @@ theorem toList_append : (p ++ q).toList = p.toList ++ q.toList := by
     foldlM f init (i ;> p) = f init i >>= fun a => foldlM f a p := by rfl
 
 end InstructionSeq
+
+/-!
+## Program Lemmas
+-/
+namespace Program
+
+@[simp, grind =] theorem cons_append (i : Instruction τ) (p q : InstructionSeq τ) :
+  i ;> p ++ q = i ;> (p ++ q) := rfl
+
+end Program

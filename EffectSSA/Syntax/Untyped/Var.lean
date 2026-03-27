@@ -62,6 +62,14 @@ theorem toNat_ext {v w : Var} (h : v.toNat = w.toNat) : v = w := by
 @[simp, grind =] theorem zero_add (n : Nat) : (ofNat 0) + n = ofNat n := by grind
 @[simp, grind =] theorem add_zero (v : Var) : v + 0 = v := by rfl
 
+@[simp, grind =] theorem add_sub_cancel (v : Var) (n : Nat) : (v + n) - n = v := by
+  ext; grind
+@[simp, grind =] theorem sub_add_cancel (v : Var) (n : Nat) (h : n ≤ v.toNat) : (v - n) + n = v := by
+  ext; grind
+
+@[simp, grind =] theorem lt_iff_toNat_lt {v w : Var} : v < w ↔ v.toNat < w.toNat := Iff.rfl
+@[simp, grind =] theorem le_iff_toNat_le {v w : Var} : v ≤ w ↔ v.toNat ≤ w.toNat := Iff.rfl
+
 /-!
 ## Metaprogramming API
 --------------------------------------------------------------------------------
