@@ -77,20 +77,14 @@ end InstructionSeq
 -/
 namespace Program
 
-@[grind =] theorem wellTyped_iff :
-    WellTyped Γ ⟨is, vs⟩ Ξ ↔ ∃ (Δ : Context _),
-      is.WellTypedWith Γ Δ
-      ∧ (Δ.eraseVars vs).isUnrestricted
-      ∧ vs.length = Ξ.size
-      ∧ ∀ (i) (hi : i < vs.length), Δ[vs[i]]? = Ξ[Var.ofNat i]? := by
-  grind
-
 @[simp, typecheck, grind =]
 theorem wellTyped_nil_iff {Γ : Context τ} :
     WellTyped Γ ⟨.nil, vs⟩ Ξ ↔
         (Γ.eraseVars vs).isUnrestricted
       ∧ vs.length = Ξ.size
-      ∧ ∀ (i) (hi : i < vs.length), Γ[vs[i]]? = Ξ[Var.ofNat i]? := by
+      ∧ (∀ (i) (hi : i < vs.length),
+          vs[i].toNat < Γ.size
+          ∧ Γ[vs[i]]? = Ξ[Var.ofNat i]?) := by
   grind
 
 end Program

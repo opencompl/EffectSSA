@@ -88,9 +88,9 @@ instance : Decidable (Program.WellTyped Γ p Ξ) :=
         .isFalse (by grind)
       else if hlen : vs.length ≠ Ξ.size then
         .isFalse (by grind)
-      else if hret : ∃ (i : Fin vs.length), Δ[vs[i]]? ≠ Ξ[Var.ofNat i]? then
+      else if hret : ∃ (i : Fin vs.length), vs[i].toNat ≥ Δ.size ∨ Δ[vs[i]]? ≠ Ξ[Var.ofNat i]? then
         .isFalse (by grind)
       else
-        have hret : ∀ (i : Fin vs.length), Δ[vs[i]]? = Ξ[Var.ofNat i]? := by grind
-        .isTrue ⟨Δ, h₁, by grind, by grind, fun i hi => hret ⟨i, hi⟩⟩
+        have hret : ∀ (i : Fin vs.length), _ := by simpa only [not_exists] using hret
+        .isTrue ⟨Δ, h₁, by grind, by grind, fun i hi => by grind [hret ⟨i, hi⟩]⟩
   | .isFalse h => .isFalse (by grind)

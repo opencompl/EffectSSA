@@ -103,7 +103,10 @@ def Program.WellTyped (Γ : Context τ) (p : Program τ) (Ξ : Context τ) : Pro
     -- All internal (i.e., non-return) variables that are still in scope must
     -- be unrestricted (i.e., non-linear)
     ∧ (Δ.eraseVars p.returnVars).isUnrestricted
-    -- And the returnVariables' types match `Ξ`
+    -- There are as many return variables as mandated by `Ξ`
     ∧ p.returnVars.length = Ξ.size
-    ∧ ∀ (i : Nat), (hi : i < p.returnVars.length) →
-        Δ[p.returnVars[i]]? = Ξ[Var.ofNat i]?
+    ∧ ∀ (i : Nat) (hi : i < p.returnVars.length),
+        -- All return variables are in scoped of `Δ`, and
+        p.returnVars[i].toNat < Δ.size
+        -- their types match `Ξ`
+        ∧ Δ[p.returnVars[i]]? = Ξ[Var.ofNat i]?
