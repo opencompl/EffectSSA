@@ -88,3 +88,42 @@ structure Decomp (Γ Δ₁ Δ₂ : Context τ) where
     (∃ w, hom₁.apply w = v) ∨ (∃ w, hom₂.apply w = v)
   linear : ∀ t, ¬t.isUnrestricted → ∀ (w₁ w₂ : TVar _ t),
     hom₁.apply w₁ ≠ hom₂.apply w₂
+
+/-!
+## Hom Lemmas
+--------------------------------------------------------------------------------
+-/
+namespace Hom
+variable {Γ Δ : Context τ} (f : Γ.Hom Δ)
+
+/-! ### asSubstitution / applyVar -/
+
+@[simp, grind =] theorem apply_asSubstitution : f.asSubstitution.apply = f.applyVar := by rfl
+
+/-- Applying the raw substitution to a `TVar Γ` yields a `TVar Δ` -/
+@[simp, grind =] theorem applyVar_toVar (v : TVar Γ t) :
+    f.applyVar v.toVar = (f.apply v).toVar := by rfl
+
+/-! ### Context.staleVars -/
+
+@[simp, grind =] theorem liveIn_applyVar (hv : v.toNat < Γ.size) :
+    (f.applyVar v).LiveIn Δ ↔ v.LiveIn Γ := by
+  grind [Var.LiveIn]
+
+/-- Stale variables get mapped to stale variables -/
+theorem map_staleVars : Γ.staleVars.map f.applyVar ⊆ Δ.staleVars := by
+  intro v hv
+  obtain ⟨w, hw, rfl⟩ : ∃ w ∈ Γ.staleVars, v = f.applyVar w := by grind
+  grind
+
+/-! ### Context.isUnrestricted -/
+
+/--
+If the codomain of a context morphism is unrestricted,
+the domain is unrestricted as well.
+-/
+theorem isUnrestricted_of_isUnrestricted (f : Γ.Hom Δ) :
+    Δ.isUnrestricted → Γ.isUnrestricted := by
+  intro hΔ v t hv
+  apply hΔ (f.applyVar v)
+  grind
