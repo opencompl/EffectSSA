@@ -5,7 +5,13 @@
       "WebSearch",
       "WebFetch(domain:loogle.lean-lang.org)",
       "Bash(elan show:*)",
-      "Read(//home/alex/.elan/**)"
+      "Read(//home/alex/.elan/**)",
+      "mcp__lean-lsp__lean_file_outline",
+      "mcp__lean-lsp__lean_diagnostic_messages",
+      "Bash(lake env lean:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(echo:*)",
     ]
   }
 }

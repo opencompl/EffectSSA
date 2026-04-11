@@ -35,9 +35,6 @@ def nil (C₀ : InstSeq) (h : n = 0) : Context n :=
 @[simp, grind =]
 def toVector : Vector InstSeq (n + 1) := C
 
-def cons (is : InstSeq) (C : Context n) : Context (1 + n) :=
-  #v[is] ++ C.toVector
-
 def concat (C : Context n) (is : InstSeq) : Context (n + 1) :=
   C.push is
 
@@ -60,11 +57,6 @@ def junk (n) : Vector InstSeq n :=
 /-- Take the _first_ `i+1` sequences (representing the first `i` holes) of a Context. -/
 def takeFirst (i : Nat) : Context i :=
   let C := Vector.take C (i + 1)
-  (C ++ junk (i-n)).cast (by grind)
-
-/-- Take the _last_ `i+1` sequences (representing the last `i` holes) of a Context. -/
-def takeLast (i : Nat) : Context i :=
-  let C := Vector.extract C (n - i) (n + 1)
   (C ++ junk (i-n)).cast (by grind)
 
 def get (i : Nat) (hi : i ≤ n := by grind) : InstSeq :=
@@ -96,7 +88,6 @@ theorem nil_eq_nil_iff : nil is h = nil js h ↔ is = js := by
   · grind
 
 /-! head -/
-example [NeZero n] : n ≠ 0 := by grind
 
 @[simp, grind =]
 theorem get_zero_eq_head : C.get 0 = C.head := by rfl
@@ -112,26 +103,6 @@ theorem head_concat : (C.concat is).head = C.head := by
 @[simp, grind =] theorem takeFirst_zero : C.takeFirst 0 = nil C.head (by rfl) := by sorry
 @[simp, grind =] theorem takeFirst_all : C.takeFirst n = C := by sorry
 
--- @[simp]
--- axiom head_drop : (C.drop n).head = C.head
--- grind_pattern head_drop => (C.drop n).head
-
--- @[simp, grind =] theorem drop_zero : C.drop 0 = C := by simp [drop]
--- @[simp, grind =] theorem drop_all : C.drop n = nil (C.get 0) (by grind) := by grind
-
-/-! Heterogenous Helpers -/
-section HEq
-variable {C : Context n} {D : Context m}
-
-theorem length_eq_of_heq (h : C ≍ D) : n = m := by
-  sorry
-
-theorem heq_of_head_tail_eq  [NeZero n] [NeZero m]
-    (hhead : C.head = D.head) (htail : C.tail ≍ D.tail) : C ≍ D := by
-  obtain rfl : n = m := by grind [length_eq_of_heq htail]
-  sorry
-
-end HEq
 end Lemmas
 end Context
 
@@ -153,9 +124,6 @@ def concat (I : Pattern n) (is : InstSeq) : Pattern (n + 1) :=
 def head [NeZero n] : InstSeq := Vector.head I
 def tail [NeZero n] : Pattern (n - 1) := Vector.tail I
 
-def drop (i : Nat) : Pattern (n - i) :=
-  Vector.drop I i
-
 /--
 A pattern of exactly `n` empty sequences.
 
@@ -171,44 +139,16 @@ def takeFirst (i : Nat) : Pattern i :=
   let I := Vector.take I i
   (I ++ junk (i-n)).cast (by grind)
 
-def takeLast (i : Nat) : Pattern i :=
-  let I := Vector.extract I (n - i) n
-  (I ++ junk (i-n)).cast (by grind)
-
 def get (i : Nat) (hi : i < n := by grind) : InstSeq :=
   Vector.get I ⟨i, hi⟩
 
-@[grind]
-def pop (I : Pattern (n + 1)) : Pattern n := I.takeFirst n
-
-@[grind]
-def last (I : Pattern n) [NeZero n] : InstSeq := I.get (n - 1)
-
-@[grind]
-def get? (i : Nat) : Option InstSeq :=
-  if hi : i < n then some (I.get i hi) else none
-
 section Lemmas
-
-@[simp, grind =] theorem drop_zero : I.drop 0 = I := by simp [drop]
-@[simp, grind =] theorem drop_all : I.drop n = nil (by grind) := by
-  apply Vector.ext; grind
 
 @[simp, grind =] theorem takeFirst_zero : I.takeFirst 0 = nil rfl := by sorry
 @[simp, grind =] theorem takeFirst_all : I.takeFirst n = I := by sorry
 
-@[grind =] theorem takeFirst_succ (hk : k + 1 < n) :
-  I.takeFirst (k + 1) = (I.takeFirst k).concat (I.get (k + 1)) := by sorry
-
 @[simp, grind =] theorem takeFirst_succ' [NeZero n] :
   I.takeFirst (k + 1) = cons I.head (I.tail.takeFirst k) := by sorry
-
-@[simp, grind =] theorem takeLast_zero : I.takeLast 0 = nil rfl := by sorry
-@[simp, grind =] theorem takeLast_all : I.takeLast n = I := by sorry
-
-@[simp, grind =] theorem takeLast_succ [NeZero n] :
-  I.takeLast (k + 1) = cons (I.get (n - (k + 1))) (I.takeLast k) := by sorry
-
 
 end Lemmas
 end Pattern
@@ -234,14 +174,6 @@ theorem plug_zero (C : Context 0) (I : Pattern 0) : C.plug I = C.head := by rfl
 @[grind =]
 theorem plug_succ (C : Context (n + 1)) (I : Pattern (n + 1)) :
     C.plug I = C.head ++ I.head ++ (C.tail.plug I.tail) := by rfl
-
-def pop (C: Context (n + 1)) : Context n := C.takeFirst n
-def last (C: Context (n + 1)) : InstSeq := C.get n
-
-@[grind =]
-theorem plug_succ' (C : Context (n + 1)) (I : Pattern (n + 1)) :
-    C.plug I = (C.pop.plug I.pop) ++ I.last ++ C.last := by
-  sorry
 
 @[simp, grind =]
 theorem tail_concat_zero (C : Context 0) (Cᵢ : InstSeq) :
@@ -311,12 +243,6 @@ section Lemmas
 
 @[simp, grind =] theorem collapse_nil : (Pattern.nil h).collapse = [] := by
   simp [Pattern.collapse, Pattern.nil]
-
-@[simp, grind .] theorem collapse_eq_of_heq {I : Pattern n} {J : Pattern m}
-    (h : I ≍ J) :
-    I.collapse = J.collapse := by
-  obtain rfl : n = m := by sorry
-  grind
 
 end Lemmas
 
@@ -460,10 +386,8 @@ At the same time, to be able to phrase an equation lemma, we might need to
 remember stale values. I originally thought we also needed it for idempotency,
 but that is not actually true, since we re-compute the values anyway.
 
-For now, I avoid this question altogether by axiomatizing, rather than defining,
-the equivalence.
+For now, we define equivalence as pointwise equivalence of values.
 -/
-axiom Env.Equiv : Env → Env → Prop
 instance : HasEquiv Env where
   Equiv ρ η := ∀ v, ρ v ≈ η v
 
@@ -588,10 +512,6 @@ when their collapsed sequences are denotationally equivalent.
 @[grind] def Pattern.DenoteEquiv (I J : Pattern n) : Prop :=
   I.collapse |>.DenoteEquiv J.collapse
 
-@[grind →]
-axiom InstSeq.denoteEquiv_iff_of_closed {is js : InstSeq} (hi : is.Closed) (hj : js.Closed) :
-  is.DenoteEquiv js ↔ ⟦is⟧ .initial ≈ ⟦js⟧ .initial
-
 /--
 Two patterns `I` and `J` are contextually equivalent,
 when for any context `C` such that `C[I]` and `C[J]` are both wellformed and
@@ -632,26 +552,6 @@ attribute [grind =] id_eq
 @[simp]
 axiom Pattern.denote_cons : ∀ (is : InstSeq) (I : Pattern n),
     ⟦cons is I⟧ = fun ρ => ⟦I⟧ (⟦is⟧ ρ)
-
-@[simp, grind =]
-theorem Pattern.last_takeFirst (I : Pattern n) (hi : i + 1 < n) :
-    (I.takeFirst (i + 1)).last = I.get (i + 1) := by
-  sorry
-
-@[simp, grind =]
-theorem Pattern.pop_takeFirst (I : Pattern n) :
-    (I.takeFirst (i + 1)).pop = I.takeFirst i := by
-  sorry
-
-@[simp, grind =]
-theorem Context.last_takeFirst (C : Context n) (hi : i + 1 < n) :
-    (C.takeFirst (i + 1)).last = C.get (i + 1) := by
-  sorry
-
-@[simp, grind =]
-theorem Context.pop_takeFirst (C : Context n) :
-    (C.takeFirst (i + 1)).pop = C.takeFirst i := by
-  sorry
 
 @[simp, grind =]
 theorem Pattern.denote_concat (I : Pattern n) (is : InstSeq) :
