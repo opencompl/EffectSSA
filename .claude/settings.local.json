@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(lake build:*)"
+      "Bash(lake build:*)",
+      "WebSearch",
+      "WebFetch(domain:loogle.lean-lang.org)",
+      "Bash(elan show:*)",
+      "Read(//home/alex/.elan/**)"
     ]
   }
 }
