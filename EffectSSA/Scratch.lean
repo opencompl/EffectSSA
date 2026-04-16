@@ -27,8 +27,8 @@ def Vec (n : Nat) := Vector InstSeq n
 namespace Vec
 variable (v : Vec n)
 
-@[simp, grind =] def toVector (v : Vec n) : Vector InstSeq n := v
-@[simp, grind =] def ofVector (v : Vector InstSeq n) : Vec n := v
+@[grind =] def toVector (v : Vec n) : Vector InstSeq n := v
+@[grind =] def ofVector (v : Vector InstSeq n) : Vec n := v
 
 /-! ### Ctors -/
 
@@ -82,15 +82,26 @@ def alternate {n : Nat} (C : Vec n) (I : Vec m) : InstSeq :=
   | 0, _  => I.collapse
   | _, 0  => C.collapse
   | _+1, _+1 => C.head ++ I.head ++ (C.tail.alternate I.tail)
-  -- match n with
-  -- | 0     => I.collapse
-  -- | _ + 1 => C.head ++ match m with
-  --   | 0     => C.tail.collapse
-  --   | _ + 1 => I.head ++ (C.tail.alternate I.tail)
 
 /-! ### Vec Lemmas -/
 section Lemmas
 variable (xs : Vec n) (ys : Vec m)
+
+/-! toVector -/
+
+theorem eq_of_toVector_eq (h : v.toVector = w.toVector) : v = w := by
+  exact h
+
+@[simp, grind =] theorem toVector_append : toVector (xs ++ ys) = xs.toVector ++ ys.toVector := rfl
+@[simp, grind =] theorem toVector_cast : toVector (xs.cast h) = xs.toVector.cast h := rfl
+
+@[simp, grind =] theorem toVector_junk : toVector (junk n) = Vector.replicate n [] := rfl
+@[simp, grind =] theorem toVector_nil : toVector nil = #v[] := rfl
+@[simp, grind =] theorem toVector_concat : toVector (xs.concat y) = xs.toVector.push y := rfl
+@[simp, grind =] theorem toVector_cons :
+    toVector (cons x xs) = (#v[x] ++ xs.toVector).cast (by grind) := rfl
+
+/-! ext -/
 
 @[ext, grind ext]
 theorem ext {v w : Vec n} (h : ∀ i (hi : i < n), v.get i hi = w.get i hi) : v = w := by
@@ -99,8 +110,9 @@ theorem ext {v w : Vec n} (h : ∀ i (hi : i < n), v.get i hi = w.get i hi) : v 
 
 /-! append -/
 
-@[simp, grind =] theorem nil_append : nil ++ v = v.cast (by grind) := sorry
-@[simp, grind =] theorem append_nil : v ++ nil = v := by sorry
+@[simp, grind =] theorem nil_append : nil ++ v = v.cast (by grind) := by
+  apply eq_of_toVector_eq; simp
+@[simp, grind =] theorem append_nil : v ++ nil = v := by rfl
 
 @[simp, grind =]
 theorem cons_append : (cons x xs) ++ ys = (cons x (xs ++ ys)).cast (by grind) := by
@@ -110,9 +122,13 @@ theorem cons_append : (cons x xs) ++ ys = (cons x (xs ++ ys)).cast (by grind) :=
 theorem append_eq_concat : xs ++ (ofVector #v[y]) = xs.concat y := by
   sorry
 
+/-! get -/
+
+@[simp, grind =] theorem get_cast : (xs.cast h).get i hi = xs.get i (by grind) := rfl
+
 /-! nil -/
 
-theorem eq_nil (v : Vec 0) : v = nil := by grind
+theorem eq_nil (v : Vec 0) : v = nil := by ext; grind
 
 /-! cons -/
 
@@ -148,14 +164,23 @@ theorem concat_cons : concat (cons i v) j = cons i (concat v j) := by
 
 attribute [grind =] cast_eq
 
+@[induction_eliminator, elab_as_elim]
+def consRec {motive : ∀ {n}, Vec n → Sort u}
+    (nil : motive nil)
+    (cons : ∀ {n}, (i : InstSeq) → (v : Vec n) → motive v → motive (cons i v) ) :
+    ∀ {n} (v : Vec n), motive v := @fun n v =>
+  match n with
+  | 0 => _root_.cast (by congr; grind) nil
+  | _+1 =>
+    let m := cons v.head v.tail (consRec nil cons v.tail)
+    _root_.cast (by congr 1; grind) m
+
 @[cases_eliminator, elab_as_elim]
 def consCases {motive : ∀ {n}, Vec n → Sort u}
     (nil : motive nil)
     (cons : ∀ {n}, (i : InstSeq) → (v : Vec n) → motive (cons i v) ) :
-    ∀ {n} (v : Vec n), motive v := @fun n v =>
-  match n with
-  | 0 => _root_.cast (by congr; grind) nil
-  | _+1 => _root_.cast (by congr 1; rw [cons_head_tail]; sorry) (cons v.head v.tail)
+    ∀ {n} (v : Vec n), motive v :=
+  consRec nil (fun i v _ => cons i v)
 
 /-! #### Collapse -/
 
@@ -163,7 +188,7 @@ def consCases {motive : ∀ {n}, Vec n → Sort u}
 @[simp, grind =] theorem collapse_cons : (cons x xs).collapse = x ++ xs.collapse := by sorry
 @[simp, grind =] theorem collapse_nil : nil.collapse = [] := by rfl
 
-@[simp, grind =] theorem collapse_cast (h : n = m) : (xs.cast h).collapse = xs.collapse := by sorry
+@[simp, grind =] theorem collapse_cast (h : n = m) : (xs.cast h).collapse = xs.collapse := by rfl
 
 @[simp, grind =] theorem collapse_eq_head (x : Vec 1) : x.collapse = x.head := by
   sorry
@@ -301,17 +326,6 @@ def tail [NeZero n] : Pattern (n - 1) := Vector.tail I
 def get (i : Nat) (hi : i < n := by grind) : InstSeq :=
   Vec.get I i hi
 
-section Lemmas
-
-/-! nil -/
-
-theorem eq_nil (h : n = 0) (P : Pattern n) : P = nil h := by sorry
-
-@[simp, grind =] theorem take_zero : I.take 0 = nil rfl := by sorry
-@[simp, grind =] theorem take_all : I.take n = I := by sorry
-
-
-end Lemmas
 end Pattern
 
 /-!
@@ -431,10 +445,10 @@ instance : Denote InstSeq (SEnv → SEnv) where
   denote is := is.foldl (fun e i => i.denote e)
 
 /--
-A `Pattern` is evaluated by collapsing it into an instruction sequence,
+A `Vec` is evaluated by collapsing it into an instruction sequence,
 and evaluating that.
 -/
-instance : Denote (Pattern n) (SEnv → SEnv) where
+instance : Denote (Vec n) (SEnv → SEnv) where
   denote I := ⟦I.collapse⟧
 
 /-! ### Properties -/
@@ -443,17 +457,34 @@ section Properties
 theorem InstSeq.denote_eq {is : InstSeq} :
     ⟦is⟧ = is.foldl (fun e i => i.denote e) := by rfl
 
-@[grind =] theorem Pattern.denote_eq {I : Pattern n} :
-    ⟦I⟧ = ⟦I.collapse⟧ := by rfl
-
 @[simp, grind =] theorem InstSeq.denote_nil : ⟦[]⟧ = id := by rfl
 
 @[simp, grind =] theorem InstSeq.denote_append (is js : InstSeq) :
     ⟦is ++ js⟧ = fun ρ => ⟦js⟧ (⟦is⟧ ρ) := by
   grind [InstSeq.denote_eq]
 
-@[simp, grind =] theorem Pattern.denote_nil {I : Pattern 0} : ⟦I⟧ = id := by
-  sorry
+
+@[grind =] theorem Vec.denote_eq {I : Vec n} :
+    ⟦I⟧ = ⟦I.collapse⟧ := by rfl
+
+@[simp, grind =] theorem Vec.denote_nil {I : Vec 0} : ⟦I⟧ = id := by
+  cases I; rfl
+
+@[simp, grind =]
+theorem Vec.denote_cons  (is : InstSeq) (I : Vec n) :
+    ⟦cons is I⟧ = fun ρ => ⟦I⟧ (⟦is⟧ ρ) := by
+  simp [Vec.denote_eq]
+
+@[simp, grind =]
+theorem Vec.denote_concat (I : Vec n) (is : InstSeq) :
+    ⟦I.concat is⟧ = fun ρ => ⟦is⟧ (⟦I⟧ ρ) := by
+  induction I
+  case nil =>
+    have : ⟦Vec.nil.concat is⟧ = ⟦is⟧ := by rfl
+    simp [*]
+  case cons i is ih =>
+    simp [concat_cons, ih]
+
 
 /-!
 Semantics are monotone; any variables not defined by an instruction (sequence)
@@ -518,12 +549,14 @@ instance : HasEquiv SEnv where
 
 section Lemmas
 
-instance : Trans (α := SEnv) (· ≈ ·) (· ≈ ·) (· ≈ ·) where
-  trans := by sorry
-
 @[simp, grind ., refl]
-theorem SEnv.equiv_refl (ρ : SEnv) : ρ ≈ ρ := by
-  sorry
+axiom SEnv.equiv_refl (ρ : SEnv) : ρ ≈ ρ
+
+
+axiom SEnv.equiv_trans {ρ₁ ρ₂ ρ₃ : SEnv} : ρ₁ ≈ ρ₂ → ρ₂ ≈ ρ₃ → ρ₁ ≈ ρ₃
+
+instance : Trans (α := SEnv) (· ≈ ·) (· ≈ ·) (· ≈ ·) where
+  trans := SEnv.equiv_trans
 
 end Lemmas
 
@@ -605,7 +638,7 @@ theorem Pattern.denote_idempotent {I : Pattern n} (hi : I.Idempotent)
     (C : InstSeq) (ρ) :
     ⟦I⟧ (⟦C⟧ (⟦I⟧ ρ)) = (⟦C⟧ (⟦I⟧ ρ)) := by
   have hi : I.collapse.Idempotent := hi
-  simp [Pattern.denote_eq, hi]
+  simp [Vec.denote_eq, hi]
 
 /-!
 ## Denotational Equivalence
@@ -653,7 +686,7 @@ theorem InstSeq.denote_eqv_congr (hρ : ρ₁ ≈ ρ₂) (is : InstSeq) :
 @[grind .]
 theorem Pattern.denote_eqv_congr (hρ : ρ₁ ≈ ρ₂) (I : Pattern n) :
     ⟦I⟧ ρ₁ ≈ ⟦I⟧ ρ₂ := by
-  simp [Pattern.denote_eq]
+  simp [Vec.denote_eq]
   grind
 
 end Lemmas
@@ -662,18 +695,6 @@ end Lemmas
 ## Main Result
 -/
 attribute [grind =] id_eq
-
-@[simp]
-axiom Pattern.denote_cons : ∀ (is : InstSeq) (I : Pattern n),
-    ⟦Vec.cons is I⟧ = fun ρ => ⟦I⟧ (⟦is⟧ ρ)
-
-@[simp, grind =]
-theorem Pattern.denote_concat (I : Pattern n) (is : InstSeq) :
-    ⟦I.concat is⟧ = fun ρ => ⟦is⟧ (⟦I⟧ ρ) := by
-  induction n
-  case zero => rw [I.eq_nil rfl]; rfl
-  case succ n ih =>
-    sorry
 
 @[grind →]
 axiom Context.wellFormed_tail_plug_tail : ∀ (C : Context (n + 1)) (I : Pattern (n + 1)),
@@ -711,7 +732,6 @@ theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
         _ ≈ ⟦I.take (i+1)⟧ (⟦I₁⟧ ρ) := by simpa using SEnv.equiv_refl _
         _ ≈ ⟦J.take (i+1)⟧ (⟦J₁⟧ ρ) := by grind
         _ ≈ ⟦J.tail.take i⟧ (⟦J₁.concat J.head⟧ ρ) := by simpa using SEnv.equiv_refl _
-    stop
     calc
       ⟦C.plug I⟧ (⟦I₁⟧ ρ)
       _ ≈ (⟦C.tail.plug I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦C.head⟧ ∘ ⟦I₁⟧) ρ := by grind
@@ -730,12 +750,16 @@ info: 'ctxEquiv_of_denoteEquiv' depends on axioms: [Inst,
  propext,
  sorryAx,
  Classical.choice,
+ Context.wellFormed_tail_plug_tail,
  Inst.Defs,
  Inst.FVar,
  Inst.Idempotent,
  Inst.denote,
+ Inst.denote_idempotent,
  InstSeq.WellFormed,
  Quot.sound,
+ SEnv.equiv_refl,
+ SEnv.equiv_trans,
  State.Equiv,
  Val.Equiv]
 -/
