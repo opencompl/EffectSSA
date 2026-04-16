@@ -22,12 +22,15 @@ Shared underlying representation for both `Context` and `Pattern`:
 a length-indexed vector of instruction sequences.
 -/
 
-abbrev Vec (n : Nat) := Vector InstSeq n
+def Vec (n : Nat) := Vector InstSeq n
 
 namespace Vec
 variable (v : Vec n)
 
-/-! ### Vec Definitions -/
+@[simp, grind =] def toVector (v : Vec n) : Vector InstSeq n := v
+@[simp, grind =] def ofVector (v : Vector InstSeq n) : Vec n := v
+
+/-! ### Ctors -/
 
 /--
 A vector of exactly `n` empty sequences.
@@ -37,24 +40,167 @@ parameters, following the garbage-in-garbage-out principle.
 -/
 def junk (n : Nat) : Vec n := Vector.replicate n []
 
+def cast (h : n = m) : Vec n → Vec m := Vector.cast h
+
+instance : HAppend (Vec n) (Vec m) (Vec (n + m)) where
+  hAppend xs ys := ofVector <| xs.toVector ++ ys.toVector
+
+/-- The empty vector -/
+def nil : Vec 0 := ofVector #v[]
+
+def cons (is : InstSeq) (I : Vec n) : Vec (n + 1) :=
+  (ofVector <| #v[is] ++ I.toVector).cast (by grind)
+
+def concat (I : Vec n) (is : InstSeq) : Vec (n + 1) :=
+  I.push is
+
+/-! ### Getters / Destructors -/
+
+def head [NeZero n] : Vec n → InstSeq := Vector.head
+def tail [NeZero n] : Vec n → Vec (n - 1) := Vector.tail
+
 def get (i : Nat) (hi : i < n := by grind) : InstSeq :=
   Vector.get v ⟨i, hi⟩
 
 /-- Take the first `i` elements, padding with junk if `i > n`. -/
 def take (i : Nat) : Vec i :=
-  let vs := Vector.take v i
+  let vs := ofVector <| Vector.take v i
   (vs ++ junk (i - n)).cast (by grind)
+
+/-! ### Alternate -/
+
+
+/--
+A vector `v` can be collapsed into a single instruction sequence,
+by concatenating each constituent sequence `vₖ`, in order.
+-/
+def collapse : Vec n → InstSeq :=
+  Vector.foldl (· ++ ·) []
+
+def alternate {n : Nat} (C : Vec n) (I : Vec m) : InstSeq :=
+  match n, m with
+  | 0, _  => I.collapse
+  | _, 0  => C.collapse
+  | _+1, _+1 => C.head ++ I.head ++ (C.tail.alternate I.tail)
+  -- match n with
+  -- | 0     => I.collapse
+  -- | _ + 1 => C.head ++ match m with
+  --   | 0     => C.tail.collapse
+  --   | _ + 1 => I.head ++ (C.tail.alternate I.tail)
 
 /-! ### Vec Lemmas -/
 section Lemmas
+variable (xs : Vec n) (ys : Vec m)
 
 @[ext, grind ext]
 theorem ext {v w : Vec n} (h : ∀ i (hi : i < n), v.get i hi = w.get i hi) : v = w := by
   apply Vector.ext
   grind [get, Vector.get_eq_getElem]
 
+/-! append -/
+
+@[simp, grind =] theorem nil_append : nil ++ v = v.cast (by grind) := sorry
+@[simp, grind =] theorem append_nil : v ++ nil = v := by sorry
+
+@[simp, grind =]
+theorem cons_append : (cons x xs) ++ ys = (cons x (xs ++ ys)).cast (by grind) := by
+  sorry
+
+@[simp, grind =, grind =_]
+theorem append_eq_concat : xs ++ (ofVector #v[y]) = xs.concat y := by
+  sorry
+
+/-! nil -/
+
+theorem eq_nil (v : Vec 0) : v = nil := by grind
+
+/-! cons -/
+
+@[simp, grind =]
+theorem cons_head_tail [NeZero n] (v : Vec n) : cons v.head v.tail = v.cast (by grind) := by
+  sorry
+
+/-! concat -/
+
+@[grind =]
+theorem concat_nil : nil.concat i = cons i nil := by sorry
+
+
+@[grind =]
+theorem concat_cons : concat (cons i v) j = cons i (concat v j) := by
+  ext k hk l
+  sorry
+
+/-! head / tail -/
+
+@[simp, grind =] theorem head_cons : (cons i is).head = i := by sorry
+@[simp, grind =] theorem tail_cons : (cons i is).tail = is := by sorry
+
+/-! take -/
+
 @[simp, grind =] theorem take_zero : v.take 0 = junk 0 := by sorry
 @[simp, grind =] theorem take_all : v.take n = v := by sorry
+
+@[simp, grind =] theorem take_succ [NeZero n] :
+  v.take (k + 1) = cons v.head (v.tail.take k) := by sorry
+
+/-! #### Cases -/
+
+attribute [grind =] cast_eq
+
+@[cases_eliminator, elab_as_elim]
+def consCases {motive : ∀ {n}, Vec n → Sort u}
+    (nil : motive nil)
+    (cons : ∀ {n}, (i : InstSeq) → (v : Vec n) → motive (cons i v) ) :
+    ∀ {n} (v : Vec n), motive v := @fun n v =>
+  match n with
+  | 0 => _root_.cast (by congr; grind) nil
+  | _+1 => _root_.cast (by congr 1; rw [cons_head_tail]; sorry) (cons v.head v.tail)
+
+/-! #### Collapse -/
+
+
+@[simp, grind =] theorem collapse_cons : (cons x xs).collapse = x ++ xs.collapse := by sorry
+@[simp, grind =] theorem collapse_nil : nil.collapse = [] := by rfl
+
+@[simp, grind =] theorem collapse_cast (h : n = m) : (xs.cast h).collapse = xs.collapse := by sorry
+
+@[simp, grind =] theorem collapse_eq_head (x : Vec 1) : x.collapse = x.head := by
+  sorry
+
+/-! #### Alternate -/
+
+
+@[simp, grind =]
+theorem alternate_cast_left (C : Vec n) (I : Vec m) (h : n = n') :
+    alternate (C.cast h) I = alternate C I := by
+  sorry
+@[simp, grind =]
+theorem alternate_cast_right (C : Vec n) (I : Vec m) (h : m = m') :
+    alternate C (I.cast h) = alternate C I := by
+  sorry
+
+@[simp, grind =]
+theorem alternate_append
+    (C₁ : Vec n₁) (I₁ : Vec m₁) (hn : n₁ = m₁ + 1) (C₂ : Vec n₂) (I₂ : Vec m₂)  :
+    alternate (C₁ ++ C₂) (I₁ ++ I₂) = C₁.alternate I₁ ++ (cons [] C₂).alternate I₂ := by
+  subst hn
+  induction m₁
+  case zero =>
+    cases C₁ with | cons _ C₁ => cases C₁ with | nil =>
+    cases I₁ with | nil =>
+    cases m₂ <;> simp [alternate]
+  case succ n ih =>
+    cases C₁ with | cons c C₁ =>
+    cases I₁ with | cons i I₁ =>
+    simp [alternate]; grind
+
+@[simp, grind =]
+theorem alternate_concat (C : Vec (n + 1)) (I : Vec n) (Cᵢ Iᵢ : InstSeq) :
+    alternate (C.concat Cᵢ) (I.concat Iᵢ) = C.alternate I ++ (Iᵢ ++ Cᵢ) := by
+  rw [← append_eq_concat, ← append_eq_concat, alternate_append]
+  <;> rfl
+
 end Lemmas
 
 end Vec
@@ -75,13 +221,6 @@ A context with zero holes.
 def nil (C₀ : InstSeq) (h : n = 0) : Context n :=
   #v[C₀].cast (by grind)
 
-@[simp, grind =]
-def toVector : Vector InstSeq (n + 1) := C
-
-def concat (C : Context n) (is : InstSeq) : Context (n + 1) :=
-  C.push is
-
-def head : InstSeq := Vector.head C
 def tail [NeZero n] : Context (n - 1) :=
   (Vector.tail C).cast <| by
     have : n ≠ 0 := NeZero.out
@@ -129,7 +268,7 @@ theorem get_zero_eq_head : C.get 0 = C.head := by rfl
 
 @[simp, grind =]
 theorem head_concat : (C.concat is).head = C.head := by
-  simp [head, concat, Vector.head]
+  sorry
 
 /-! take -/
 
@@ -143,7 +282,7 @@ namespace Pattern
 variable (I : Pattern n)
 
 /-- The empty pattern -/
-@[grind] def nil (h : n = 0) : Pattern n := #v[].cast (by grind)
+@[grind] abbrev nil (h : n = 0) : Pattern n := Vec.nil.cast h.symm
 
 @[simp, grind =]
 def toVector : Vector InstSeq n := I
@@ -151,14 +290,13 @@ def toVector : Vector InstSeq n := I
 def cons (is : InstSeq) (I : Pattern n) : Pattern (n + 1) :=
   (#v[is] ++ I.toVector).cast (by grind)
 
-def concat (I : Pattern n) (is : InstSeq) : Pattern (n + 1) :=
-  I.push is
+abbrev concat : (I : Pattern n) → (is : InstSeq) → Pattern (n + 1) := Vec.concat
 
 def head [NeZero n] : InstSeq := Vector.head I
 def tail [NeZero n] : Pattern (n - 1) := Vector.tail I
 
 /-- Take the _first_ `i` elements of a pattern. -/
-def take (i : Nat) : Pattern i := Vec.take I i
+@[grind, simp] abbrev take (i : Nat) : Pattern i := Vec.take I i
 
 def get (i : Nat) (hi : i < n := by grind) : InstSeq :=
   Vec.get I i hi
@@ -172,8 +310,6 @@ theorem eq_nil (h : n = 0) (P : Pattern n) : P = nil h := by sorry
 @[simp, grind =] theorem take_zero : I.take 0 = nil rfl := by sorry
 @[simp, grind =] theorem take_all : I.take n = I := by sorry
 
-@[simp, grind =] theorem take_succ' [NeZero n] :
-  I.take (k + 1) = cons I.head (I.tail.take k) := by sorry
 
 end Lemmas
 end Pattern
@@ -186,57 +322,22 @@ namespace Context
 /--
 Plug each hole of `C` with the corresponding element of pattern `I`.
 -/
-def plug (C : Context n) (I : Pattern n) : InstSeq :=
-  match n with
-  | 0 => C.head
-  | _+1 => C.head ++ I.head ++ (C.tail.plug I.tail)
+abbrev plug (C : Context n) (I : Pattern n) : InstSeq :=
+  Vec.alternate C I
 
 section Lemmas
 
 @[simp, grind =]
-theorem plug_zero (C : Context 0) (I : Pattern 0) : C.plug I = C.head := by rfl
+theorem plug_zero (C : Context 0) (I : Pattern 0) : C.plug I = C.head := by
+  simp [Vec.alternate]
 
 @[grind =]
 theorem plug_succ (C : Context (n + 1)) (I : Pattern (n + 1)) :
     C.plug I = C.head ++ I.head ++ (C.tail.plug I.tail) := by rfl
 
 @[simp, grind =]
-theorem tail_concat_zero (C : Context 0) (Cᵢ : InstSeq) :
-    (C.concat Cᵢ).tail = nil Cᵢ rfl := by
-  rw [C.eq_nil rfl]
-  rfl
-
-@[simp, grind =]
-theorem tail_concat_succ (C : Context (n + 1)) (Cᵢ : InstSeq) :
-    (C.concat Cᵢ).tail = C.tail.concat Cᵢ := by
-  sorry
-
-@[simp, grind =]
 theorem concat_plug_concat (C : Context n) (I : Pattern n) (Cᵢ Iᵢ : InstSeq) :
-    (C.concat Cᵢ).plug (I.concat Iᵢ) = C.plug I ++ Iᵢ ++ Cᵢ := by
-  induction n
-  case zero =>
-    rw [plug_succ]
-    rw [show (I.concat Iᵢ).head = Iᵢ by sorry]
-    rw [C.eq_nil rfl]
-    simp [nil, concat, tail, head, Vector.head]
-  case succ n ih =>
-    specialize ih C.tail I.tail
-    have : (I.concat Iᵢ).head = I.head := by sorry
-    have : (I.concat Iᵢ).tail = I.tail.concat Iᵢ := by sorry
-    grind
-
-@[simp, grind =]
-theorem plug_take_succ (C : Context n) (I : Pattern n) (i : Nat) (hi : i + 1 < n) :
-    (C.take (i + 1)).plug (I.take (i + 1))
-    = ((C.take i).plug (I.take i)) ++ I.get (i + 1) ++ C.get (i + 1) := by
-  letI : NeZero (min (i + 1) n) := ⟨by grind⟩
-  generalize hC₁ : C.take i = C₁
-  generalize hC₂ : (C.take (i + 1)) = C₂
-  generalize hI₁ : I.take i = I₁
-  generalize hI₂ : (I.take (i + 1)) = I₂
-  replace hC₂ : C₂ ≍ C₁.concat (C.get (i + 1)) := by sorry
-  replace hI₂ : I₂ ≍ I₁.concat (I.get (i + 1)) := by sorry
+    plug (C.concat Cᵢ) (I.concat Iᵢ) = C.plug I ++ Iᵢ ++ Cᵢ := by
   grind
 
 end Lemmas
@@ -251,12 +352,6 @@ We assume some notion of wellformedness of instruction sequences.
 -/
 axiom InstSeq.WellFormed : InstSeq → Prop
 
-/--
-A pattern `I` can be collapsed into an instruction sequence,
-by concatenating each constituent sequence `Iₖ`, in order.
--/
-def Pattern.collapse : Pattern n → InstSeq :=
-  Vector.foldl (· ++ ·) []
 
 /--
 A pattern is wellformed, if its collapsed sequence is wellformed.
@@ -264,12 +359,6 @@ A pattern is wellformed, if its collapsed sequence is wellformed.
 abbrev Pattern.WellFormed (I : Pattern n) : Prop :=
   I.collapse.WellFormed
 
-section Lemmas
-
-@[simp, grind =] theorem collapse_nil : (Pattern.nil h).collapse = [] := by
-  simp [Pattern.collapse, Pattern.nil]
-
-end Lemmas
 
 /-!
 ## Variables
@@ -576,7 +665,7 @@ attribute [grind =] id_eq
 
 @[simp]
 axiom Pattern.denote_cons : ∀ (is : InstSeq) (I : Pattern n),
-    ⟦cons is I⟧ = fun ρ => ⟦I⟧ (⟦is⟧ ρ)
+    ⟦Vec.cons is I⟧ = fun ρ => ⟦I⟧ (⟦is⟧ ρ)
 
 @[simp, grind =]
 theorem Pattern.denote_concat (I : Pattern n) (is : InstSeq) :
@@ -605,7 +694,8 @@ theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
     (hI₁ : I₁.Idempotent) → (hJ₁ : J₁.Idempotent) →
     (hd : ∀ i ≤ n, ∀ ρ, ⟦I.take i⟧ (⟦I₁⟧ ρ) ≈ ⟦J.take i⟧ (⟦J₁⟧ ρ)) →
     ∀ ρ, ⟦C.plug I⟧ (⟦I₁⟧ ρ) ≈ ⟦C.plug J⟧ (⟦J₁⟧ ρ)
-  by apply this (.nil rfl) (.nil rfl) <;> grind
+  by apply this (.nil rfl) (.nil rfl) <;>
+    grind
   clear hd
   induction n <;> (
     intro m I₁ J₁ hI₁ hJ₁ hd ρ
@@ -621,6 +711,7 @@ theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
         _ ≈ ⟦I.take (i+1)⟧ (⟦I₁⟧ ρ) := by simpa using SEnv.equiv_refl _
         _ ≈ ⟦J.take (i+1)⟧ (⟦J₁⟧ ρ) := by grind
         _ ≈ ⟦J.tail.take i⟧ (⟦J₁.concat J.head⟧ ρ) := by simpa using SEnv.equiv_refl _
+    stop
     calc
       ⟦C.plug I⟧ (⟦I₁⟧ ρ)
       _ ≈ (⟦C.tail.plug I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦C.head⟧ ∘ ⟦I₁⟧) ρ := by grind
@@ -639,14 +730,11 @@ info: 'ctxEquiv_of_denoteEquiv' depends on axioms: [Inst,
  propext,
  sorryAx,
  Classical.choice,
- Context.wellFormed_tail_plug_tail,
  Inst.Defs,
  Inst.FVar,
  Inst.Idempotent,
  Inst.denote,
- Inst.denote_idempotent,
  InstSeq.WellFormed,
- Pattern.denote_cons,
  Quot.sound,
  State.Equiv,
  Val.Equiv]
