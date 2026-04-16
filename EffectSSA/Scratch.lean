@@ -55,7 +55,7 @@ def junk (n) : Vector InstSeq n :=
   Vector.replicate n ([] : InstSeq)
 
 /-- Take the _first_ `i+1` sequences (representing the first `i` holes) of a Context. -/
-def takeFirst (i : Nat) : Context i :=
+def take (i : Nat) : Context i :=
   let C := Vector.take C (i + 1)
   (C ++ junk (i-n)).cast (by grind)
 
@@ -100,8 +100,8 @@ theorem head_concat : (C.concat is).head = C.head := by
 
 /-! take -/
 
-@[simp, grind =] theorem takeFirst_zero : C.takeFirst 0 = nil C.head (by rfl) := by sorry
-@[simp, grind =] theorem takeFirst_all : C.takeFirst n = C := by sorry
+@[simp, grind =] theorem take_zero : C.take 0 = nil C.head (by rfl) := by sorry
+@[simp, grind =] theorem take_all : C.take n = C := by sorry
 
 end Lemmas
 end Context
@@ -135,7 +135,7 @@ def junk (n) : Vector InstSeq n :=
   Vector.replicate n ([] : InstSeq)
 
 /-- Take the _first_ `i` elements of a pattern. -/
-def takeFirst (i : Nat) : Pattern i :=
+def take (i : Nat) : Pattern i :=
   let I := Vector.take I i
   (I ++ junk (i-n)).cast (by grind)
 
@@ -148,11 +148,11 @@ section Lemmas
 
 theorem eq_nil (h : n = 0) (P : Pattern n) : P = nil h := by sorry
 
-@[simp, grind =] theorem takeFirst_zero : I.takeFirst 0 = nil rfl := by sorry
-@[simp, grind =] theorem takeFirst_all : I.takeFirst n = I := by sorry
+@[simp, grind =] theorem take_zero : I.take 0 = nil rfl := by sorry
+@[simp, grind =] theorem take_all : I.take n = I := by sorry
 
-@[simp, grind =] theorem takeFirst_succ' [NeZero n] :
-  I.takeFirst (k + 1) = cons I.head (I.tail.takeFirst k) := by sorry
+@[simp, grind =] theorem take_succ' [NeZero n] :
+  I.take (k + 1) = cons I.head (I.tail.take k) := by sorry
 
 end Lemmas
 end Pattern
@@ -207,13 +207,13 @@ theorem concat_plug_concat (C : Context n) (I : Pattern n) (Cᵢ Iᵢ : InstSeq)
 
 @[simp, grind =]
 theorem plug_take_succ (C : Context n) (I : Pattern n) (i : Nat) (hi : i + 1 < n) :
-    (C.takeFirst (i + 1)).plug (I.takeFirst (i + 1))
-    = ((C.takeFirst i).plug (I.takeFirst i)) ++ I.get (i + 1) ++ C.get (i + 1) := by
+    (C.take (i + 1)).plug (I.take (i + 1))
+    = ((C.take i).plug (I.take i)) ++ I.get (i + 1) ++ C.get (i + 1) := by
   letI : NeZero (min (i + 1) n) := ⟨by grind⟩
-  generalize hC₁ : C.takeFirst i = C₁
-  generalize hC₂ : (C.takeFirst (i + 1)) = C₂
-  generalize hI₁ : I.takeFirst i = I₁
-  generalize hI₂ : (I.takeFirst (i + 1)) = I₂
+  generalize hC₁ : C.take i = C₁
+  generalize hC₂ : (C.take (i + 1)) = C₂
+  generalize hI₁ : I.take i = I₁
+  generalize hI₂ : (I.take (i + 1)) = I₂
   replace hC₂ : C₂ ≍ C₁.concat (C.get (i + 1)) := by sorry
   replace hI₂ : I₂ ≍ I₁.concat (I.get (i + 1)) := by sorry
   grind
@@ -574,7 +574,7 @@ Proving denotational equivalence is sufficient for showing contextual equivalenc
 -/
 theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
     (hI : I.Idempotent) (hJ : J.Idempotent)
-    (hd : ∀ i ≤ n, ∀ ρ, ⟦I.takeFirst i⟧ ρ ≈ ⟦J.takeFirst i⟧ ρ) :
+    (hd : ∀ i ≤ n, ∀ ρ, ⟦I.take i⟧ ρ ≈ ⟦J.take i⟧ ρ) :
     I.CtxEquiv J := by
   intro C CI CJ hwf₁ hc₁ hwf₂ hc₂
   subst CI CJ
@@ -582,7 +582,7 @@ theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
 
   suffices ∀ {m} (I₁ J₁ : Pattern m),
     (hI₁ : I₁.Idempotent) → (hJ₁ : J₁.Idempotent) →
-    (hd : ∀ i ≤ n, ∀ ρ, ⟦I.takeFirst i⟧ (⟦I₁⟧ ρ) ≈ ⟦J.takeFirst i⟧ (⟦J₁⟧ ρ)) →
+    (hd : ∀ i ≤ n, ∀ ρ, ⟦I.take i⟧ (⟦I₁⟧ ρ) ≈ ⟦J.take i⟧ (⟦J₁⟧ ρ)) →
     ∀ ρ, ⟦C.plug I⟧ (⟦I₁⟧ ρ) ≈ ⟦C.plug J⟧ (⟦J₁⟧ ρ)
   by apply this (.nil rfl) (.nil rfl) <;> grind
   clear hd
@@ -596,10 +596,10 @@ theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
     specialize ih I.tail J.tail (by grind) (by grind) C.tail (by grind) (by grind)
                     (I₁.concat I.head) (J₁.concat J.head) (by grind) (by grind) <| by
       intro i hi ρ
-      calc ⟦I.tail.takeFirst i⟧ (⟦I₁.concat I.head⟧ ρ)
-        _ ≈ ⟦I.takeFirst (i+1)⟧ (⟦I₁⟧ ρ) := by simpa using SEnv.equiv_refl _
-        _ ≈ ⟦J.takeFirst (i+1)⟧ (⟦J₁⟧ ρ) := by grind
-        _ ≈ ⟦J.tail.takeFirst i⟧ (⟦J₁.concat J.head⟧ ρ) := by simpa using SEnv.equiv_refl _
+      calc ⟦I.tail.take i⟧ (⟦I₁.concat I.head⟧ ρ)
+        _ ≈ ⟦I.take (i+1)⟧ (⟦I₁⟧ ρ) := by simpa using SEnv.equiv_refl _
+        _ ≈ ⟦J.take (i+1)⟧ (⟦J₁⟧ ρ) := by grind
+        _ ≈ ⟦J.tail.take i⟧ (⟦J₁.concat J.head⟧ ρ) := by simpa using SEnv.equiv_refl _
     calc
       ⟦C.plug I⟧ (⟦I₁⟧ ρ)
       _ ≈ (⟦C.tail.plug I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦C.head⟧ ∘ ⟦I₁⟧) ρ := by grind
