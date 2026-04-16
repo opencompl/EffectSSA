@@ -620,7 +620,7 @@ theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
   suffices ∀ {m} (I₁ J₁ : Pattern m),
     (hI₁ : I₁.Idempotent) → (hJ₁ : J₁.Idempotent) →
     (hd : ∀ i ≤ n, ∀ ρ, ⟦I.take i⟧ (⟦I₁⟧ ρ) ≈ ⟦J.take i⟧ (⟦J₁⟧ ρ)) →
-    ∀ ρ, ⟦C.plug I⟧ (⟦I₁⟧ ρ) ≈ ⟦C.plug J⟧ (⟦J₁⟧ ρ)
+    ∀ ρ, ⟦C.alternate I⟧ (⟦I₁⟧ ρ) ≈ ⟦C.alternate J⟧ (⟦J₁⟧ ρ)
   by apply this .nil .nil <;> grind
   clear hd
   induction n <;> (
@@ -638,13 +638,13 @@ theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
         _ ≈ ⟦J.take (i+1)⟧ (⟦J₁⟧ ρ) := by grind
         _ ≈ ⟦J.tail.take i⟧ (⟦J₁.concat J.head⟧ ρ) := by simpa using SEnv.equiv_refl _
     calc
-      ⟦C.plug I⟧ (⟦I₁⟧ ρ)
-      _ ≈ (⟦plug C.tail I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦C.head⟧ ∘ ⟦I₁⟧) ρ := by grind
-      _ ≈ (⟦plug C.tail I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦I₁⟧ ∘ ⟦C.head⟧ ∘ ⟦I₁⟧) ρ := by grind
-      _ ≈ (⟦plug C.tail I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦I₁⟧ ∘ ⟦C.head⟧ ∘ ⟦J₁⟧) ρ := by grind
-      _ ≈ (⟦plug C.tail J.tail⟧ ∘ ⟦J.head⟧ ∘ ⟦J₁⟧ ∘ ⟦C.head⟧ ∘ ⟦J₁⟧) ρ := by simpa using ih _
-      _ ≈ (⟦plug C.tail J.tail⟧ ∘ ⟦J.head⟧ ∘ ⟦C.head⟧ ∘ ⟦J₁⟧) ρ := by grind
-      _ ≈ ⟦C.plug J⟧ (⟦J₁⟧ ρ) := by grind
+      ⟦C.alternate I⟧ (⟦I₁⟧ ρ)
+      _ ≈ (⟦C.tail.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦C.head⟧ ∘ ⟦I₁⟧) ρ := by grind
+      _ ≈ (⟦C.tail.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦I₁⟧ ∘ ⟦C.head⟧ ∘ ⟦I₁⟧) ρ := by grind
+      _ ≈ (⟦C.tail.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦I₁⟧ ∘ ⟦C.head⟧ ∘ ⟦J₁⟧) ρ := by grind
+      _ ≈ (⟦C.tail.alternate J.tail⟧ ∘ ⟦J.head⟧ ∘ ⟦J₁⟧ ∘ ⟦C.head⟧ ∘ ⟦J₁⟧) ρ := by simpa using ih _
+      _ ≈ (⟦C.tail.alternate J.tail⟧ ∘ ⟦J.head⟧ ∘ ⟦C.head⟧ ∘ ⟦J₁⟧) ρ := by grind
+      _ ≈ ⟦C.alternate J⟧ (⟦J₁⟧ ρ) := by grind
 
 
 /--
