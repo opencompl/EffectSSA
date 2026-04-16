@@ -144,6 +144,10 @@ def get (i : Nat) (hi : i < n := by grind) : InstSeq :=
 
 section Lemmas
 
+/-! nil -/
+
+theorem eq_nil (h : n = 0) (P : Pattern n) : P = nil h := by sorry
+
 @[simp, grind =] theorem takeFirst_zero : I.takeFirst 0 = nil rfl := by sorry
 @[simp, grind =] theorem takeFirst_all : I.takeFirst n = I := by sorry
 
@@ -556,12 +560,14 @@ axiom Pattern.denote_cons : ∀ (is : InstSeq) (I : Pattern n),
 @[simp, grind =]
 theorem Pattern.denote_concat (I : Pattern n) (is : InstSeq) :
     ⟦I.concat is⟧ = fun ρ => ⟦is⟧ (⟦I⟧ ρ) := by
-  sorry
+  induction n
+  case zero => rw [I.eq_nil rfl]; rfl
+  case succ n ih =>
+    sorry
 
 @[grind →]
-theorem Context.wellFormed_tail_plug_tail : ∀ (C : Context (n + 1)) (I : Pattern (n + 1)),
-    (C.plug I).WellFormed → (C.tail.plug I.tail).WellFormed := by
-  sorry
+axiom Context.wellFormed_tail_plug_tail : ∀ (C : Context (n + 1)) (I : Pattern (n + 1)),
+    (C.plug I).WellFormed → (C.tail.plug I.tail).WellFormed
 
 /--
 Proving denotational equivalence is sufficient for showing contextual equivalence.
@@ -612,6 +618,7 @@ info: 'ctxEquiv_of_denoteEquiv' depends on axioms: [Inst,
  propext,
  sorryAx,
  Classical.choice,
+ Context.wellFormed_tail_plug_tail,
  Inst.Defs,
  Inst.FVar,
  Inst.Idempotent,
