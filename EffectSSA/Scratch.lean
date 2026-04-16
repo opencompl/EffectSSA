@@ -234,77 +234,6 @@ abbrev Pattern (n : Nat) := Vec n
 abbrev Context (n : Nat) := Vec (n + 1)
 
 /-!
-## Getters
--/
-
-namespace Context
-variable (C D : Context n)
-
-/--
-A context with zero holes.
--/
-def nil (C₀ : InstSeq) (h : n = 0) : Context n :=
-  #v[C₀].cast (by grind)
-
-def tail [NeZero n] : Context (n - 1) :=
-  (Vector.tail C).cast <| by
-    have : n ≠ 0 := NeZero.out
-    grind
-
-/-- Take the _first_ `i+1` sequences (representing the first `i` holes) of a Context. -/
-def take (i : Nat) : Context i :=
-  Vec.take C (i + 1)
-
-def get (i : Nat) (hi : i ≤ n := by grind) : InstSeq :=
-  Vec.get C i (by grind)
-
-section Lemmas
-
-@[ext, grind ext]
-theorem ext (h : ∀ (i : Nat), (hi : i ≤ n) → C.get i hi = D.get i hi) : C = D := by
-  apply Vec.ext
-  intro i hi
-  exact h i (by grind)
-
-/-! nil -/
-
-@[simp, grind =]
-theorem get_nil : (nil C₀ h).get i hi = C₀ := by
-  obtain rfl : i = 0 := by grind
-  simp [nil, get, Vec.get]
-
-theorem eq_nil (h : n = 0) (C : Context n) : C = nil (C.head) h := by
-  have : C.head = C.get 0 := by rfl
-  grind
-
-@[simp, grind =]
-theorem nil_eq_nil_iff : nil is h = nil js h ↔ is = js := by
-  constructor
-  · have eq_nil_head (is) : is = (nil is h).head := by rfl
-    grind
-  · grind
-
-/-! head -/
-
-@[simp, grind =]
-theorem get_zero_eq_head : C.get 0 = C.head := by rfl
-
-/-! cons / concat -/
-
-@[simp, grind =]
-theorem head_concat : (C.concat is).head = C.head := by
-  sorry
-
-/-! take -/
-
-@[simp, grind =] theorem take_zero : C.take 0 = nil C.head (by rfl) := by sorry
-@[simp, grind =] theorem take_all : C.take n = C := by sorry
-
-end Lemmas
-end Context
-
-
-/-!
 ## Context Plugging
 -/
 namespace Context
@@ -323,7 +252,7 @@ theorem plug_zero (C : Context 0) (I : Pattern 0) : C.plug I = C.head := by
 
 @[grind =]
 theorem plug_succ (C : Context (n + 1)) (I : Pattern (n + 1)) :
-    C.plug I = C.head ++ I.head ++ (C.tail.plug I.tail) := by rfl
+    C.plug I = C.head ++ I.head ++ (plug C.tail I.tail) := by rfl
 
 @[simp, grind =]
 theorem concat_plug_concat (C : Context n) (I : Pattern n) (Cᵢ Iᵢ : InstSeq) :
@@ -674,8 +603,9 @@ attribute [grind =] id_eq
 
 @[grind →]
 axiom Context.wellFormed_tail_plug_tail : ∀ (C : Context (n + 1)) (I : Pattern (n + 1)),
-    (C.plug I).WellFormed → (C.tail.plug I.tail).WellFormed
+    (C.plug I).WellFormed → (plug C.tail I.tail).WellFormed
 
+open Context (plug)
 /--
 Proving denotational equivalence is sufficient for showing contextual equivalence.
 -/
@@ -709,11 +639,11 @@ theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
         _ ≈ ⟦J.tail.take i⟧ (⟦J₁.concat J.head⟧ ρ) := by simpa using SEnv.equiv_refl _
     calc
       ⟦C.plug I⟧ (⟦I₁⟧ ρ)
-      _ ≈ (⟦C.tail.plug I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦C.head⟧ ∘ ⟦I₁⟧) ρ := by grind
-      _ ≈ (⟦C.tail.plug I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦I₁⟧ ∘ ⟦C.head⟧ ∘ ⟦I₁⟧) ρ := by grind
-      _ ≈ (⟦C.tail.plug I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦I₁⟧ ∘ ⟦C.head⟧ ∘ ⟦J₁⟧) ρ := by grind
-      _ ≈ (⟦C.tail.plug J.tail⟧ ∘ ⟦J.head⟧ ∘ ⟦J₁⟧ ∘ ⟦C.head⟧ ∘ ⟦J₁⟧) ρ := by simpa using ih _
-      _ ≈ (⟦C.tail.plug J.tail⟧ ∘ ⟦J.head⟧ ∘ ⟦C.head⟧ ∘ ⟦J₁⟧) ρ := by grind
+      _ ≈ (⟦plug C.tail I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦C.head⟧ ∘ ⟦I₁⟧) ρ := by grind
+      _ ≈ (⟦plug C.tail I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦I₁⟧ ∘ ⟦C.head⟧ ∘ ⟦I₁⟧) ρ := by grind
+      _ ≈ (⟦plug C.tail I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦I₁⟧ ∘ ⟦C.head⟧ ∘ ⟦J₁⟧) ρ := by grind
+      _ ≈ (⟦plug C.tail J.tail⟧ ∘ ⟦J.head⟧ ∘ ⟦J₁⟧ ∘ ⟦C.head⟧ ∘ ⟦J₁⟧) ρ := by simpa using ih _
+      _ ≈ (⟦plug C.tail J.tail⟧ ∘ ⟦J.head⟧ ∘ ⟦C.head⟧ ∘ ⟦J₁⟧) ρ := by grind
       _ ≈ ⟦C.plug J⟧ (⟦J₁⟧ ρ) := by grind
 
 
