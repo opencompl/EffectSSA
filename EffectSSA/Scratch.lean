@@ -303,30 +303,6 @@ theorem head_concat : (C.concat is).head = C.head := by
 end Lemmas
 end Context
 
-namespace Pattern
-variable (I : Pattern n)
-
-/-- The empty pattern -/
-@[grind] abbrev nil (h : n = 0) : Pattern n := Vec.nil.cast h.symm
-
-@[simp, grind =]
-def toVector : Vector InstSeq n := I
-
-def cons (is : InstSeq) (I : Pattern n) : Pattern (n + 1) :=
-  (#v[is] ++ I.toVector).cast (by grind)
-
-abbrev concat : (I : Pattern n) → (is : InstSeq) → Pattern (n + 1) := Vec.concat
-
-def head [NeZero n] : InstSeq := Vector.head I
-def tail [NeZero n] : Pattern (n - 1) := Vector.tail I
-
-/-- Take the _first_ `i` elements of a pattern. -/
-@[grind, simp] abbrev take (i : Nat) : Pattern i := Vec.take I i
-
-def get (i : Nat) (hi : i < n := by grind) : InstSeq :=
-  Vec.get I i hi
-
-end Pattern
 
 /-!
 ## Context Plugging
@@ -368,9 +344,9 @@ axiom InstSeq.WellFormed : InstSeq → Prop
 
 
 /--
-A pattern is wellformed, if its collapsed sequence is wellformed.
+A vec is wellformed, if its collapsed sequence is wellformed.
 -/
-abbrev Pattern.WellFormed (I : Pattern n) : Prop :=
+abbrev Vec.WellFormed (I : Vec n) : Prop :=
   I.collapse.WellFormed
 
 
@@ -616,25 +592,25 @@ theorem InstSeq.denote_idempotent {is : InstSeq} (his : is.Idempotent)
       _ = (⟦C⟧ ∘ ⟦is⟧) (⟦i⟧ ρ) := by grind
 
 @[grind]
-def Pattern.Idempotent (I : Pattern n) : Prop :=
+def Vec.Idempotent (I : Vec n) : Prop :=
   I.collapse.Idempotent
 
 @[grind →, simp]
-theorem Pattern.idempotent_tail {I : Pattern n} [NeZero n] :
+theorem Vec.idempotent_tail {I : Vec n} [NeZero n] :
     I.Idempotent → I.tail.Idempotent := by
   sorry
 @[grind →, simp]
-theorem Pattern.idempotent_head {I : Pattern n} [NeZero n] :
+theorem Vec.idempotent_head {I : Vec n} [NeZero n] :
     I.Idempotent → I.head.Idempotent := by
   sorry
 
 @[simp, grind =]
-theorem Pattern.idempotent_concat {I : Pattern n} (is : InstSeq) :
+theorem Vec.idempotent_concat {I : Vec n} (is : InstSeq) :
     (I.concat is).Idempotent ↔ I.Idempotent ∧ is.Idempotent := by
   sorry
 
 @[simp, grind =]
-theorem Pattern.denote_idempotent {I : Pattern n} (hi : I.Idempotent)
+theorem Vec.denote_idempotent {I : Vec n} (hi : I.Idempotent)
     (C : InstSeq) (ρ) :
     ⟦I⟧ (⟦C⟧ (⟦I⟧ ρ)) = (⟦C⟧ (⟦I⟧ ρ)) := by
   have hi : I.collapse.Idempotent := hi
@@ -715,8 +691,7 @@ theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
     (hI₁ : I₁.Idempotent) → (hJ₁ : J₁.Idempotent) →
     (hd : ∀ i ≤ n, ∀ ρ, ⟦I.take i⟧ (⟦I₁⟧ ρ) ≈ ⟦J.take i⟧ (⟦J₁⟧ ρ)) →
     ∀ ρ, ⟦C.plug I⟧ (⟦I₁⟧ ρ) ≈ ⟦C.plug J⟧ (⟦J₁⟧ ρ)
-  by apply this (.nil rfl) (.nil rfl) <;>
-    grind
+  by apply this .nil .nil <;> grind
   clear hd
   induction n <;> (
     intro m I₁ J₁ hI₁ hJ₁ hd ρ
