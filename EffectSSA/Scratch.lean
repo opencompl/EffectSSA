@@ -15,16 +15,59 @@ axiom Inst : Type
 
 abbrev InstSeq := List Inst
 
-def Pattern n := Vector InstSeq n
+/-!
+## Vec
 
-def Context n := Vector InstSeq (n + 1)
+Shared underlying representation for both `Context` and `Pattern`:
+a length-indexed vector of instruction sequences.
+-/
+
+abbrev Vec (n : Nat) := Vector InstSeq n
+
+namespace Vec
+variable (v : Vec n)
+
+/-! ### Vec Definitions -/
+
+/--
+A vector of exactly `n` empty sequences.
+
+This serves as a canonical "junk", or padding, value for out-of-bound
+parameters, following the garbage-in-garbage-out principle.
+-/
+def junk (n : Nat) : Vec n := Vector.replicate n []
+
+def get (i : Nat) (hi : i < n := by grind) : InstSeq :=
+  Vector.get v ⟨i, hi⟩
+
+/-- Take the first `i` elements, padding with junk if `i > n`. -/
+def take (i : Nat) : Vec i :=
+  let vs := Vector.take v i
+  (vs ++ junk (i - n)).cast (by grind)
+
+/-! ### Vec Lemmas -/
+section Lemmas
+
+@[ext, grind ext]
+theorem ext {v w : Vec n} (h : ∀ i (hi : i < n), v.get i hi = w.get i hi) : v = w := by
+  apply Vector.ext
+  grind [get, Vector.get_eq_getElem]
+
+@[simp, grind =] theorem take_zero : v.take 0 = junk 0 := by sorry
+@[simp, grind =] theorem take_all : v.take n = v := by sorry
+end Lemmas
+
+end Vec
+
+abbrev Pattern (n : Nat) := Vec n
+abbrev Context (n : Nat) := Vec (n + 1)
 
 /-!
 ## Getters
 -/
 
 namespace Context
-variable (C : Context n) (C' : Context m)
+variable (C D : Context n)
 
 /--
 A context with zero holes.
@@ -44,37 +87,27 @@ def tail [NeZero n] : Context (n - 1) :=
     have : n ≠ 0 := NeZero.out
     grind
 
-/--
-A vector of exactly `n` empty sequences.
-
-It's primary purpose is to serve as a canonical "junk" value,
-which can be used to make the length work for for out-of-bound parameters,
-following the garbage-in-garbage-out principle.
--/
-def junk (n) : Vector InstSeq n :=
-  Vector.replicate n ([] : InstSeq)
-
 /-- Take the _first_ `i+1` sequences (representing the first `i` holes) of a Context. -/
 def take (i : Nat) : Context i :=
-  let C := Vector.take C (i + 1)
-  (C ++ junk (i-n)).cast (by grind)
+  Vec.take C (i + 1)
 
 def get (i : Nat) (hi : i ≤ n := by grind) : InstSeq :=
-  Vector.get C ⟨i, by grind⟩
+  Vec.get C i (by grind)
 
 section Lemmas
 
 @[ext, grind ext]
 theorem ext (h : ∀ (i : Nat), (hi : i ≤ n) → C.get i hi = D.get i hi) : C = D := by
-  apply Vector.ext
-  grind [get, Vector.get_eq_getElem]
+  apply Vec.ext
+  intro i hi
+  exact h i (by grind)
 
 /-! nil -/
 
 @[simp, grind =]
 theorem get_nil : (nil C₀ h).get i hi = C₀ := by
   obtain rfl : i = 0 := by grind
-  simp [nil, get]
+  simp [nil, get, Vec.get]
 
 theorem eq_nil (h : n = 0) (C : Context n) : C = nil (C.head) h := by
   have : C.head = C.get 0 := by rfl
@@ -124,23 +157,11 @@ def concat (I : Pattern n) (is : InstSeq) : Pattern (n + 1) :=
 def head [NeZero n] : InstSeq := Vector.head I
 def tail [NeZero n] : Pattern (n - 1) := Vector.tail I
 
-/--
-A pattern of exactly `n` empty sequences.
-
-It's primary purpose is to serve as a canonical "junk" value,
-which can be used to make the length work for for out-of-bound parameters,
-following the garbage-in-garbage-out principle.
--/
-def junk (n) : Vector InstSeq n :=
-  Vector.replicate n ([] : InstSeq)
-
 /-- Take the _first_ `i` elements of a pattern. -/
-def take (i : Nat) : Pattern i :=
-  let I := Vector.take I i
-  (I ++ junk (i-n)).cast (by grind)
+def take (i : Nat) : Pattern i := Vec.take I i
 
 def get (i : Nat) (hi : i < n := by grind) : InstSeq :=
-  Vector.get I ⟨i, hi⟩
+  Vec.get I i hi
 
 section Lemmas
 
