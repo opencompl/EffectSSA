@@ -195,7 +195,6 @@ def consCases {motive : ∀ {n}, Vec n → Sort u}
 
 /-! #### Alternate -/
 
-
 @[simp, grind =]
 theorem alternate_cast_left (C : Vec n) (I : Vec m) (h : n = n') :
     alternate (C.cast h) I = alternate C I := by
@@ -204,6 +203,11 @@ theorem alternate_cast_left (C : Vec n) (I : Vec m) (h : n = n') :
 theorem alternate_cast_right (C : Vec n) (I : Vec m) (h : m = m') :
     alternate C (I.cast h) = alternate C I := by
   sorry
+
+@[simp, grind =]
+theorem alternate_cons_succ (C₀ : InstSeq) (C : Vec n) (I : Vec (m+1)) :
+    (cons C₀ C).alternate I = C₀ ++ I.head ++ (alternate C I.tail) := by
+  simp [alternate]
 
 @[simp, grind =]
 theorem alternate_append
@@ -236,31 +240,13 @@ abbrev Context (n : Nat) := Vec (n + 1)
 /-!
 ## Context Plugging
 -/
-namespace Context
 
 /--
 Plug each hole of `C` with the corresponding element of pattern `I`.
 -/
-abbrev plug (C : Context n) (I : Pattern n) : InstSeq :=
+abbrev Context.plug (C : Context n) (I : Pattern n) : InstSeq :=
   Vec.alternate C I
 
-section Lemmas
-
-@[simp, grind =]
-theorem plug_zero (C : Context 0) (I : Pattern 0) : C.plug I = C.head := by
-  simp [Vec.alternate]
-
-@[grind =]
-theorem plug_succ (C : Context (n + 1)) (I : Pattern (n + 1)) :
-    C.plug I = C.head ++ I.head ++ (plug C.tail I.tail) := by rfl
-
-@[simp, grind =]
-theorem concat_plug_concat (C : Context n) (I : Pattern n) (Cᵢ Iᵢ : InstSeq) :
-    plug (C.concat Cᵢ) (I.concat Iᵢ) = C.plug I ++ Iᵢ ++ Cᵢ := by
-  grind
-
-end Lemmas
-end Context
 
 /-!
 ## WellFormedness
@@ -630,7 +616,9 @@ theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
   )
   case zero => grind
   case succ k ih =>
-    specialize ih I.tail J.tail (by grind) (by grind) C.tail (by grind) (by grind)
+    change Vec _ at C
+    cases C using Vec.consCases with | cons C₀ C =>
+    specialize ih I.tail J.tail (by grind) (by grind) C (by grind) (by grind)
                     (I₁.concat I.head) (J₁.concat J.head) (by grind) (by grind) <| by
       intro i hi ρ
       calc ⟦I.tail.take i⟧ (⟦I₁.concat I.head⟧ ρ)
@@ -638,13 +626,13 @@ theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
         _ ≈ ⟦J.take (i+1)⟧ (⟦J₁⟧ ρ) := by grind
         _ ≈ ⟦J.tail.take i⟧ (⟦J₁.concat J.head⟧ ρ) := by simpa using SEnv.equiv_refl _
     calc
-      ⟦C.alternate I⟧ (⟦I₁⟧ ρ)
-      _ ≈ (⟦C.tail.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦C.head⟧ ∘ ⟦I₁⟧) ρ := by grind
-      _ ≈ (⟦C.tail.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦I₁⟧ ∘ ⟦C.head⟧ ∘ ⟦I₁⟧) ρ := by grind
-      _ ≈ (⟦C.tail.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦I₁⟧ ∘ ⟦C.head⟧ ∘ ⟦J₁⟧) ρ := by grind
-      _ ≈ (⟦C.tail.alternate J.tail⟧ ∘ ⟦J.head⟧ ∘ ⟦J₁⟧ ∘ ⟦C.head⟧ ∘ ⟦J₁⟧) ρ := by simpa using ih _
-      _ ≈ (⟦C.tail.alternate J.tail⟧ ∘ ⟦J.head⟧ ∘ ⟦C.head⟧ ∘ ⟦J₁⟧) ρ := by grind
-      _ ≈ ⟦C.alternate J⟧ (⟦J₁⟧ ρ) := by grind
+      ⟦(Vec.cons C₀ C).alternate I⟧ (⟦I₁⟧ ρ)
+      _ ≈ (⟦C.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦C₀⟧ ∘ ⟦I₁⟧) ρ := by grind
+      _ ≈ (⟦C.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦I₁⟧ ∘ ⟦C₀⟧ ∘ ⟦I₁⟧) ρ := by grind
+      _ ≈ (⟦C.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦I₁⟧ ∘ ⟦C₀⟧ ∘ ⟦J₁⟧) ρ := by grind
+      _ ≈ (⟦C.alternate J.tail⟧ ∘ ⟦J.head⟧ ∘ ⟦J₁⟧ ∘ ⟦C₀⟧ ∘ ⟦J₁⟧) ρ := by simpa using ih _
+      _ ≈ (⟦C.alternate J.tail⟧ ∘ ⟦J.head⟧ ∘ ⟦C₀⟧ ∘ ⟦J₁⟧) ρ := by grind
+      _ ≈ ⟦(Vec.cons C₀ C).alternate J⟧ (⟦J₁⟧ ρ) := by grind
 
 
 /--
