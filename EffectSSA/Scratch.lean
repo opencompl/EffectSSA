@@ -540,15 +540,21 @@ end RefineLemmas
 
 axiom Inst.Idempotent : Inst → Prop
 
+@[grind] def InstSeq.Idempotent (is : InstSeq) : Prop :=
+  ∀ i ∈ is, i.Idempotent
+
+@[grind] def Vec.Idempotent (I : Vec n) : Prop :=
+  I.collapse.Idempotent
+
+section Lemmas
+
+/-! denote_idempotent -/
+
 @[simp, grind .]
 axiom Inst.denote_idempotent {i : Inst} (hi : i.Idempotent) (C : InstSeq)
     (hc : InstSeq.WellFormed (i :: C))
     (ρ : SEnv) :
     ⟦i⟧ (⟦C⟧ (⟦i⟧ ρ)) = (⟦C⟧ (⟦i⟧ ρ))
-
-@[grind]
-def InstSeq.Idempotent (is : InstSeq) : Prop :=
-  ∀ i ∈ is, i.Idempotent
 
 @[simp, grind =]
 theorem InstSeq.denote_idempotent {is : InstSeq} (his : is.Idempotent)
@@ -564,29 +570,27 @@ theorem InstSeq.denote_idempotent {is : InstSeq} (his : is.Idempotent)
       _ = (⟦is⟧ ∘ ⟦is ++ C⟧ ∘ ⟦i⟧) ρ := by grind
       _ = (⟦C⟧ ∘ ⟦is⟧) (⟦i⟧ ρ) := by grind
 
-@[grind]
-def Vec.Idempotent (I : Vec n) : Prop :=
-  I.collapse.Idempotent
-
-@[grind →, simp]
-theorem Vec.idempotent_tail {I : Vec n} [NeZero n] :
-    I.Idempotent → I.tail.Idempotent := by
-  sorry
-@[grind →, simp]
-theorem Vec.idempotent_head {I : Vec n} [NeZero n] :
-    I.Idempotent → I.head.Idempotent := by
-  sorry
-
-@[simp, grind =]
-theorem Vec.idempotent_concat {I : Vec n} (is : InstSeq) :
-    (I.concat is).Idempotent ↔ I.Idempotent ∧ is.Idempotent := by
-  sorry
-
 @[simp, grind =]
 theorem Vec.denote_idempotent {I : Vec n} (hi : I.Idempotent)
     (C : InstSeq) (hC : InstSeq.WellFormed (I.collapse ++ C)) (ρ) :
     ⟦I⟧ (⟦C⟧ (⟦I⟧ ρ)) = (⟦C⟧ (⟦I⟧ ρ)) := by
   simp [Vec.denote_eq]; grind
+
+/-! structural idempotency lemmas -/
+
+@[simp, grind =] theorem InstSeq.idempotent_append {is js : InstSeq} :
+    (is ++ js).Idempotent ↔ is.Idempotent ∧ js.Idempotent := by
+  grind
+
+@[simp, grind →] theorem Vec.idempotent_tail {I : Vec n} [NeZero n] :
+    I.Idempotent → I.tail.Idempotent := by
+  cases I using Vec.consCases <;> grind
+
+@[simp, grind →] theorem Vec.idempotent_head {I : Vec n} [NeZero n] :
+    I.Idempotent → I.head.Idempotent := by
+  cases I using Vec.consCases <;> grind
+
+end Lemmas
 
 /-!
 ## Contextual Refinement & Equivalence
