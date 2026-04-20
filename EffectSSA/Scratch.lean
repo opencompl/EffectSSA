@@ -562,16 +562,33 @@ theorem Vec.denote_idempotent {I : Vec n} (hi : I.Idempotent)
   simp [Vec.denote_eq, hi]
 
 /-!
-## Contextual Refinement
+## Contextual Refinement & Equivalence
 -/
-section DenRefine
+section Contextual
 
+/--
+A pattern `I` is contextually refined by pattern `J`,
+when for any context `C` such that `C[I]` and `C[J]` are both wellformed and
+instruction sequences, `C[I]` is (denotationally) refined by `C[J]`.
+-/
 def Pattern.CtxRefine (I J : Pattern n) : Prop :=
   ∀ (C : Context n),
     let CI := C.plug I;
     let CJ := C.plug J;
     CI.WellFormed → CJ.WellFormed →
       ∀ ρ, ⟦CI⟧ ρ ⊆ ⟦CJ⟧ ρ
+
+/--
+Two patterns `I` and `J` are contextually equivalent,
+when for any context `C` such that `C[I]` and `C[J]` are both wellformed and
+instruction sequences, `C[I]` is (denotationally) equivalent to `C[J]`.
+-/
+def Pattern.CtxEquiv (I J : Pattern n) : Prop :=
+  ∀ (C : Context n),
+    let CI := C.plug I;
+    let CJ := C.plug J;
+    CI.WellFormed → CJ.WellFormed →
+      ∀ ρ, ⟦CI⟧ ρ ≈ ⟦CJ⟧ ρ
 
 section RefineCongr
 variable {ρ₁ ρ₂ : SEnv}
@@ -592,39 +609,13 @@ theorem Pattern.denote_refine_congr (hρ : ρ₁ ⊆ ρ₂) (I : Pattern n) :
   simp [Vec.denote_eq, InstSeq.denote_refine_congr hρ]
 
 end RefineCongr
-end DenRefine
+end Contextual
 
 /-!
 ## Denotational Equivalence
 -/
 section DenEquiv
 
-/--
-Two sequences `is` and `js` are denotationally equivalent,
-when the result of evaluating under any environment is equivalent.
--/
-@[grind] def InstSeq.DenoteEquiv (is js : InstSeq) : Prop :=
-  ∀ e, ⟦is⟧ e ≈ ⟦js⟧ e
-
-/--
-Two patterns `I` and `J` are denotationally equivalent,
-when their collapsed sequences are denotationally equivalent.
--/
-@[grind] def Pattern.DenoteEquiv (I J : Pattern n) : Prop :=
-  I.collapse |>.DenoteEquiv J.collapse
-
-/--
-Two patterns `I` and `J` are contextually equivalent,
-when for any context `C` such that `C[I]` and `C[J]` are both wellformed and
-closed instruction sequences,
-these resulting sequences are denotationally equivalent.
--/
-def Pattern.CtxEquiv (I J : Pattern n) : Prop :=
-  ∀ (C : Context n),
-    let CI := C.plug I;
-    let CJ := C.plug J;
-    CI.WellFormed → CJ.WellFormed →
-      CI.DenoteEquiv CJ
 
 /-!
 ## Main Result
