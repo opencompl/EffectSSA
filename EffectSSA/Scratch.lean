@@ -185,8 +185,9 @@ def consCases {motive : ∀ {n}, Vec n → Sort u}
 /-! #### Collapse -/
 
 
-@[simp, grind =] theorem collapse_cons : (cons x xs).collapse = x ++ xs.collapse := by sorry
 @[simp, grind =] theorem collapse_nil : nil.collapse = [] := by rfl
+@[simp, grind =] theorem collapse_cons : (cons x xs).collapse = x ++ xs.collapse := by sorry
+@[simp, grind =] theorem collapse_concat : (concat xs x).collapse = xs.collapse ++ x := by sorry
 
 @[simp, grind =] theorem collapse_cast (h : n = m) : (xs.cast h).collapse = xs.collapse := by rfl
 
@@ -247,6 +248,37 @@ Plug each hole of `C` with the corresponding element of pattern `I`.
 abbrev Context.plug (C : Context n) (I : Pattern n) : InstSeq :=
   Vec.alternate C I
 
+/-!
+## Variables
+-/
+section Vars
+
+axiom Var : Type
+
+/-- `i.Defs v` holds when variable `v` is defined by instruction `i`. -/
+axiom Inst.Defs : Inst → Var → Prop
+/-- `i.FVar v` holds when variable `v` is free in instruction `i`. -/
+axiom Inst.FVar : Inst → Var → Prop
+
+/-- `is.Defs v` holds when variable `v` is defined by any instruction `i ∈ is`. -/
+@[grind] def InstSeq.Defs (is : InstSeq) (v : Var) : Prop :=
+  ∃ i ∈ is, i.Defs v
+
+/-- `is.FVar v` holds when variable `v` is free in `is`. -/
+@[grind] def InstSeq.FVar (is : InstSeq) (v : Var) : Prop :=
+  ¬(is.Defs v) ∧ ∃ i ∈ is, i.FVar v
+
+/-- `is` is closed if it has no free variables -/
+def InstSeq.Closed (is : InstSeq) : Prop :=
+  ∀ v, ¬(is.FVar v)
+
+@[grind] abbrev Vec.Defs (I : Vec n) (v : Var) : Prop :=
+  I.collapse.Defs v
+
+@[grind] abbrev Vec.FVar (I : Vec n) (v : Var) : Prop :=
+  I.collapse.FVar v
+
+end Vars
 
 /-!
 ## WellFormedness
@@ -257,7 +289,6 @@ We assume some notion of wellformedness of instruction sequences.
 -/
 axiom InstSeq.WellFormed : InstSeq → Prop
 
-
 /--
 A vec is wellformed, if its collapsed sequence is wellformed.
 -/
@@ -265,31 +296,27 @@ abbrev Vec.WellFormed (I : Vec n) : Prop :=
   I.collapse.WellFormed
 
 
-/-!
-## Variables
--/
-axiom Var : Type
+section Lemmas
 
-/-- `i.Defs v` holds when variable `v` is defined by instruction `i`. -/
-axiom Inst.Defs : Inst → Var → Prop
-/-- `i.FVar v` holds when variable `v` is free in instruction `i`. -/
-axiom Inst.FVar : Inst → Var → Prop
+@[simp, grind .]
+axiom InstSeq.wellFormed_nil : WellFormed []
 
-/-- An instruction cannot define any of its free variables. -/
-axiom Inst.not_fvar_and_defs (i : Inst) (v : Var) :
-    ¬(i.FVar v ∧ i.Defs v)
-grind_pattern Inst.not_fvar_and_defs => i.FVar v, i.Defs v
+@[simp, grind .]
+axiom InstSeq.wellFormed_cons {i : Inst} {is : InstSeq} :
+    WellFormed (i :: is) ↔ (WellFormed is ∧ ∀ v,
+      ¬(i.Defs v ∧ is.Defs v)     -- variables must be defined exactly once
+      ∧ (is.Defs v → ¬(i.FVar v)) -- variables may not be used before they're defined
+    )
 
-/-- `is.Defs v` holds when variable `v` is defined by sequence `is`. -/
-@[grind] def InstSeq.Defs (is : InstSeq) (v : Var) : Prop :=
-  ∃ i ∈ is, i.Defs v
-/-- `is.Defs v` holds when variable `v` is free in `is`. -/
-@[grind] def InstSeq.FVar (is : InstSeq) (v : Var) : Prop :=
-  ¬(is.Defs v) ∧ ∃ i ∈ is, i.FVar v
+@[simp, grind =]
+theorem InstSeq.wellFormed_append {is js : InstSeq} :
+    WellFormed (is ++ js) ↔ (is.WellFormed ∧ js.WellFormed ∧ ∀ v,
+      ¬(is.Defs v ∧ js.Defs v)
+      ∧ (js.Defs v → ¬(is.FVar v))
+    ) := by
+  induction is <;> grind
 
-/-- `is` is closed if it has no free variables -/
-def InstSeq.Closed (is : InstSeq) : Prop :=
-  ∀ v, ¬(is.FVar v)
+end Lemmas
 
 /-!
 ## Semantics
@@ -515,8 +542,7 @@ axiom Inst.Idempotent : Inst → Prop
 
 @[simp, grind .]
 axiom Inst.denote_idempotent {i : Inst} (hi : i.Idempotent) (C : InstSeq)
-    -- TODO: this axiom likely will only with the following extra assumption:
-    -- (hc : InstSeq.WellFormed (i :: C))
+    (hc : InstSeq.WellFormed (i :: C))
     (ρ : SEnv) :
     ⟦i⟧ (⟦C⟧ (⟦i⟧ ρ)) = (⟦C⟧ (⟦i⟧ ρ))
 
@@ -526,7 +552,9 @@ def InstSeq.Idempotent (is : InstSeq) : Prop :=
 
 @[simp, grind =]
 theorem InstSeq.denote_idempotent {is : InstSeq} (his : is.Idempotent)
-    (C : InstSeq) (ρ) :
+    (C : InstSeq)
+    (hc : InstSeq.WellFormed (is ++ C))
+    (ρ) :
     ⟦is⟧ (⟦C⟧ (⟦is⟧ ρ)) = (⟦C⟧ (⟦is⟧ ρ)) := by
   induction is generalizing C ρ
   case nil => rfl
@@ -556,10 +584,9 @@ theorem Vec.idempotent_concat {I : Vec n} (is : InstSeq) :
 
 @[simp, grind =]
 theorem Vec.denote_idempotent {I : Vec n} (hi : I.Idempotent)
-    (C : InstSeq) (ρ) :
+    (C : InstSeq) (hC : InstSeq.WellFormed (I.collapse ++ C)) (ρ) :
     ⟦I⟧ (⟦C⟧ (⟦I⟧ ρ)) = (⟦C⟧ (⟦I⟧ ρ)) := by
-  have hi : I.collapse.Idempotent := hi
-  simp [Vec.denote_eq, hi]
+  simp [Vec.denote_eq]; grind
 
 /-!
 ## Contextual Refinement & Equivalence
@@ -622,10 +649,6 @@ section DenEquiv
 -/
 attribute [grind =] id_eq
 
-@[grind →]
-axiom Context.wellFormed_tail_plug_tail : ∀ (C : Context (n + 1)) (I : Pattern (n + 1)),
-    (C.plug I).WellFormed → (plug C.tail I.tail).WellFormed
-
 open Context (plug)
 /--
 Proving denotational refinement is sufficient for showing contextual refinement.
@@ -634,17 +657,18 @@ theorem ctxRefine_of_denoteRefine (I J : Pattern n)
     (hI : I.Idempotent) (hJ : J.Idempotent)
     (hd : ∀ i ≤ n, ∀ ρ, ⟦I.take i⟧ ρ ⊆ ⟦J.take i⟧ ρ) :
     I.CtxRefine J := by
-  intro C CI CJ hwf₁ hwf₂
-  subst CI CJ
+  intro C CI CJ
 
   suffices ∀ {m} (I₁ J₁ : Pattern m),
-    (hI₁ : I₁.Idempotent) → (hJ₁ : J₁.Idempotent) →
+    (hI₁ : I₁.Idempotent) → (hwf₁ : (I₁.collapse ++ CI).WellFormed) →
+    (hJ₁ : J₁.Idempotent) → (hwf₂ : (J₁.collapse ++ CJ).WellFormed) →
     (hd : ∀ i ≤ n, ∀ ρ, ⟦I.take i⟧ (⟦I₁⟧ ρ) ⊆ ⟦J.take i⟧ (⟦J₁⟧ ρ)) →
     ∀ ρ, ⟦C.alternate I⟧ (⟦I₁⟧ ρ) ⊆ ⟦C.alternate J⟧ (⟦J₁⟧ ρ)
-  by apply this .nil .nil <;> grind
+  by intro hwf₁ hwf₂; apply this .nil .nil <;> grind
   clear hd
+  subst CI CJ
   induction n <;> (
-    intro m I₁ J₁ hI₁ hJ₁ hd ρ
+    intro m I₁ J₁ hI₁ hwf₁ hJ₁ hwf₂ hd ρ
     have hIJ₁ (ρ) : ⟦I₁⟧ ρ ⊆ ⟦J₁⟧ ρ := by
       simpa using hd 0 (by grind) _
   )
@@ -652,13 +676,13 @@ theorem ctxRefine_of_denoteRefine (I J : Pattern n)
   case succ k ih =>
     change Vec _ at C
     cases C using Vec.consCases with | cons C₀ C =>
-    specialize ih I.tail J.tail (by grind) (by grind) C (by grind) (by grind)
-                    (I₁.concat I.head) (J₁.concat J.head) (by grind) (by grind) <| by
-      intro i hi ρ
-      calc ⟦I.tail.take i⟧ (⟦I₁.concat I.head⟧ ρ)
-        _ ⊆ ⟦I.take (i+1)⟧ (⟦I₁⟧ ρ) := by simp
-        _ ⊆ ⟦J.take (i+1)⟧ (⟦J₁⟧ ρ) := by grind
-        _ ⊆ ⟦J.tail.take i⟧ (⟦J₁.concat J.head⟧ ρ) := by simp
+    replace ih : ∀ (ρ : SEnv), ⟦Vec.alternate C I.tail⟧ (⟦I₁.concat I.head⟧ ρ) ⊆ ⟦Vec.alternate C J.tail⟧ (⟦J₁.concat J.head⟧ ρ) := by
+      apply ih <;> (try grind)
+      · intro i hi ρ
+        calc ⟦I.tail.take i⟧ (⟦I₁.concat I.head⟧ ρ)
+          _ ⊆ ⟦I.take (i+1)⟧ (⟦I₁⟧ ρ) := by simp
+          _ ⊆ ⟦J.take (i+1)⟧ (⟦J₁⟧ ρ) := by grind
+          _ ⊆ ⟦J.tail.take i⟧ (⟦J₁.concat J.head⟧ ρ) := by simp
     calc
       ⟦(Vec.cons C₀ C).alternate I⟧ (⟦I₁⟧ ρ)
       _ ⊆ (⟦C.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦C₀⟧ ∘ ⟦I₁⟧) ρ := by grind
@@ -690,12 +714,15 @@ info: 'ctxRefine_of_denoteRefine' depends on axioms: [Inst,
  propext,
  sorryAx,
  Classical.choice,
- Context.wellFormed_tail_plug_tail,
+ Inst.Defs,
+ Inst.FVar,
  Inst.Idempotent,
  Inst.denote,
  Inst.denote_idempotent,
  Inst.denote_refine_congr,
  InstSeq.WellFormed,
+ InstSeq.wellFormed_cons,
+ InstSeq.wellFormed_nil,
  Quot.sound,
  SEnv.refine_refl,
  SEnv.refine_trans,
