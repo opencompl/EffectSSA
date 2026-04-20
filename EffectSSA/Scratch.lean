@@ -350,6 +350,8 @@ theorem InstSeq.denote_eq {is : InstSeq} :
 
 @[simp, grind =] theorem InstSeq.denote_nil : ⟦[]⟧ = id := by rfl
 
+@[simp, grind =] theorem InstSeq.denote_cons : ⟦i :: is⟧ = fun ρ => ⟦is⟧ (⟦i⟧ ρ) := by rfl
+
 @[simp, grind =] theorem InstSeq.denote_append (is js : InstSeq) :
     ⟦is ++ js⟧ = fun ρ => ⟦js⟧ (⟦is⟧ ρ) := by
   grind [InstSeq.denote_eq]
@@ -449,6 +451,9 @@ axiom SEnv.equiv_trans {ρ₁ ρ₂ ρ₃ : SEnv} : ρ₁ ≈ ρ₂ → ρ₂ �
 instance : Trans (α := SEnv) (· ≈ ·) (· ≈ ·) (· ≈ ·) where
   trans := SEnv.equiv_trans
 
+axiom SEnv.equiv_symm {ρ₁ ρ₂ : SEnv} : ρ₁ ≈ ρ₂ → ρ₂ ≈ ρ₁
+grind_pattern SEnv.equiv_symm => ρ₁ ≈ ρ₂
+
 end Lemmas
 
 /-!
@@ -479,6 +484,28 @@ instance : HasSubset SEnv where
   Subset ρ η := ¬ρ.error →
     ¬η.error ∧ ρ.state ⊆ η.state ∧
     ∀ v, ρ.env v ⊆ η.env v
+
+section RefineLemmas
+
+@[simp, grind .]
+axiom SEnv.refine_refl (ρ : SEnv) : ρ ⊆ ρ
+
+axiom SEnv.refine_trans {ρ₁ ρ₂ ρ₃ : SEnv} : ρ₁ ⊆ ρ₂ → ρ₂ ⊆ ρ₃ → ρ₁ ⊆ ρ₃
+
+instance : Trans (α := SEnv) (· ⊆ ·) (· ⊆ ·) (· ⊆ ·) where
+  trans := SEnv.refine_trans
+
+@[grind .]
+axiom SEnv.refine_of_equiv {ρ₁ ρ₂ : SEnv} : ρ₁ ≈ ρ₂ → ρ₁ ⊆ ρ₂
+
+@[grind →]
+axiom SEnv.equiv_of_refine_refine {ρ₁ ρ₂ : SEnv} : ρ₁ ⊆ ρ₂ → ρ₂ ⊆ ρ₁ → ρ₁ ≈ ρ₂
+
+@[grind =] theorem SEnv.equiv_iff_refine_refine {ρ₁ ρ₂ : SEnv} :
+    ρ₁ ≈ ρ₂ ↔ (ρ₁ ⊆ ρ₂ ∧ ρ₂ ⊆ ρ₁) := by
+  grind
+
+end RefineLemmas
 
 /-!
 ## Idempotency
@@ -535,6 +562,39 @@ theorem Vec.denote_idempotent {I : Vec n} (hi : I.Idempotent)
   simp [Vec.denote_eq, hi]
 
 /-!
+## Contextual Refinement
+-/
+section DenRefine
+
+def Pattern.CtxRefine (I J : Pattern n) : Prop :=
+  ∀ (C : Context n),
+    let CI := C.plug I;
+    let CJ := C.plug J;
+    CI.WellFormed → CJ.WellFormed →
+      ∀ ρ, ⟦CI⟧ ρ ⊆ ⟦CJ⟧ ρ
+
+section RefineCongr
+variable {ρ₁ ρ₂ : SEnv}
+
+@[grind .]
+axiom Inst.denote_refine_congr (hρ : ρ₁ ⊆ ρ₂) (i : Inst) : ⟦i⟧ ρ₁ ⊆ ⟦i⟧ ρ₂
+
+@[grind .]
+theorem InstSeq.denote_refine_congr (hρ : ρ₁ ⊆ ρ₂) (is : InstSeq) :
+    ⟦is⟧ ρ₁ ⊆ ⟦is⟧ ρ₂ := by
+  induction is generalizing ρ₁ ρ₂
+  · simpa
+  · grind
+
+@[grind .]
+theorem Pattern.denote_refine_congr (hρ : ρ₁ ⊆ ρ₂) (I : Pattern n) :
+    ⟦I⟧ ρ₁ ⊆ ⟦I⟧ ρ₂ := by
+  simp [Vec.denote_eq, InstSeq.denote_refine_congr hρ]
+
+end RefineCongr
+end DenRefine
+
+/-!
 ## Denotational Equivalence
 -/
 section DenEquiv
@@ -566,25 +626,6 @@ def Pattern.CtxEquiv (I J : Pattern n) : Prop :=
     CI.WellFormed → CJ.WellFormed →
       CI.DenoteEquiv CJ
 
-section Lemmas
-variable {ρ₁ ρ₂ : SEnv}
-
-@[grind .]
-axiom Inst.denote_eqv_congr (hρ : ρ₁ ≈ ρ₂) (i : Inst) : ⟦i⟧ ρ₁ ≈ ⟦i⟧ ρ₂
-
-@[grind .]
-theorem InstSeq.denote_eqv_congr (hρ : ρ₁ ≈ ρ₂) (is : InstSeq) :
-    ⟦is⟧ ρ₁ ≈ ⟦is⟧ ρ₂ := by
-  sorry
-
-@[grind .]
-theorem Pattern.denote_eqv_congr (hρ : ρ₁ ≈ ρ₂) (I : Pattern n) :
-    ⟦I⟧ ρ₁ ≈ ⟦I⟧ ρ₂ := by
-  simp [Vec.denote_eq]
-  grind
-
-end Lemmas
-
 /-!
 ## Main Result
 -/
@@ -596,24 +637,24 @@ axiom Context.wellFormed_tail_plug_tail : ∀ (C : Context (n + 1)) (I : Pattern
 
 open Context (plug)
 /--
-Proving denotational equivalence is sufficient for showing contextual equivalence.
+Proving denotational refinement is sufficient for showing contextual refinement.
 -/
-theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
+theorem ctxRefine_of_denoteRefine (I J : Pattern n)
     (hI : I.Idempotent) (hJ : J.Idempotent)
-    (hd : ∀ i ≤ n, ∀ ρ, ⟦I.take i⟧ ρ ≈ ⟦J.take i⟧ ρ) :
-    I.CtxEquiv J := by
+    (hd : ∀ i ≤ n, ∀ ρ, ⟦I.take i⟧ ρ ⊆ ⟦J.take i⟧ ρ) :
+    I.CtxRefine J := by
   intro C CI CJ hwf₁ hwf₂
   subst CI CJ
 
   suffices ∀ {m} (I₁ J₁ : Pattern m),
     (hI₁ : I₁.Idempotent) → (hJ₁ : J₁.Idempotent) →
-    (hd : ∀ i ≤ n, ∀ ρ, ⟦I.take i⟧ (⟦I₁⟧ ρ) ≈ ⟦J.take i⟧ (⟦J₁⟧ ρ)) →
-    ∀ ρ, ⟦C.alternate I⟧ (⟦I₁⟧ ρ) ≈ ⟦C.alternate J⟧ (⟦J₁⟧ ρ)
+    (hd : ∀ i ≤ n, ∀ ρ, ⟦I.take i⟧ (⟦I₁⟧ ρ) ⊆ ⟦J.take i⟧ (⟦J₁⟧ ρ)) →
+    ∀ ρ, ⟦C.alternate I⟧ (⟦I₁⟧ ρ) ⊆ ⟦C.alternate J⟧ (⟦J₁⟧ ρ)
   by apply this .nil .nil <;> grind
   clear hd
   induction n <;> (
     intro m I₁ J₁ hI₁ hJ₁ hd ρ
-    have hIJ₁ (ρ) : ⟦I₁⟧ ρ ≈ ⟦J₁⟧ ρ := by
+    have hIJ₁ (ρ) : ⟦I₁⟧ ρ ⊆ ⟦J₁⟧ ρ := by
       simpa using hd 0 (by grind) _
   )
   case zero => grind
@@ -624,21 +665,34 @@ theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
                     (I₁.concat I.head) (J₁.concat J.head) (by grind) (by grind) <| by
       intro i hi ρ
       calc ⟦I.tail.take i⟧ (⟦I₁.concat I.head⟧ ρ)
-        _ ≈ ⟦I.take (i+1)⟧ (⟦I₁⟧ ρ) := by simpa using SEnv.equiv_refl _
-        _ ≈ ⟦J.take (i+1)⟧ (⟦J₁⟧ ρ) := by grind
-        _ ≈ ⟦J.tail.take i⟧ (⟦J₁.concat J.head⟧ ρ) := by simpa using SEnv.equiv_refl _
+        _ ⊆ ⟦I.take (i+1)⟧ (⟦I₁⟧ ρ) := by simp
+        _ ⊆ ⟦J.take (i+1)⟧ (⟦J₁⟧ ρ) := by grind
+        _ ⊆ ⟦J.tail.take i⟧ (⟦J₁.concat J.head⟧ ρ) := by simp
     calc
       ⟦(Vec.cons C₀ C).alternate I⟧ (⟦I₁⟧ ρ)
-      _ ≈ (⟦C.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦C₀⟧ ∘ ⟦I₁⟧) ρ := by grind
-      _ ≈ (⟦C.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦I₁⟧ ∘ ⟦C₀⟧ ∘ ⟦I₁⟧) ρ := by grind
-      _ ≈ (⟦C.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦I₁⟧ ∘ ⟦C₀⟧ ∘ ⟦J₁⟧) ρ := by grind
-      _ ≈ (⟦C.alternate J.tail⟧ ∘ ⟦J.head⟧ ∘ ⟦J₁⟧ ∘ ⟦C₀⟧ ∘ ⟦J₁⟧) ρ := by simpa using ih _
-      _ ≈ (⟦C.alternate J.tail⟧ ∘ ⟦J.head⟧ ∘ ⟦C₀⟧ ∘ ⟦J₁⟧) ρ := by grind
-      _ ≈ ⟦(Vec.cons C₀ C).alternate J⟧ (⟦J₁⟧ ρ) := by grind
-
+      _ ⊆ (⟦C.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦C₀⟧ ∘ ⟦I₁⟧) ρ := by grind
+      _ ⊆ (⟦C.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦I₁⟧ ∘ ⟦C₀⟧ ∘ ⟦I₁⟧) ρ := by grind
+      _ ⊆ (⟦C.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦I₁⟧ ∘ ⟦C₀⟧ ∘ ⟦J₁⟧) ρ := by grind
+      _ ⊆ (⟦C.alternate J.tail⟧ ∘ ⟦J.head⟧ ∘ ⟦J₁⟧ ∘ ⟦C₀⟧ ∘ ⟦J₁⟧) ρ := by simpa using ih _
+      _ ⊆ (⟦C.alternate J.tail⟧ ∘ ⟦J.head⟧ ∘ ⟦C₀⟧ ∘ ⟦J₁⟧) ρ := by grind
+      _ ⊆ ⟦(Vec.cons C₀ C).alternate J⟧ (⟦J₁⟧ ρ) := by grind
 
 /--
-info: 'ctxEquiv_of_denoteEquiv' depends on axioms: [Inst,
+Proving denotational equivalence is sufficient for showing contextual equivalence.
+-/
+theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
+    (hI : I.Idempotent) (hJ : J.Idempotent)
+    (hd : ∀ i ≤ n, ∀ ρ, ⟦I.take i⟧ ρ ≈ ⟦J.take i⟧ ρ) :
+    I.CtxEquiv J := by
+  intro C CI CJ hwf₁ hwf₂ ρ
+  have hIJ : ⟦C.plug I⟧ ρ ⊆ ⟦C.plug J⟧ ρ := by
+    apply ctxRefine_of_denoteRefine <;> grind
+  have hJI : ⟦C.plug J⟧ ρ ⊆ ⟦C.plug I⟧ ρ := by
+    apply ctxRefine_of_denoteRefine <;> grind
+  grind
+
+/--
+info: 'ctxRefine_of_denoteRefine' depends on axioms: [Inst,
  State,
  Val,
  Var,
@@ -649,11 +703,12 @@ info: 'ctxEquiv_of_denoteEquiv' depends on axioms: [Inst,
  Inst.Idempotent,
  Inst.denote,
  Inst.denote_idempotent,
+ Inst.denote_refine_congr,
  InstSeq.WellFormed,
  Quot.sound,
- SEnv.equiv_refl,
- SEnv.equiv_trans,
- State.Equiv,
- Val.Equiv]
+ SEnv.refine_refl,
+ SEnv.refine_trans,
+ State.Refine,
+ Val.Refine]
 -/
-#guard_msgs in #print axioms ctxEquiv_of_denoteEquiv
+#guard_msgs in #print axioms ctxRefine_of_denoteRefine
