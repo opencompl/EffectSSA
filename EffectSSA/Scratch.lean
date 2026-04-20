@@ -487,7 +487,10 @@ instance : HasSubset SEnv where
 axiom Inst.Idempotent : Inst → Prop
 
 @[simp, grind .]
-axiom Inst.denote_idempotent {i : Inst} (hi : i.Idempotent) (C : InstSeq) (ρ) :
+axiom Inst.denote_idempotent {i : Inst} (hi : i.Idempotent) (C : InstSeq)
+    -- TODO: this axiom likely will only with the following extra assumption:
+    -- (hc : InstSeq.WellFormed (i :: C))
+    (ρ : SEnv) :
     ⟦i⟧ (⟦C⟧ (⟦i⟧ ρ)) = (⟦C⟧ (⟦i⟧ ρ))
 
 @[grind]
@@ -643,8 +646,6 @@ info: 'ctxEquiv_of_denoteEquiv' depends on axioms: [Inst,
  sorryAx,
  Classical.choice,
  Context.wellFormed_tail_plug_tail,
- Inst.Defs,
- Inst.FVar,
  Inst.Idempotent,
  Inst.denote,
  Inst.denote_idempotent,
