@@ -560,7 +560,7 @@ def Pattern.CtxEquiv (I J : Pattern n) : Prop :=
   ∀ (C : Context n),
     let CI := C.plug I;
     let CJ := C.plug J;
-    CI.WellFormed → CI.Closed → CJ.WellFormed → CJ.Closed →
+    CI.WellFormed → CJ.WellFormed →
       CI.DenoteEquiv CJ
 
 section Lemmas
@@ -599,9 +599,8 @@ theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
     (hI : I.Idempotent) (hJ : J.Idempotent)
     (hd : ∀ i ≤ n, ∀ ρ, ⟦I.take i⟧ ρ ≈ ⟦J.take i⟧ ρ) :
     I.CtxEquiv J := by
-  intro C CI CJ hwf₁ hc₁ hwf₂ hc₂
+  intro C CI CJ hwf₁ hwf₂
   subst CI CJ
-  clear hc₁ hc₂ -- We don't want the closedness to be captured in the IH
 
   suffices ∀ {m} (I₁ J₁ : Pattern m),
     (hI₁ : I₁.Idempotent) → (hJ₁ : J₁.Idempotent) →
