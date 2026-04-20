@@ -643,12 +643,6 @@ end RefineCongr
 end Contextual
 
 /-!
-## Denotational Equivalence
--/
-section DenEquiv
-
-
-/-!
 ## Main Result
 -/
 attribute [grind =] id_eq
