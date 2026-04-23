@@ -206,6 +206,10 @@ theorem append_concat : xs ++ (ys.concat y) = (xs ++ ys).concat y := by
     v.take (k + 1) = cons v.head (v.tail.take k) := by
   ext; grind
 
+theorem take_succ_eq_concat (hk : k < n) (v : Vec n) :
+    v.take (k + 1) = (v.take k).concat (v.get k hk) := by
+  ext; grind
+
 /-! #### Cases -/
 section Cases
 
