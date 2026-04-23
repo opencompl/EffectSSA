@@ -684,21 +684,6 @@ end Contextual
 -/
 attribute [grind =] id_eq
 
-set_option trace.grind.ematch.instance true in
-section
-
-#grind_lint check in EffectSSA
-#grind_lint inspect EffectSSA.Inst.denote_refine_congr
-#grind_lint inspect EffectSSA.InstSeq.denote_refine_congr
-#grind_lint inspect EffectSSA.Pattern.denote_refine_congr
-
-#grind_lint inspect EffectSSA.Vec.alternate_concat
-#grind_lint inspect EffectSSA.Vec.concat_cons
-#grind_lint inspect EffectSSA.Vec.denote_concat
-#grind_lint inspect EffectSSA.Vec.toVector_concat
-
-end
-
 open Context (plug)
 /--
 Proving denotational refinement is sufficient for showing contextual refinement.
