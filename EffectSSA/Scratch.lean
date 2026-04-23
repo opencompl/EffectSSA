@@ -165,6 +165,10 @@ theorem cons_append : (cons x xs) ++ ys = (cons x (xs ++ ys)).cast (by grind) :=
 theorem append_eq_concat : xs ++ (ofVector #v[y]) = xs.concat y := by
   ext; grind
 
+/-! cast -/
+
+@[simp, grind =] theorem cast_eq (h : n = n) : v.cast h = v := rfl
+
 /-! nil -/
 
 theorem eq_nil (v : Vec 0) : v = nil := by ext; grind
@@ -237,19 +241,24 @@ def consCases {motive : ∀ {n}, Vec n → Sort u}
 /-! #### Alternate -/
 
 @[simp, grind =]
-theorem alternate_cast_left (C : Vec n) (I : Vec m) (h : n = n') :
-    alternate (C.cast h) I = alternate C I := by
-  sorry
-
-@[simp, grind =]
-theorem alternate_cast_right (C : Vec n) (I : Vec m) (h : m = m') :
-    alternate C (I.cast h) = alternate C I := by
-  sorry
+theorem alternate_nil (I : Vec m) :
+    nil.alternate I = I.collapse := by
+  simp [alternate]
 
 @[simp, grind =]
 theorem alternate_cons_succ (C₀ : InstSeq) (C : Vec n) (I : Vec (m+1)) :
     (cons C₀ C).alternate I = C₀ ++ I.head ++ (alternate C I.tail) := by
   simp [alternate]
+
+@[simp, grind =]
+theorem alternate_cast_left (C : Vec n) (I : Vec m) (h : n = n') :
+    alternate (C.cast h) I = alternate C I := by
+  grind
+
+@[simp, grind =]
+theorem alternate_cast_right (C : Vec n) (I : Vec m) (h : m = m') :
+    alternate C (I.cast h) = alternate C I := by
+  grind
 
 @[simp, grind =]
 theorem alternate_append
