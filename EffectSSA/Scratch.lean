@@ -65,7 +65,7 @@ def tail [NeZero n] : Vec n → Vec (n - 1) := Vector.tail
 
 /-- Take the first `i` elements, padding with junk if `i > n`. -/
 def take (i : Nat) : Vec i :=
-  let vs := ofVector <| Vector.take v i
+  let vs := ofVector <| Vector.take v.toVector i
   (vs ++ junk (i - n)).cast (by grind)
 
 /-! ### Alternate -/
@@ -93,6 +93,8 @@ variable (xs : Vec n) (ys : Vec m)
 theorem eq_of_toVector_eq (h : v.toVector = w.toVector) : v = w := by
   exact h
 
+@[simp, grind =] theorem toVector_ofVector (v : Vector _ n) : toVector (ofVector v) = v := rfl
+
 @[simp, grind =] theorem toVector_append : toVector (xs ++ ys) = xs.toVector ++ ys.toVector := rfl
 @[simp, grind =] theorem toVector_cast : toVector (xs.cast h) = xs.toVector.cast h := rfl
 
@@ -101,6 +103,9 @@ theorem eq_of_toVector_eq (h : v.toVector = w.toVector) : v = w := by
 @[simp, grind =] theorem toVector_concat : toVector (xs.concat y) = xs.toVector.push y := rfl
 @[simp, grind =] theorem toVector_cons :
     toVector (cons x xs) = (#v[x] ++ xs.toVector).cast (by grind) := rfl
+
+@[simp, grind =] theorem toVector_tail [NeZero n] :
+    xs.tail.toVector = (xs.toVector.extract 1 n).cast (by grind) := by rfl
 
 /-! ext -/
 
@@ -133,10 +138,13 @@ attribute [local grind ext] ext
     (junk k).get i hi = [] := by
   simp
 
-@[simp, grind =] theorem get_tail (v : Vec (n + 1)) {i : Nat} (hi : i < n) :
+@[simp, grind =] theorem get_tail [NeZero n] (v : Vec n) {i : Nat} (hi : i < (n - 1)) :
     v.tail.get i hi = v.get (i + 1) (by grind) := by
-  simp [get]
-  sorry
+  simp; grind
+
+@[simp, grind =] theorem get_take (v : Vec n) (hj : _) :
+    (v.take i).get j hj = if _ : j < min i n then v.get j else [] := by
+  simp [get, take]; grind [Vector.getElem_extract]
 
 end Get
 
@@ -177,12 +185,12 @@ theorem cons_head_tail [NeZero n] (v : Vec n) : cons v.head v.tail = v.cast (by 
 
 /-! take -/
 
-@[simp, grind =] theorem take_zero : v.take 0 = junk 0 := by sorry
-@[simp, grind =] theorem take_all : v.take n = v := by sorry
+@[simp, grind =] theorem take_zero : v.take 0 = junk 0 := by ext; grind
+@[simp, grind =] theorem take_all : v.take n = v := by ext; grind
 
 @[simp, grind =] theorem take_succ [NeZero n] :
     v.take (k + 1) = cons v.head (v.tail.take k) := by
-  sorry
+  ext; grind
 
 /-! #### Cases -/
 
