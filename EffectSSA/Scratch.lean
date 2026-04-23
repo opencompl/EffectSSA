@@ -179,11 +179,18 @@ theorem eq_nil (v : Vec 0) : v = nil := by ext; grind
 theorem cons_head_tail [NeZero n] (v : Vec n) : cons v.head v.tail = v.cast (by grind) := by
   ext; grind
 
+theorem cons_eq_append : (cons x xs) = ((ofVector #v[x]) ++ xs).cast (by grind) := by
+  ext; grind
+
 /-! concat -/
 
 @[grind =] theorem concat_nil : nil.concat i = cons i nil := by ext; grind
 @[grind =] theorem concat_cons : concat (cons i v) j = cons i (concat v j) := by
   ext; grind
+
+@[simp, grind =]
+theorem append_concat : xs ++ (ys.concat y) = (xs ++ ys).concat y := by
+  ext; simp; grind
 
 /-! head / tail -/
 
@@ -200,8 +207,7 @@ theorem cons_head_tail [NeZero n] (v : Vec n) : cons v.head v.tail = v.cast (by 
   ext; grind
 
 /-! #### Cases -/
-
-attribute [grind =] cast_eq
+section Cases
 
 @[induction_eliminator, elab_as_elim]
 def consRec {motive : ∀ {n}, Vec n → Sort u}
@@ -221,15 +227,44 @@ def consCases {motive : ∀ {n}, Vec n → Sort u}
     ∀ {n} (v : Vec n), motive v :=
   consRec nil (fun i v _ => cons i v)
 
+
+@[elab_as_elim]
+def concatRec {motive : ∀ {n}, Vec n → Sort u}
+    (nil : motive nil)
+    (concat : ∀ {n}, (v : Vec n) → (i : InstSeq) → motive v → motive (concat v i) ) :
+    ∀ {n} (v : Vec n), motive v := @fun n v =>
+  match n with
+  | 0 => _root_.cast (by congr; ext; grind) nil
+  | n+1 =>
+    let m := concat (v.take n) (v.get n) (concatRec nil concat _)
+    _root_.cast (by congr 1; ext; grind) m
+
+@[elab_as_elim]
+def concatCases {motive : ∀ {n}, Vec n → Sort u}
+    (nil : motive nil)
+    (concat : ∀ {n}, (v : Vec n) → (i : InstSeq) →  motive (concat v i) ) :
+    ∀ {n} (v : Vec n), motive v :=
+  concatRec nil (fun v i _ => concat v i)
+
+end Cases
+
 /-! #### Collapse -/
 
 
 @[simp, grind =] theorem collapse_nil : nil.collapse = [] := by rfl
 @[simp, grind =] theorem collapse_concat : (concat xs x).collapse = xs.collapse ++ x := by
   simp [collapse]
+
+@[simp, grind =]
+theorem collapse_append : (xs ++ ys).collapse = xs.collapse ++ ys.collapse := by
+  induction ys using concatRec
+  · simp
+  · simp; grind
+
 @[simp, grind =] theorem collapse_cons : (cons x xs).collapse = x ++ xs.collapse := by
-  simp [collapse]
-  sorry
+  suffices (ofVector #v[x] ++ xs).collapse = x ++ xs.collapse by grind [cons_eq_append]
+  suffices (ofVector #v[x]).collapse = x by simpa
+  rfl
 
 @[simp, grind =] theorem collapse_cast (h : n = m) : (xs.cast h).collapse = xs.collapse := by rfl
 
@@ -758,7 +793,6 @@ theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
 
 /--
 info: 'EffectSSA.ctxRefine_of_denoteRefine' depends on axioms: [propext,
- sorryAx,
  Classical.choice,
  Inst,
  State,
