@@ -4,6 +4,7 @@ import EffectSSA.Semantics.Denote
 import Batteries.Data.Vector.Lemmas
 
 noncomputable section
+namespace EffectSSA
 
 attribute [grind →] NeZero.out
 
@@ -60,7 +61,7 @@ def head [NeZero n] : Vec n → InstSeq := Vector.head
 def tail [NeZero n] : Vec n → Vec (n - 1) := Vector.tail
 
 def get (i : Nat) (hi : i < n := by grind) : InstSeq :=
-  Vector.get v ⟨i, hi⟩
+  v.toVector[i]
 
 /-- Take the first `i` elements, padding with junk if `i > n`. -/
 def take (i : Nat) : Vec i :=
@@ -74,8 +75,8 @@ def take (i : Nat) : Vec i :=
 A vector `v` can be collapsed into a single instruction sequence,
 by concatenating each constituent sequence `vₖ`, in order.
 -/
-def collapse : Vec n → InstSeq :=
-  Vector.foldl (· ++ ·) []
+def collapse (xs : Vec n) : InstSeq :=
+  Vector.foldl (· ++ ·) [] xs.toVector
 
 def alternate {n : Nat} (C : Vec n) (I : Vec m) : InstSeq :=
   match n, m with
@@ -103,10 +104,41 @@ theorem eq_of_toVector_eq (h : v.toVector = w.toVector) : v = w := by
 
 /-! ext -/
 
-@[ext, grind ext]
+@[ext]
 theorem ext {v w : Vec n} (h : ∀ i (hi : i < n), v.get i hi = w.get i hi) : v = w := by
   apply Vector.ext
   grind [get, Vector.get_eq_getElem]
+
+/-! get -/
+section Get
+attribute [local grind =, local simp] get
+attribute [local grind ext] ext
+
+@[simp, grind =] theorem get_ofVector (xs : Vector _ n) : (ofVector xs).get i hi = xs[i] := by rfl
+@[simp, grind =] theorem get_cast : (xs.cast h).get i hi = xs.get i (by grind) := by rfl
+
+@[simp, grind =] theorem get_append {i : Nat} (hi : i < n + m) :
+    (xs ++ ys).get i hi = if hi : i < n then xs.get i else ys.get (i - n) := by
+  simp; grind
+
+@[simp, grind =] theorem get_cons {x : InstSeq} {i : Nat} (hi : i < n + 1) :
+    (cons x xs).get i hi = if hi : i = 0 then x else xs.get (i - 1) (by grind) := by
+  simp; grind
+
+@[simp, grind =] theorem get_concat {y : InstSeq} {i : Nat} (hi : i < n + 1) :
+    (xs.concat y).get i hi = if hi : i = n then y else xs.get i := by
+  simp; grind
+
+@[simp, grind =] theorem get_junk {k : Nat} {i : Nat} (hi : i < k) :
+    (junk k).get i hi = [] := by
+  simp
+
+@[simp, grind =] theorem get_tail (v : Vec (n + 1)) {i : Nat} (hi : i < n) :
+    v.tail.get i hi = v.get (i + 1) (by grind) := by
+  simp [get]
+  sorry
+
+end Get
 
 /-! append -/
 
@@ -116,15 +148,11 @@ theorem ext {v w : Vec n} (h : ∀ i (hi : i < n), v.get i hi = w.get i hi) : v 
 
 @[simp, grind =]
 theorem cons_append : (cons x xs) ++ ys = (cons x (xs ++ ys)).cast (by grind) := by
-  sorry
+  ext; grind
 
 @[simp, grind =, grind =_]
 theorem append_eq_concat : xs ++ (ofVector #v[y]) = xs.concat y := by
-  sorry
-
-/-! get -/
-
-@[simp, grind =] theorem get_cast : (xs.cast h).get i hi = xs.get i (by grind) := rfl
+  ext; grind
 
 /-! nil -/
 
@@ -134,23 +162,18 @@ theorem eq_nil (v : Vec 0) : v = nil := by ext; grind
 
 @[simp, grind =]
 theorem cons_head_tail [NeZero n] (v : Vec n) : cons v.head v.tail = v.cast (by grind) := by
-  sorry
+  ext; grind
 
 /-! concat -/
 
-@[grind =]
-theorem concat_nil : nil.concat i = cons i nil := by sorry
-
-
-@[grind =]
-theorem concat_cons : concat (cons i v) j = cons i (concat v j) := by
-  ext k hk l
-  sorry
+@[grind =] theorem concat_nil : nil.concat i = cons i nil := by ext; grind
+@[grind =] theorem concat_cons : concat (cons i v) j = cons i (concat v j) := by
+  ext; grind
 
 /-! head / tail -/
 
-@[simp, grind =] theorem head_cons : (cons i is).head = i := by sorry
-@[simp, grind =] theorem tail_cons : (cons i is).tail = is := by sorry
+@[simp, grind =] theorem head_cons : (cons i is).head = i := by grind
+@[simp, grind =] theorem tail_cons : (cons i is).tail = is := by ext; grind
 
 /-! take -/
 
@@ -158,7 +181,8 @@ theorem concat_cons : concat (cons i v) j = cons i (concat v j) := by
 @[simp, grind =] theorem take_all : v.take n = v := by sorry
 
 @[simp, grind =] theorem take_succ [NeZero n] :
-  v.take (k + 1) = cons v.head (v.tail.take k) := by sorry
+    v.take (k + 1) = cons v.head (v.tail.take k) := by
+  sorry
 
 /-! #### Cases -/
 
@@ -170,10 +194,10 @@ def consRec {motive : ∀ {n}, Vec n → Sort u}
     (cons : ∀ {n}, (i : InstSeq) → (v : Vec n) → motive v → motive (cons i v) ) :
     ∀ {n} (v : Vec n), motive v := @fun n v =>
   match n with
-  | 0 => _root_.cast (by congr; grind) nil
+  | 0 => _root_.cast (by congr; ext; grind) nil
   | _+1 =>
     let m := cons v.head v.tail (consRec nil cons v.tail)
-    _root_.cast (by congr 1; grind) m
+    _root_.cast (by congr 1; ext; grind) m
 
 @[cases_eliminator, elab_as_elim]
 def consCases {motive : ∀ {n}, Vec n → Sort u}
@@ -186,13 +210,18 @@ def consCases {motive : ∀ {n}, Vec n → Sort u}
 
 
 @[simp, grind =] theorem collapse_nil : nil.collapse = [] := by rfl
-@[simp, grind =] theorem collapse_cons : (cons x xs).collapse = x ++ xs.collapse := by sorry
-@[simp, grind =] theorem collapse_concat : (concat xs x).collapse = xs.collapse ++ x := by sorry
+@[simp, grind =] theorem collapse_concat : (concat xs x).collapse = xs.collapse ++ x := by
+  simp [collapse]
+@[simp, grind =] theorem collapse_cons : (cons x xs).collapse = x ++ xs.collapse := by
+  simp [collapse]
+  sorry
 
 @[simp, grind =] theorem collapse_cast (h : n = m) : (xs.cast h).collapse = xs.collapse := by rfl
 
 @[simp, grind =] theorem collapse_eq_head (x : Vec 1) : x.collapse = x.head := by
-  sorry
+  cases x with | cons i x =>
+  cases x
+  rfl
 
 /-! #### Alternate -/
 
@@ -200,6 +229,7 @@ def consCases {motive : ∀ {n}, Vec n → Sort u}
 theorem alternate_cast_left (C : Vec n) (I : Vec m) (h : n = n') :
     alternate (C.cast h) I = alternate C I := by
   sorry
+
 @[simp, grind =]
 theorem alternate_cast_right (C : Vec n) (I : Vec m) (h : m = m') :
     alternate C (I.cast h) = alternate C I := by
@@ -522,7 +552,6 @@ axiom SEnv.refine_trans {ρ₁ ρ₂ ρ₃ : SEnv} : ρ₁ ⊆ ρ₂ → ρ₂ �
 instance : Trans (α := SEnv) (· ⊆ ·) (· ⊆ ·) (· ⊆ ·) where
   trans := SEnv.refine_trans
 
-@[grind .]
 axiom SEnv.refine_of_equiv {ρ₁ ρ₂ : SEnv} : ρ₁ ≈ ρ₂ → ρ₁ ⊆ ρ₂
 
 @[grind →]
@@ -530,7 +559,7 @@ axiom SEnv.equiv_of_refine_refine {ρ₁ ρ₂ : SEnv} : ρ₁ ⊆ ρ₂ → ρ�
 
 @[grind =] theorem SEnv.equiv_iff_refine_refine {ρ₁ ρ₂ : SEnv} :
     ρ₁ ≈ ρ₂ ↔ (ρ₁ ⊆ ρ₂ ∧ ρ₂ ⊆ ρ₁) := by
-  grind
+  grind [refine_of_equiv]
 
 end RefineLemmas
 
@@ -647,6 +676,21 @@ end Contextual
 -/
 attribute [grind =] id_eq
 
+set_option trace.grind.ematch.instance true in
+section
+
+#grind_lint check in EffectSSA
+#grind_lint inspect EffectSSA.Inst.denote_refine_congr
+#grind_lint inspect EffectSSA.InstSeq.denote_refine_congr
+#grind_lint inspect EffectSSA.Pattern.denote_refine_congr
+
+#grind_lint inspect EffectSSA.Vec.alternate_concat
+#grind_lint inspect EffectSSA.Vec.concat_cons
+#grind_lint inspect EffectSSA.Vec.denote_concat
+#grind_lint inspect EffectSSA.Vec.toVector_concat
+
+end
+
 open Context (plug)
 /--
 Proving denotational refinement is sufficient for showing contextual refinement.
@@ -674,13 +718,16 @@ theorem ctxRefine_of_denoteRefine (I J : Pattern n)
   case succ k ih =>
     change Vec _ at C
     cases C using Vec.consCases with | cons C₀ C =>
-    replace ih : ∀ (ρ : SEnv), ⟦Vec.alternate C I.tail⟧ (⟦I₁.concat I.head⟧ ρ) ⊆ ⟦Vec.alternate C J.tail⟧ (⟦J₁.concat J.head⟧ ρ) := by
-      apply ih <;> (try grind)
-      · intro i hi ρ
-        calc ⟦I.tail.take i⟧ (⟦I₁.concat I.head⟧ ρ)
-          _ ⊆ ⟦I.take (i+1)⟧ (⟦I₁⟧ ρ) := by simp
-          _ ⊆ ⟦J.take (i+1)⟧ (⟦J₁⟧ ρ) := by grind
-          _ ⊆ ⟦J.tail.take i⟧ (⟦J₁.concat J.head⟧ ρ) := by simp
+    replace ih : ∀ (ρ : SEnv),
+        ⟦Vec.alternate C I.tail⟧ (⟦I₁.concat I.head⟧ ρ)
+        ⊆ ⟦Vec.alternate C J.tail⟧ (⟦J₁.concat J.head⟧ ρ) := by
+      apply ih <;> first
+        | intro i hi ρ
+          calc ⟦I.tail.take i⟧ (⟦I₁.concat I.head⟧ ρ)
+            _ ⊆ ⟦I.take (i+1)⟧ (⟦I₁⟧ ρ) := by simp
+            _ ⊆ ⟦J.take (i+1)⟧ (⟦J₁⟧ ρ) := by grind
+            _ ⊆ ⟦J.tail.take i⟧ (⟦J₁.concat J.head⟧ ρ) := by simp
+        | grind
     calc
       ⟦(Vec.cons C₀ C).alternate I⟧ (⟦I₁⟧ ρ)
       _ ⊆ (⟦C.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦C₀⟧ ∘ ⟦I₁⟧) ρ := by grind
@@ -705,13 +752,14 @@ theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
   grind
 
 /--
-info: 'ctxRefine_of_denoteRefine' depends on axioms: [Inst,
+info: 'EffectSSA.ctxRefine_of_denoteRefine' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Inst,
  State,
  Val,
  Var,
- propext,
- sorryAx,
- Classical.choice,
+ Quot.sound,
  Inst.Defs,
  Inst.FVar,
  Inst.Idempotent,
@@ -721,7 +769,6 @@ info: 'ctxRefine_of_denoteRefine' depends on axioms: [Inst,
  InstSeq.WellFormed,
  InstSeq.wellFormed_cons,
  InstSeq.wellFormed_nil,
- Quot.sound,
  SEnv.refine_refl,
  SEnv.refine_trans,
  State.Refine,
