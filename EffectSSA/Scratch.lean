@@ -89,6 +89,7 @@ section Lemmas
 variable (xs : Vec n) (ys : Vec m)
 
 /-! toVector -/
+section ToVector
 
 theorem eq_of_toVector_eq (h : v.toVector = w.toVector) : v = w := by
   exact h
@@ -106,6 +107,8 @@ theorem eq_of_toVector_eq (h : v.toVector = w.toVector) : v = w := by
 
 @[simp, grind =] theorem toVector_tail [NeZero n] :
     xs.tail.toVector = (xs.toVector.extract 1 n).cast (by grind) := by rfl
+
+end ToVector
 
 /-! ext -/
 
