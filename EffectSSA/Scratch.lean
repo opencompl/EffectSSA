@@ -57,11 +57,11 @@ def concat (I : Vec n) (is : InstSeq) : Vec (n + 1) :=
 
 /-! ### Getters / Destructors -/
 
-def head [NeZero n] : Vec n → InstSeq := Vector.head
-def tail [NeZero n] : Vec n → Vec (n - 1) := Vector.tail
-
 def get (i : Nat) (hi : i < n := by grind) : InstSeq :=
   v.toVector[i]
+
+@[grind] abbrev head [NeZero n] : Vec n → InstSeq := (·.get 0)
+def tail [NeZero n] : Vec n → Vec (n - 1) := Vector.tail
 
 /-- Take the first `i` elements, padding with junk if `i > n`. -/
 def take (i : Nat) : Vec i :=
