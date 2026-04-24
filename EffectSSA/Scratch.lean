@@ -400,7 +400,7 @@ axiom InstSeq.wellFormed_cons {i : Inst} {is : InstSeq} :
       ∧ (is.Defs v → ¬(i.FVar v)) -- variables may not be used before they're defined
     )
 
-@[simp, grind =]
+-- @[simp, grind =]
 theorem InstSeq.wellFormed_append {is js : InstSeq} :
     WellFormed (is ++ js) ↔ (is.WellFormed ∧ js.WellFormed ∧ ∀ v,
       ¬(is.Defs v ∧ js.Defs v)
@@ -585,7 +585,7 @@ instance : HasSubset State where Subset := State.Refine
 axiom Val.Refine : Val → Val → Prop
 instance : HasSubset Val where Subset := Val.Refine
 
-@[grind, grind cases]
+-- @[grind, grind cases]
 inductive Val.Refine? : Option Val → Option Val → Prop
   | some {v₁ v₂} (h : v₁ ⊆ v₂) : Refine? (some v₁) (some v₂)
   | none {v?} : Refine? none v?
@@ -626,51 +626,159 @@ axiom SEnv.equiv_of_refine_refine {ρ₁ ρ₂ : SEnv} : ρ₁ ⊆ ρ₂ → ρ�
 end RefineLemmas
 
 /-!
+## Equation Lemmas
+-/
+section EquationLemma
+
+def Inst.EquationLemma (i : Inst) (ρ : SEnv) : Prop :=
+  ⟦i⟧ ρ = ρ
+
+def InstSeq.EquationLemma (is : InstSeq) (ρ : SEnv) : Prop :=
+  ∀ i ∈ is, i.EquationLemma ρ
+
+def Vec.EquationLemma (I : Vec n) (ρ : SEnv) : Prop :=
+  I.collapse.EquationLemma ρ
+
+section Lemmas
+attribute [local grind, local simp]
+    Inst.EquationLemma InstSeq.EquationLemma Vec.EquationLemma
+
+@[simp, grind .] theorem InstSeq.equationLemma_nil :
+    InstSeq.EquationLemma [] ρ := by simp
+
+@[simp, grind =] theorem InstSeq.equationLemma_cons {i : Inst} {is : InstSeq} :
+    EquationLemma (i :: is) ρ ↔ i.EquationLemma ρ ∧ is.EquationLemma ρ := by grind
+
+@[simp, grind =] theorem Vec.equationLemma_cast (I : Vec n) (h : n = m) :
+    (I.cast h).EquationLemma ρ ↔ I.EquationLemma ρ := by simp
+
+@[simp, grind .] theorem Vec.equationLemma_nil :
+    Vec.nil.EquationLemma ρ := by simp
+
+@[simp, grind =] theorem Vec.equationLemma_concat (I : Vec n) :
+    (I.concat is).EquationLemma ρ ↔ I.EquationLemma ρ ∧ is.EquationLemma ρ := by grind
+
+/-! denote_eq -/
+
+@[grind =]
+theorem InstSeq.denote_eq_of_equationLemma {is : InstSeq} {ρ} (h : is.EquationLemma ρ) :
+    ⟦is⟧ ρ = ρ := by
+  induction is
+  · simp
+  · grind
+
+@[grind =]
+theorem Vec.denote_eq_of_equationLemma {I : Vec n} {ρ} (h : I.EquationLemma ρ) :
+    ⟦I⟧ ρ = ρ := by
+  simp [Vec.denote_eq]; grind
+
+end Lemmas
+end EquationLemma
+
+/-!
+## Stability
+-/
+section Stable
+
+/--
+Some instruction `i` is stable w.r.t. the equation lemma when, for any
+environment `ρ` satisfying the equation lemma for `i`, we can execute an
+arbitrary instruction `j` against `ρ` without invalidating the equation lemma.
+-/
+def Inst.StableEquation (i : Inst) : Prop :=
+  ∀ ρ (j : Inst), i.EquationLemma ρ → i.EquationLemma (⟦j⟧ ρ)
+
+/--
+An instruction sequence `is` is stable w.r.t. the equation lemma when
+all constituents instructions are stable.
+-/
+def InstSeq.StableEquation (is : InstSeq) : Prop :=
+  ∀ i ∈ is, i.StableEquation
+
+def Vec.StableEquation (I : Vec n) : Prop :=
+  I.collapse.StableEquation
+
+section Lemmas
+
+theorem InstSeq.equationLemma_of_stable {is js : InstSeq} (h : is.StableEquation) :
+    is.EquationLemma ρ → is.EquationLemma (⟦js⟧ ρ) := by
+  sorry
+grind_pattern InstSeq.equationLemma_of_stable => is.EquationLemma (⟦js⟧ ρ), is.StableEquation
+
+theorem Vec.equationLemma_of_stable {I : Vec n} {js : InstSeq} :
+    I.EquationLemma ρ → I.EquationLemma (⟦js⟧ ρ) := by
+  sorry
+grind_pattern Vec.equationLemma_of_stable => I.EquationLemma (⟦js⟧ ρ), I.StableEquation
+
+end Lemmas
+end Stable
+
+/-!
 ## Idempotency
 -/
+section Idem
 
-axiom Inst.Idempotent : Inst → Prop
+/--
+An instruction `i` is called idempotent when evaluation `i` on any initial
+environment yields an environment which satisfies the equation lemma of `i`.
+-/
+def Inst.Idempotent (i : Inst) : Prop :=
+  ∀ ρ, i.EquationLemma (⟦i⟧ ρ)
 
-@[grind] def InstSeq.Idempotent (is : InstSeq) : Prop :=
+@[local grind] def InstSeq.Idempotent (is : InstSeq) : Prop :=
   ∀ i ∈ is, i.Idempotent
 
-@[grind] def Vec.Idempotent (I : Vec n) : Prop :=
+@[local grind] def Vec.Idempotent (I : Vec n) : Prop :=
   I.collapse.Idempotent
 
 section Lemmas
 
 /-! denote_idempotent -/
 
-@[simp, grind .]
-axiom Inst.denote_idempotent {i : Inst} (hi : i.Idempotent) (C : InstSeq)
-    (hc : InstSeq.WellFormed (i :: C))
-    (ρ : SEnv) :
-    ⟦i⟧ (⟦C⟧ (⟦i⟧ ρ)) = (⟦C⟧ (⟦i⟧ ρ))
+@[grind =>]
+theorem InstSeq.equationLemma_of_idem {is : InstSeq} (h : is.Idempotent) (ρ : SEnv) :
+    is.EquationLemma (⟦is⟧ ρ) := by
+  sorry
 
-@[simp, grind =]
-theorem InstSeq.denote_idempotent {is : InstSeq} (his : is.Idempotent)
-    (C : InstSeq)
-    (hc : InstSeq.WellFormed (is ++ C))
-    (ρ) :
-    ⟦is⟧ (⟦C⟧ (⟦is⟧ ρ)) = (⟦C⟧ (⟦is⟧ ρ)) := by
-  induction is generalizing C ρ
-  case nil => rfl
-  case cons i is ih =>
-    calc (⟦i :: is⟧ ∘ ⟦C⟧ ∘ ⟦i :: is⟧) ρ
-      _ = (⟦is⟧ ∘ ⟦i⟧ ∘ ⟦C⟧ ∘ ⟦is⟧ ∘ ⟦i⟧) ρ := rfl
-      _ = (⟦is⟧ ∘ ⟦is ++ C⟧ ∘ ⟦i⟧) ρ := by grind
-      _ = (⟦C⟧ ∘ ⟦is⟧) (⟦i⟧ ρ) := by grind
+-- @[simp, grind .]
+-- axiom Inst.denote_idempotent {i : Inst} (hi : i.Idempotent) (C : InstSeq)
+--     (hc : InstSeq.WellFormed (i :: C))
+--     (ρ : SEnv) :
+--     ⟦i⟧ (⟦C⟧ (⟦i⟧ ρ)) = (⟦C⟧ (⟦i⟧ ρ))
 
-@[simp, grind =]
-theorem Vec.denote_idempotent {I : Vec n} (hi : I.Idempotent)
-    (C : InstSeq) (hC : InstSeq.WellFormed (I.collapse ++ C)) (ρ) :
-    ⟦I⟧ (⟦C⟧ (⟦I⟧ ρ)) = (⟦C⟧ (⟦I⟧ ρ)) := by
-  simp [Vec.denote_eq]; grind
+-- @[simp, grind =]
+-- theorem InstSeq.denote_idempotent {is : InstSeq} (his : is.Idempotent)
+--     (C : InstSeq)
+--     (hc : InstSeq.WellFormed (is ++ C))
+--     (ρ) :
+--     ⟦is⟧ (⟦C⟧ (⟦is⟧ ρ)) = (⟦C⟧ (⟦is⟧ ρ)) := by
+--   induction is generalizing C ρ
+--   case nil => rfl
+--   case cons i is ih =>
+--     calc (⟦i :: is⟧ ∘ ⟦C⟧ ∘ ⟦i :: is⟧) ρ
+--       _ = (⟦is⟧ ∘ ⟦i⟧ ∘ ⟦C⟧ ∘ ⟦is⟧ ∘ ⟦i⟧) ρ := rfl
+--       _ = (⟦is⟧ ∘ ⟦is ++ C⟧ ∘ ⟦i⟧) ρ := by grind
+--       _ = (⟦C⟧ ∘ ⟦is⟧) (⟦i⟧ ρ) := by grind
+
+-- @[simp, grind =]
+-- theorem Vec.denote_idempotent {I : Vec n} (hi : I.Idempotent)
+--     (C : InstSeq) (hC : InstSeq.WellFormed (I.collapse ++ C)) (ρ) :
+--     ⟦I⟧ (⟦C⟧ (⟦I⟧ ρ)) = (⟦C⟧ (⟦I⟧ ρ)) := by
+--   simp [Vec.denote_eq]; grind
 
 /-! structural idempotency lemmas -/
 
 @[simp, grind =] theorem InstSeq.idempotent_append {is js : InstSeq} :
     (is ++ js).Idempotent ↔ is.Idempotent ∧ js.Idempotent := by
+  grind
+
+-- @[simp, grind .]
+theorem Vec.idempotent_nil (I : Vec 0) : I.Idempotent := by
+  grind
+
+@[simp, grind =]
+theorem Vec.idempotent_concat (I : Vec n) (is : InstSeq) :
+    (I.concat is).Idempotent ↔ I.Idempotent ∧ is.Idempotent := by
   grind
 
 @[simp, grind →] theorem Vec.idempotent_tail {I : Vec n} [NeZero n] :
@@ -682,6 +790,7 @@ theorem Vec.denote_idempotent {I : Vec n} (hi : I.Idempotent)
   cases I using Vec.consCases <;> grind
 
 end Lemmas
+end Idem
 
 /-!
 ## Contextual Refinement & Equivalence
@@ -738,6 +847,8 @@ end Contextual
 -/
 attribute [grind =] id_eq
 
+set_option trace.grind.ematch true in
+
 open Context (plug)
 /--
 Proving denotational refinement is sufficient for showing contextual refinement.
@@ -746,35 +857,94 @@ theorem ctxRefine_of_denoteRefine (I J : Pattern n)
     (hI : I.Idempotent) (hJ : J.Idempotent)
     (hd : ∀ i ≤ n, ∀ ρ, ⟦I.take i⟧ ρ ⊆ ⟦J.take i⟧ ρ) :
     I.CtxRefine J := by
-  intro C CI CJ
+  intro (C : Vec _) CI CJ
+
+  replace hd : ∀ i, ∀ hi : i < n, ∀ (ρ₁ ρ₂ : SEnv), ρ₁ ⊆ ρ₂ →
+      (I.take i).EquationLemma ρ₁ →
+      (J.take i).EquationLemma ρ₂ →
+      ⟦I.get i⟧ ρ₁ ⊆ ⟦J.get i⟧ ρ₂ := by
+    intro i hi ρ₁ ρ₂ hρ hρ₁ hρ₂
+    specialize hd (i + 1) (by grind) ρ₁
+    calc ⟦I.get i hi⟧ ρ₁
+      _ = ⟦I.get i hi⟧ (⟦I.take i⟧ ρ₁) := by grind
+      _ ⊆ ⟦J.get i hi⟧ (⟦J.take i⟧ ρ₁) := by grind [Vec.take_succ_eq_concat]
+      _ ⊆ ⟦J.get i hi⟧ (⟦J.take i⟧ ρ₂) := by grind
+      _ = ⟦J.get i hi⟧ ρ₂ := by grind
 
   suffices ∀ {m} (I₁ J₁ : Pattern m),
-    (hI₁ : I₁.Idempotent) → (hwf₁ : (I₁.collapse ++ CI).WellFormed) →
-    (hJ₁ : J₁.Idempotent) → (hwf₂ : (J₁.collapse ++ CJ).WellFormed) →
-    (hd : ∀ i ≤ n, ∀ ρ, ⟦I.take i⟧ (⟦I₁⟧ ρ) ⊆ ⟦J.take i⟧ (⟦J₁⟧ ρ)) →
-    ∀ ρ, ⟦C.alternate I⟧ (⟦I₁⟧ ρ) ⊆ ⟦C.alternate J⟧ (⟦J₁⟧ ρ)
-  by intro hwf₁ hwf₂; apply this .nil .nil <;> grind
-  clear hd
-  subst CI CJ
+    (hI₁ : I₁.Idempotent) → (hwf₁ : (I₁.collapse ++ C.alternate I).WellFormed) →
+    (hJ₁ : J₁.Idempotent) → (hwf₂ : (J₁.collapse ++ C.alternate J).WellFormed) →
+    (hIJ : ∀ ρ, ⟦I₁⟧ ρ ⊆ ⟦J₁⟧ ρ) →
+    (hd : ∀ i, ∀ hi : i < n, ∀ (ρ₁ ρ₂ : SEnv), ρ₁ ⊆ ρ₂ →
+      (I₁ ++ I.take i).EquationLemma ρ₁ →
+      (J₁ ++ J.take i).EquationLemma ρ₂ →
+      ⟦I.get i⟧ ρ₁ ⊆ ⟦J.get i⟧ ρ₂
+    ) →
+    ∀ (ρ₁ ρ₂ : SEnv), ρ₁ ⊆ ρ₂ →
+      I₁.EquationLemma ρ₁ →
+      J₁.EquationLemma ρ₂ →
+      ⟦C.alternate I⟧ ρ₁ ⊆ ⟦C.alternate J⟧ ρ₂
+  by
+    intro hwf₁ hwf₂ ρ
+    apply this .nil .nil <;> solve
+      | simp_all
+      | grind [Vec.idempotent_nil]
+  clear hd CI CJ
   induction n <;> (
-    intro m I₁ J₁ hI₁ hwf₁ hJ₁ hwf₂ hd ρ
-    have hIJ₁ (ρ) : ⟦I₁⟧ ρ ⊆ ⟦J₁⟧ ρ := by
-      simpa using hd 0 (by grind) _
+    intro m I₁ J₁ hI₁ hwf₁ hJ₁ hwf₂ hIJ hd ρ₁ ρ₂ hρ hρ₁ hρ₂
   )
   case zero => grind
-  case succ k ih =>
-    change Vec _ at C
+  case succ n ih =>
     cases C using Vec.consCases with | cons C₀ C =>
+    let η₁ := ⟦C₀⟧ ρ₁
+    let η₂ := ⟦C₀⟧ ρ₂
+
+    have : I₁.StableEquation := by sorry
+    have : J₁.StableEquation := by sorry
+
+    have hη₁ : I₁.EquationLemma η₁ := by grind -- by stability (to be assumed)
+    have hη₂ : J₁.EquationLemma η₂ := by grind
+    -- stop
+    suffices
+      ⟦C.alternate (Vec.tail I)⟧ (⟦Vec.head I⟧ η₁)
+      ⊆ ⟦C.alternate (Vec.tail J)⟧ (⟦Vec.head J⟧ η₂)
+    by simpa
+
+    apply ih (I₁ := I₁.concat I.head) (J₁ := J₁.concat J.head)
+    · grind
+    · grind
+    · grind
+    · simp at hwf₁
+      simp
+      -- grind
+    · grind
+    ·
+      simp; sorry
+    · sorry
+    · sorry
+    · stop grind
+    · grind
+    · grind
+
+    stop
     replace ih : ∀ (ρ : SEnv),
-        ⟦Vec.alternate C I.tail⟧ (⟦I₁.concat I.head⟧ ρ)
-        ⊆ ⟦Vec.alternate C J.tail⟧ (⟦J₁.concat J.head⟧ ρ) := by
-      apply ih <;> first
-        | intro i hi ρ
-          calc ⟦I.tail.take i⟧ (⟦I₁.concat I.head⟧ ρ)
-            _ ⊆ ⟦I.take (i+1)⟧ (⟦I₁⟧ ρ) := by simp
-            _ ⊆ ⟦J.take (i+1)⟧ (⟦J₁⟧ ρ) := by grind
-            _ ⊆ ⟦J.tail.take i⟧ (⟦J₁.concat J.head⟧ ρ) := by simp
-        | grind
+        ⟦C.alternate I.tail⟧ (⟦I₁.concat I.head⟧ ρ)
+        ⊆ ⟦C.alternate J.tail⟧ (⟦J₁.concat J.head⟧ ρ) := by
+      have : ∀ ρ, ⟦Vec.head I⟧ (⟦I₁⟧ ρ) ⊆ ⟦Vec.head J⟧ (⟦J₁⟧ ρ) := by
+        sorry
+      have : ∀ (i : Nat), i ≤ n → ∀ (ρ₁ ρ₂ : SEnv), ρ₁ ⊆ ρ₂ →
+          (Vec.concat I₁ (Vec.head I) ++ (Vec.tail I).take i).EquationLemma ρ₁ →
+          (Vec.concat J₁ (Vec.head J) ++ (Vec.tail J).take i).EquationLemma ρ₂ →
+          ⟦(Vec.tail I).take i⟧ ρ₁ ⊆ ⟦(Vec.tail J).take i⟧ ρ₂ := by
+        intro i hi ρ₁ ρ₂ hρ hρ₁ hρ₂
+        stop
+        calc ⟦I.tail.take i⟧ (⟦I₁.concat I.head⟧ ρ)
+          _ ⊆ ⟦I.take (i+1)⟧ (⟦I₁⟧ ρ) := by simp
+          _ ⊆ ⟦J.take (i+1)⟧ (⟦J₁⟧ ρ) := by grind
+          _ ⊆ ⟦J.tail.take i⟧ (⟦J₁.concat J.head⟧ ρ) := by simp
+      stop
+      apply ih <;> grind
+    stop
     calc
       ⟦(Vec.cons C₀ C).alternate I⟧ (⟦I₁⟧ ρ)
       _ ⊆ (⟦C.alternate I.tail⟧ ∘ ⟦I.head⟧ ∘ ⟦C₀⟧ ∘ ⟦I₁⟧) ρ := by grind
