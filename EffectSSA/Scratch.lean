@@ -255,7 +255,7 @@ end Cases
 /-! #### Collapse -/
 
 
-@[simp, grind =] theorem collapse_nil : nil.collapse = [] := by rfl
+@[simp, grind =] theorem collapse_nil (I : Vec 0) : I.collapse = [] := by cases I; rfl
 @[simp, grind =] theorem collapse_concat : (concat xs x).collapse = xs.collapse ++ x := by
   simp [collapse]
 
@@ -279,10 +279,13 @@ theorem collapse_append : (xs ++ ys).collapse = xs.collapse ++ ys.collapse := by
 
 /-! #### Alternate -/
 
-@[simp, grind =]
-theorem alternate_nil (I : Vec m) :
-    nil.alternate I = I.collapse := by
+@[simp, grind =] theorem alternate_nil_left (C : Vec 0) (I : Vec m) :
+    C.alternate I = I.collapse := by
   simp [alternate]
+
+@[simp, grind =] theorem alternate_nil_right (C : Vec n) (I : Vec 0) :
+    C.alternate I = C.collapse := by
+  cases C <;> simp [alternate]
 
 @[simp, grind =]
 theorem alternate_cons_succ (C₀ : InstSeq) (C : Vec n) (I : Vec (m+1)) :
