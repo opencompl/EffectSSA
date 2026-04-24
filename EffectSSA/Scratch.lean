@@ -3,6 +3,14 @@ import EffectSSA.Semantics.Denote
 
 import Batteries.Data.Vector.Lemmas
 
+/-!
+# Contextual Equivalence Proof Sketch
+
+This file contains a stand-alone proof sketch that denotational equivalence
+implies contextual equivalence, in an SSA-based rewriting setting.
+
+-/
+
 noncomputable section
 namespace EffectSSA
 
