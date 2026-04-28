@@ -430,25 +430,21 @@ axiom State : Type
 axiom State.initial : State
 
 /--
-A (pure) environment `ρ : Env` is a partial map from variables to values.
--/
-def Env := Var → Option Val
-
-def Env.initial : Env := fun _ => none
-
-/--
 A stateful environment `e : SEnv`
 bundles a pure environment with a global state.
 -/
 structure SEnv where
-  env : Env
+  /-- A partial map from variables (i.e, virtual registers) to values. -/
+  regs : Var → Option Val
+  /-- The global state, e.g, for memory and UB -/
   state : State
+  /--
+  Whether an interpreter error occured (e.g, a reference to an undefined
+  variable). This should never happen in well-formed programs.
+  -/
   error : Bool
 
-def SEnv.initial : SEnv where
-  env := .initial
-  state := .initial
-  error := false
+/-! ### Defs -/
 
 axiom Inst.denote : Inst → SEnv → SEnv
 instance : Denote Inst (SEnv → SEnv) where
@@ -512,11 +508,11 @@ are not modified.
 -/
 
 @[grind =>] axiom Inst.denote_monotone {i : Inst} {e : SEnv} {v : Var} :
-    ¬(i.Defs v) → (⟦i⟧ e).env v = e.env v
+    ¬(i.Defs v) → (⟦i⟧ e).regs v = e.regs v
 
 @[grind =]
 theorem InstSeq.denote_monotone {is : Inst} {e : SEnv} {v : Var} :
-    ¬(is.Defs v) → (⟦is⟧ e).env v = e.env v := by
+    ¬(is.Defs v) → (⟦is⟧ e).regs v = e.regs v := by
   grind
 
 
@@ -537,41 +533,43 @@ inductive Val.Equiv? : Option Val → Option Val → Prop
 instance : HasEquiv (Option Val) where
   Equiv := Val.Equiv?
 
-/--
-Equivalence of pure environments;
-
-There is a mayor unresolved question with regards to how this should be defined.
-The obvious choice would be that two environments are equivalent when they have
-the same domain, and the mapped values for each variable agrees.
-
-Unfortunately, that disregards the fact that some values might be _stale_, in the sense
-that the corresponding variable was linear and previously consumed. When comparing
-environments, we need to disregard stale variables.
-At the same time, to be able to phrase an equation lemma, we might need to
-remember stale values. I originally thought we also needed it for idempotency,
-but that is not actually true, since we re-compute the values anyway.
-
-For now, we define equivalence as pointwise equivalence of values.
--/
-instance : HasEquiv Env where
-  Equiv ρ η := ∀ v, ρ v ≈ η v
-
 /-- Equivalence of (global) state. -/
 axiom State.Equiv : State → State → Prop
 instance : HasEquiv State where Equiv := State.Equiv
 
-/-- Equivalence of stateful environments. -/
-instance : HasEquiv SEnv where
-  Equiv e₁ e₂ :=
-    e₁.env ≈ e₂.env
-    ∧ e₁.state ≈ e₂.state
-    ∧ e₁.error = e₂.error
+/--
+`EquivOn P ρ η` holds when environments `ρ` and `η` agree on:
+
+* their global state (up to state equivalence),
+* their error field, and
+* the value assigned to each variable `v` for which `P v` holds (up to value equivalence)
+-/
+def SEnv.EquivOn (P : Var → Prop) : SEnv → SEnv → Prop := fun ρ η =>
+  ρ.state ≈ η.state
+  ∧ ρ.error = η.error
+  ∧ (∀ v, P v → ρ.regs v ≈ η.regs v)
+
+/--
+`Equiv ρ η` holds when `ρ` and `η` agree on:
+
+1) their global state (up to state equivalence),
+2) their error field, and
+3) the value assigned to each variable `v`
+
+That is, `Equiv` is just an abbreviation for `EquivOn (fun _ => True)`.
+-/
+abbrev SEnv.Equiv : SEnv → SEnv → Prop := EquivOn (fun _ => True)
+instance : HasEquiv SEnv where Equiv := SEnv.Equiv
 
 section Lemmas
 
+/-
+TODO: axiomatise the relevant properties of equivalence on states and values,
+      then use those axioms to prove the SEnv.equiv_foo assumptions below.
+-/
+
 @[simp, grind ., refl]
 axiom SEnv.equiv_refl (ρ : SEnv) : ρ ≈ ρ
-
 
 axiom SEnv.equiv_trans {ρ₁ ρ₂ ρ₃ : SEnv} : ρ₁ ≈ ρ₂ → ρ₂ ≈ ρ₃ → ρ₁ ≈ ρ₃
 
@@ -601,16 +599,19 @@ instance : HasSubset (Option Val) where
   Subset := Val.Refine?
 
 /--
-We say that `ρ` is a sub-environment of `η`, written as `ρ ⊆ η`, when
-* `ρ` and `η` have the same state,
-* the domain of `ρ` is a subset of the domain of `η`, and
+We say that `ρ` is a sub-environment of `η`, written as `ρ ⊆ η`,
+when `ρ` has an error, or:
+
+* `η` is error-free,
+* the global state of `ρ` is refined by the global state of `η`,
 * for each variable `v` in the domain of `ρ`,
     the value `ρ v` is refined by `η v`.
 -/
 instance : HasSubset SEnv where
   Subset ρ η := ¬ρ.error →
-    ¬η.error ∧ ρ.state ⊆ η.state ∧
-    ∀ v, ρ.env v ⊆ η.env v
+    ¬η.error
+    ∧ ρ.state ⊆ η.state
+    ∧ (∀ v, ρ.regs v ⊆ η.regs v)
 
 section RefineLemmas
 
