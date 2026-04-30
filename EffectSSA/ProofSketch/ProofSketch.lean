@@ -1,6 +1,6 @@
-
 import EffectSSA.ProofSketch.Denote
 
+import Std.Data.HashMap
 import Batteries.Data.Vector.Lemmas
 
 /-!
@@ -859,3 +859,86 @@ info: 'EffectSSA.ProofSketch.Pattern.ctxRefine_of_denoteRefine' depends on axiom
  Val.Refine]
 -/
 #guard_msgs in #print axioms Pattern.ctxRefine_of_denoteRefine
+
+/-!
+# Control Flow
+-/
+
+/-!
+## AST
+-/
+section AST
+
+axiom Terminator : Type
+
+structure Block where
+  insts : InstSeq
+  term : Terminator
+
+structure BlockId where
+  id : String
+deriving Hashable, DecidableEq
+
+structure Program where
+  blocks : Std.HashMap BlockId Block
+  entry : BlockId
+
+end AST
+
+/-!
+## Denotation
+-/
+section Denote
+
+structure InterpreterState extends SEnv where
+  program : Program
+  block : BlockId
+
+inductive TerminatorResult where
+  | ret (results : List Val)
+  | jump (block : BlockId)
+
+axiom Terminator.denote : Terminator → SEnv → TerminatorResult
+instance : Denote Terminator (SEnv → TerminatorResult) where
+  denote t := t.denote
+
+inductive BlockResult where
+  | ret (results : List Val)
+  | jump (state : InterpreterState)
+
+instance : Denote Block (InterpreterState → BlockResult) where
+  denote b σ :=
+    let ρ := ⟦b.insts⟧ σ.toSEnv
+    match ⟦b.term⟧ ρ with
+    | .ret r => .ret r
+    | .jump block => .jump { σ with toSEnv := ρ, block }
+
+namespace InterpreterState
+
+def initial (program : Program) : InterpreterState where
+  program := program
+  block   := program.entry
+  regs     := fun _ => none
+  state   := .initial
+  error   := false
+
+def step (σ : InterpreterState) : BlockResult :=
+  let b? := σ.program.blocks[σ.block]?
+  match b? with
+  | none => .jump { σ with error := true }
+  | some b => ⟦b⟧ σ
+
+/--
+`Reachable σ` holds when state `σ` is reachable from the initial for the
+contained program `σ.program`.
+-/
+inductive Reachable : InterpreterState → Prop where
+  | initial {σ} : σ = initial (σ.program) → Reachable σ
+  | step {σ δ} :
+      Reachable σ         -- if some state `σ` is reachable,
+      → ¬σ.error          -- error-free,
+      → σ.step = .jump δ  -- and `σ` jumps to `δ`
+      → Reachable δ       -- then `δ` is reachable
+
+end InterpreterState
+end Denote
