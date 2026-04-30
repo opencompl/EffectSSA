@@ -1,5 +1,5 @@
 
-import EffectSSA.Semantics.Denote
+import EffectSSA.ProofSketch.Denote
 
 import Batteries.Data.Vector.Lemmas
 
@@ -12,7 +12,7 @@ implies contextual equivalence, in an SSA-based rewriting setting.
 -/
 
 noncomputable section
-namespace EffectSSA
+namespace EffectSSA.ProofSketch
 
 attribute [grind →] NeZero.out
 
@@ -808,13 +808,13 @@ theorem ctxEquiv_of_denoteEquiv (I J : Pattern n)
   grind
 
 /--
-info: 'EffectSSA.ctxRefine_of_denoteRefine' depends on axioms: [propext,
+info: 'EffectSSA.ProofSketch.ctxRefine_of_denoteRefine' depends on axioms: [propext,
  Classical.choice,
+ Quot.sound,
  Inst,
  State,
  Val,
  Var,
- Quot.sound,
  Inst.Defs,
  Inst.FVar,
  Inst.Idempotent,
