@@ -659,6 +659,11 @@ A `MultiContext n` is a sequence of instructions, interspersed by (named) holes,
 -/
 abbrev MultiContext (n : Nat) := List (Inst ⊕ Hole n)
 
+/--
+A `HoleEnv n` associates each hole variable `h : Hole n` with an instruction sequence.
+-/
+def HoleEnv n := Hole n → InstSeq
+
 namespace MultiContext
 variable (C : MultiContext n)
 
@@ -667,16 +672,16 @@ variable (C : MultiContext n)
 -/
 section Denote
 
-instance : Denote (MultiContext n) ((Hole n → SEnv → SEnv) → SEnv → SEnv) where
+instance : Denote (MultiContext n) (HoleEnv n → SEnv → SEnv) where
   denote C η := C.foldl <| fun ρ i =>
                   match i with
                   | .inl (i : Inst) => ⟦i⟧ ρ
-                  | .inr (h : Hole n) => η h ρ
+                  | .inr (h : Hole n) => ⟦η h⟧ ρ
 
 theorem denote_eq : ⟦C⟧ = fun η => C.foldl (fun ρ i =>
                                       match i with
                                       | .inl (i : Inst) => ⟦i⟧ ρ
-                                      | .inr (k : Hole n) => η k ρ) := rfl
+                                      | .inr (h : Hole n) => ⟦η h⟧ ρ) := rfl
 
 @[simp, grind =]
 theorem denote_nil : ⟦([] : MultiContext n)⟧ η = id := rfl
@@ -685,7 +690,7 @@ theorem denote_nil : ⟦([] : MultiContext n)⟧ η = id := rfl
     ⟦.inl i :: C⟧ = fun η ρ => ⟦C⟧ η (⟦i⟧ ρ) := by rfl
 
 @[simp, grind =] theorem denote_cons_hole (h : Hole n) :
-    ⟦.inr h :: C⟧ = fun η ρ => ⟦C⟧ η (η h ρ) := by rfl
+    ⟦.inr h :: C⟧ = fun η ρ => ⟦C⟧ η (⟦η h⟧ ρ) := by rfl
 
 end Denote
 
@@ -709,7 +714,7 @@ def plug (C : MultiContext n) (I : Pattern n) : InstSeq :=
     plug (.inr h :: C) I = I.get h.val ++ plug C I := by rfl
 
 @[simp, grind =]
-theorem denote_plug : ⟦C.plug I⟧ = ⟦C⟧ (⟦I.get ·.val⟧) := by
+theorem denote_plug : ⟦C.plug I⟧ = ⟦C⟧ (I.get ·.val) := by
   funext ρ
   induction C generalizing ρ
   case nil => simp
@@ -743,7 +748,7 @@ theorem denote_isRefinedBy_of_wellDominated
       ⟦I.get h.val⟧ ρ ⊆ ⟦J.get h.val⟧ η
     )
     (ρ η : SEnv) (hρη : ρ ⊆ η) :
-    ⟦C⟧ (⟦I.get ·.val⟧) ρ ⊆ ⟦C⟧ (⟦J.get ·.val⟧) η := by
+    ⟦C⟧ (I.get ·.val) ρ ⊆ ⟦C⟧ (J.get ·.val) η := by
   change C.WellDominatedFor 0 at hC
   generalize hk : 0 = k at hC
   have ⟨hρ, hη⟩ : (I.take k).EqnLemma ρ ∧ (J.take k).EqnLemma η := by
