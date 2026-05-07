@@ -1,5 +1,8 @@
+module
 
-import EffectSSA.ProofSketch.Denote
+public import EffectSSA.ProofSketch.Denote
+public import EffectSSA.ProofSketch.VarSet
+public import EffectSSA.ProofSketch.Inst
 
 import Batteries.Data.Vector.Lemmas
 
@@ -11,7 +14,7 @@ implies contextual equivalence, in an SSA-based rewriting setting.
 
 -/
 
-noncomputable section
+@[expose] public noncomputable section
 namespace EffectSSA.ProofSketch
 
 attribute [grind →] NeZero.out
@@ -19,8 +22,6 @@ attribute [grind →] NeZero.out
 /-!
 ## Types
 -/
-
-axiom Inst : Type
 
 abbrev InstSeq := List Inst
 
@@ -286,9 +287,6 @@ end Pattern
 section Semantics
 
 /-! ### Definition -/
-
-/-- `Var` is the type of variables -/
-axiom Var : Type
 
 /-- `Val` is the type of runtime values -/
 axiom Val : Type
@@ -848,19 +846,3 @@ theorem Pattern.ctxEquiv_of_denoteEquiv (I J : Pattern n)
   intro C hC CI CJ ρ
   apply SEnv.equiv_of_refine_refine
   <;> apply ctxRefine_of_denoteRefine <;> (try assumption) <;> grind
-
-/--
-info: 'EffectSSA.ProofSketch.Pattern.ctxRefine_of_denoteRefine' depends on axioms: [propext,
- Classical.choice,
- Quot.sound,
- Inst,
- State,
- Val,
- Var,
- Inst.denote,
- Inst.denote_isRefinedBy_congr,
- SEnv.refine_refl,
- State.Refine,
- Val.Refine]
--/
-#guard_msgs in #print axioms Pattern.ctxRefine_of_denoteRefine
