@@ -455,6 +455,7 @@ instance : HasSubset SEnv where
     ∧ (∀ v, ρ.regs v ⊆ η.regs v)
 
 section RefineLemmas
+variable {ρ₁ ρ₂ ρ₃ : SEnv}
 
 @[simp, grind .]
 axiom SEnv.refine_refl (ρ : SEnv) : ρ ⊆ ρ
@@ -471,9 +472,28 @@ theorem SEnv.eq_iff_refine_refine {ρ₁ ρ₂ : SEnv} :
     ρ₁ = ρ₂ ↔ (ρ₁ ⊆ ρ₂ ∧ ρ₂ ⊆ ρ₁) := by
   grind
 
-@[grind .]
-axiom Inst.denote_isRefinedBy_congr (i : Inst) {ρ₁ ρ₂} (hρ : ρ₁ ⊆ ρ₂) :
+/-! #### Congruence Lemmas -/
+section RefineCongr
+
+/--
+We assume that each instruction's semantics preserves refinement.
+
+In other words, the semantics are *monotone* w.r.t. the refinement relation.
+-/
+@[grind .] axiom Inst.denote_isRefinedBy_congr (hρ : ρ₁ ⊆ ρ₂) (i : Inst) :
     ⟦i⟧ ρ₁ ⊆ ⟦i⟧ ρ₂
+
+@[grind .] theorem InstSeq.denote_isRefinedBy_congr (hρ : ρ₁ ⊆ ρ₂) (is : InstSeq) :
+    ⟦is⟧ ρ₁ ⊆ ⟦is⟧ ρ₂ := by
+  induction is generalizing ρ₁ ρ₂
+  · simpa
+  · grind
+
+@[grind .] theorem Pattern.denote_isRefinedBy_congr (hρ : ρ₁ ⊆ ρ₂) (I : Pattern n) :
+    ⟦I⟧ ρ₁ ⊆ ⟦I⟧ ρ₂ := by
+  simp [Pattern.denote_eq, InstSeq.denote_isRefinedBy_congr hρ]
+
+end RefineCongr
 
 end RefineLemmas
 
@@ -780,25 +800,6 @@ def Pattern.CtxEquiv (I J : Pattern n) : Prop :=
     let CJ := C.plug J;
       ∀ ρ, ⟦CI⟧ ρ = ⟦CJ⟧ ρ
 
-section RefineCongr
-variable {ρ₁ ρ₂ : SEnv}
-
-@[grind .]
-axiom Inst.denote_refine_congr (hρ : ρ₁ ⊆ ρ₂) (i : Inst) : ⟦i⟧ ρ₁ ⊆ ⟦i⟧ ρ₂
-
-@[grind .]
-theorem InstSeq.denote_refine_congr (hρ : ρ₁ ⊆ ρ₂) (is : InstSeq) :
-    ⟦is⟧ ρ₁ ⊆ ⟦is⟧ ρ₂ := by
-  induction is generalizing ρ₁ ρ₂
-  · simpa
-  · grind
-
-@[grind .]
-theorem Pattern.denote_refine_congr (hρ : ρ₁ ⊆ ρ₂) (I : Pattern n) :
-    ⟦I⟧ ρ₁ ⊆ ⟦I⟧ ρ₂ := by
-  simp [Pattern.denote_eq, InstSeq.denote_refine_congr hρ]
-
-end RefineCongr
 end Contextual
 
 /-!
