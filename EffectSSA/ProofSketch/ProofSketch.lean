@@ -375,45 +375,35 @@ end Semantics
 ## Environment Equivalence
 -/
 
-axiom Val.Equiv : Val → Val → Prop
-instance : HasEquiv Val where Equiv := Val.Equiv
-
-inductive Val.Equiv? : Option Val → Option Val → Prop
-| some {v₁ v₂} (h : v₁ ≈ v₂) : Equiv? (some v₁) (some v₂)
-| none : Equiv? none none
-
-instance : HasEquiv (Option Val) where
-  Equiv := Val.Equiv?
-
-/-- Equivalence of (global) state. -/
-axiom State.Equiv : State → State → Prop
-instance : HasEquiv State where Equiv := State.Equiv
+/-!
+To simplify life, we assume that `Val` and `State` have already been quotiented
+by the relevant equivalence relations, such that equality (`· = ·`) on these
+types is all that we need to compare.
+-/
 
 /--
 `EquivOn P ρ η` holds when environments `ρ` and `η` agree on:
 
-* their global state (up to state equivalence),
+* their global state,
 * their error field, and
-* the value assigned to each variable `v` for which `P v` holds (up to value equivalence)
+* the value assigned to each variable `v` for which `P v` holds
 -/
 def SEnv.EquivOn (P : Var → Prop) : SEnv → SEnv → Prop := fun ρ η =>
-  ρ.state ≈ η.state
+  ρ.state = η.state
   ∧ ρ.error = η.error
-  ∧ (∀ v, P v → ρ.regs v ≈ η.regs v)
+  ∧ (∀ v, P v → ρ.regs v = η.regs v)
 
-/--
-`Equiv ρ η` holds when `ρ` and `η` agree on:
-
-1) their global state (up to state equivalence),
-2) their error field, and
-3) the value assigned to each variable `v`
-
-That is, `Equiv` is just an abbreviation for `EquivOn (fun _ => True)`.
--/
-abbrev SEnv.Equiv : SEnv → SEnv → Prop := EquivOn (fun _ => True)
-instance : HasEquiv SEnv where Equiv := SEnv.Equiv
+/-- If two environments are equivalent on all variables, they are equal. -/
+theorem SEnv.eq_of_equivOn {ρ η} : EquivOn (fun _ => True) ρ η → ρ = η := by
+  rcases ρ with ⟨ρ_regs, ρ_state, ρ_error⟩
+  rcases η with ⟨η_regs, η_state, η_error⟩
+  simp only [EquivOn]
+  intro h
+  have : ρ_regs = η_regs := by funext; simp_all
+  simp_all
 
 section Lemmas
+attribute [local grind] SEnv.EquivOn
 
 /-
 TODO: axiomatise the relevant properties of equivalence on states and values,
@@ -421,15 +411,14 @@ TODO: axiomatise the relevant properties of equivalence on states and values,
 -/
 
 @[simp, grind ., refl]
-axiom SEnv.equiv_refl (ρ : SEnv) : ρ ≈ ρ
+theorem SEnv.equivOn_refl (ρ : SEnv) : EquivOn P ρ ρ := by
+  grind
 
-axiom SEnv.equiv_trans {ρ₁ ρ₂ ρ₃ : SEnv} : ρ₁ ≈ ρ₂ → ρ₂ ≈ ρ₃ → ρ₁ ≈ ρ₃
+theorem SEnv.equiv_trans {ρ₁ ρ₂ ρ₃ : SEnv} : EquivOn P ρ₁ ρ₂ → EquivOn P ρ₂ ρ₃ → EquivOn P ρ₁ ρ₃ := by
+  grind
 
-instance : Trans (α := SEnv) (· ≈ ·) (· ≈ ·) (· ≈ ·) where
-  trans := SEnv.equiv_trans
-
-axiom SEnv.equiv_symm {ρ₁ ρ₂ : SEnv} : ρ₁ ≈ ρ₂ → ρ₂ ≈ ρ₁
-grind_pattern SEnv.equiv_symm => ρ₁ ≈ ρ₂
+theorem SEnv.equiv_symm {ρ₁ ρ₂ : SEnv} : EquivOn P ρ₁ ρ₂ → EquivOn P ρ₂ ρ₁ := by grind
+grind_pattern SEnv.equiv_symm => SEnv.EquivOn P ρ₁ ρ₂
 
 end Lemmas
 
@@ -475,14 +464,12 @@ axiom SEnv.refine_trans {ρ₁ ρ₂ ρ₃ : SEnv} : ρ₁ ⊆ ρ₂ → ρ₂ �
 instance : Trans (α := SEnv) (· ⊆ ·) (· ⊆ ·) (· ⊆ ·) where
   trans := SEnv.refine_trans
 
-axiom SEnv.refine_of_equiv {ρ₁ ρ₂ : SEnv} : ρ₁ ≈ ρ₂ → ρ₁ ⊆ ρ₂
-
 @[grind →]
-axiom SEnv.equiv_of_refine_refine {ρ₁ ρ₂ : SEnv} : ρ₁ ⊆ ρ₂ → ρ₂ ⊆ ρ₁ → ρ₁ ≈ ρ₂
+axiom SEnv.refine_antisymm {ρ₁ ρ₂ : SEnv} : ρ₁ ⊆ ρ₂ → ρ₂ ⊆ ρ₁ → ρ₁ = ρ₂
 
-@[grind =] theorem SEnv.equiv_iff_refine_refine {ρ₁ ρ₂ : SEnv} :
-    ρ₁ ≈ ρ₂ ↔ (ρ₁ ⊆ ρ₂ ∧ ρ₂ ⊆ ρ₁) := by
-  grind [refine_of_equiv]
+theorem SEnv.eq_iff_refine_refine {ρ₁ ρ₂ : SEnv} :
+    ρ₁ = ρ₂ ↔ (ρ₁ ⊆ ρ₂ ∧ ρ₂ ⊆ ρ₁) := by
+  grind
 
 @[grind .]
 axiom Inst.denote_isRefinedBy_congr (i : Inst) {ρ₁ ρ₂} (hρ : ρ₁ ⊆ ρ₂) :
@@ -791,7 +778,7 @@ def Pattern.CtxEquiv (I J : Pattern n) : Prop :=
   ∀ (C : MultiContext n), C.WellDominated →
     let CI := C.plug I;
     let CJ := C.plug J;
-      ∀ ρ, ⟦CI⟧ ρ ≈ ⟦CJ⟧ ρ
+      ∀ ρ, ⟦CI⟧ ρ = ⟦CJ⟧ ρ
 
 section RefineCongr
 variable {ρ₁ ρ₂ : SEnv}
@@ -844,5 +831,5 @@ theorem Pattern.ctxEquiv_of_denoteEquiv (I J : Pattern n)
     ) :
     I.CtxEquiv J := by
   intro C hC CI CJ ρ
-  apply SEnv.equiv_of_refine_refine
+  apply SEnv.refine_antisymm
   <;> apply ctxRefine_of_denoteRefine <;> (try assumption) <;> grind
