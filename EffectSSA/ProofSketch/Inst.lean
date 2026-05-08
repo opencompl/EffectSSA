@@ -27,7 +27,7 @@ section Vars
 axiom args : Inst → VarSet
 
 /-- `i.results` is the set of results of instruction `i`. -/
-axiom Results : Inst → VarSet
+axiom results : Inst → VarSet
 
 end Vars
 end Inst
