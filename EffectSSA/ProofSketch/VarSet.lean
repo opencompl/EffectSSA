@@ -128,9 +128,10 @@ theorem eq_empty_iff : A = ∅ ↔ (∀ v, v ∉ A) := by
 @[grind →] theorem mem_of_subset_of_mem : A ⊆ B → a ∈ A → a ∈ B :=
   Set.mem_of_subset_of_mem
 
-@[grind =] theorem subset_iff : A ⊆ B ↔ ∀ x, x ∈ A → x ∈ B := by
+@[grind =] theorem subset_iff : A ⊆ B ↔ (∀ x, x ∈ A → x ∈ B) := by
   show A.toSet ⊆ B.toSet ↔ ∀ x, x ∈ A.toSet → x ∈ B.toSet
   grind
+theorem subset_intro : (∀ x, x ∈ A → x ∈ B) → A ⊆ B := by grind
 
 @[simp, grind .] theorem empty_subset : (∅ : VarSet) ⊆ A := by grind
 
@@ -209,6 +210,10 @@ variable {A : VarSet}
 
 @[simp, grind =] theorem mem_flatMap : x ∈ A.flatMap f ↔ ∃ y ∈ A, x ∈ f y := by
   simp [flatMap]; rfl
+
+@[simp, grind =] theorem mem_ofListMap {as : List α} [DecidableEq α] :
+    x ∈ ofListMap f as ↔ ∃ y ∈ as, x ∈ f y := by
+  simp [ofListMap]
 
 end Lemmas
 
