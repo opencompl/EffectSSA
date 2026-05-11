@@ -17,6 +17,7 @@ namespace InstSeq
 -/
 noncomputable section Vars
 
+@[grind]
 def argsResults : InstSeq → VarSet × VarSet := go ∅ ∅
 where go (A R : VarSet)
   | [] => (A, R)
@@ -42,6 +43,18 @@ section Lemmas
 variable {i : Inst} {is : InstSeq}
 attribute [local grind] results args argsResults argsResults.go
 
+@[grind =] theorem argsResults_go_fst (A R : VarSet) :
+    (argsResults.go A R is).1 = A ∪ (args is - R) := by
+  suffices ∀ A' R',
+    (argsResults.go (A ∪ (A' - R)) (R ∪ R') is).fst = A ∪ ((argsResults.go A' R' is).fst - R)
+  by simp [args, argsResults]; grind
+  induction is generalizing A R <;> grind
+
+@[simp, grind =] public theorem args_nil : args [] = ∅ := by rfl
+@[simp, grind =] public theorem args_cons :
+    args (i :: is) = i.args ∪ (args is - i.results) := by
+  show (argsResults.go ..).fst = _; grind
+
 @[grind =] theorem argsResults_go_snd : (argsResults.go A R is).2 = R ∪ is.results := by
   suffices ∀ A' R',
     (argsResults.go A (R ∪ R') is).snd = R ∪ (argsResults.go A' R' is).snd
@@ -50,7 +63,7 @@ attribute [local grind] results args argsResults argsResults.go
 
 @[simp, grind =] public theorem results_nil  : results [] = ∅ := by rfl
 @[simp, grind =] public theorem results_cons : results (i :: is) = i.results ∪ is.results := by
-  simp [results, argsResults]; grind
+  show (argsResults.go ..).snd = _; grind
 
 end Lemmas
 

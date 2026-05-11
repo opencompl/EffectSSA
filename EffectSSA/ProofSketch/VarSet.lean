@@ -32,8 +32,16 @@ noncomputable section
 
 namespace VarSet
 
+/-! ### Internal API-/
+
 def toSet : VarSet → Set Var := id
 def ofSet : Set Var → VarSet := id
+
+section Lemmas
+
+theorem ofSet_toSet (A : VarSet) : ofSet (toSet A) = A := by rfl
+
+end Lemmas
 
 public section
 
@@ -72,7 +80,7 @@ variable {A B C : VarSet}
 @[simp, grind =] private theorem mem_ofSet (x : Var) (A : Set Var) :
     x ∈ (ofSet A) ↔ x ∈ A := by rfl
 
-@[ext]
+@[ext, grind ext]
 theorem ext (h : ∀ x, x ∈ A ↔ x ∈ B) : A = B := by
   show A.toSet = B.toSet
   ext x
@@ -89,7 +97,7 @@ theorem eq_empty_iff : A = ∅ ↔ (∀ v, v ∉ A) := by
 
 /-! ### union -/
 
-@[simp, grind =] theorem mem_union : v ∈ A ∪ B ↔ v ∈ A ∨ v ∈ B := by sorry
+@[simp, grind =] theorem mem_union : v ∈ A ∪ B ↔ v ∈ A ∨ v ∈ B := by grind
 
 @[simp, grind =] theorem empty_union : ∅ ∪ A = A := by ext; grind
 @[simp, grind =] theorem union_empty : A ∪ ∅ = A := by ext; grind
@@ -99,11 +107,11 @@ theorem eq_empty_iff : A = ∅ ↔ (∀ v, v ∉ A) := by
 @[grind =] theorem union_comm : A ∪ B = B ∪ A := by ext; grind
 
 @[simp] theorem union_eq_empty_iff : A ∪ B = ∅ ↔ A = ∅ ∧ B = ∅ := by
-  sorry
+  simp [eq_empty_iff]; grind
 
 /-! ### inter -/
 
-@[simp, grind =] theorem mem_inter : v ∈ A ∩ B ↔ v ∈ A ∧ v ∈ B := by sorry
+@[simp, grind =] theorem mem_inter : v ∈ A ∩ B ↔ v ∈ A ∧ v ∈ B := by grind
 
 @[simp, grind =] theorem empty_inter : ∅ ∩ A = ∅ := by ext; grind
 @[simp, grind =] theorem inter_empty : A ∩ ∅ = ∅ := by ext; grind
@@ -117,7 +125,19 @@ theorem eq_empty_iff : A = ∅ ↔ (∀ v, v ∉ A) := by
 
 /-! ### subset -/
 
-@[grind →] theorem mem_of_mem_subset (h : A ⊆ B) : a ∈ A → a ∈ B := by sorry
+@[grind →] theorem mem_of_subset_of_mem : A ⊆ B → a ∈ A → a ∈ B :=
+  Set.mem_of_subset_of_mem
+
+theorem subset_intro (h : ∀ x, x ∈ A → x ∈ B) : A ⊆ B := fun _ ha => h _ ha
+
+@[simp, grind .] theorem empty_subset : (∅ : VarSet) ⊆ A := by grind
+
+/-! ### sdiff -/
+
+@[simp, grind =] theorem mem_sdiff : v ∈ A - B ↔ v ∈ A ∧ v ∉ B := Set.mem_diff v
+
+@[simp, grind =] theorem empty_sdiff : (∅ : VarSet) - A = ∅ := by ext; simp
+@[simp, grind =] theorem sdiff_empty : A - (∅ : VarSet) = A := by ext; simp
 
 end Lemmas
 
@@ -148,11 +168,11 @@ theorem inter_eq_of_disjoint (h : A.Disjoint B) : A ∩ B = ∅ := by grind
 grind_pattern inter_eq_of_disjoint => A.Disjoint B, A ∩ B
 
 theorem disjoint_iff_mem : A.Disjoint B ↔ (∀ x, ¬(x ∈ A ∧ x ∈ B)) := by
-  sorry
+  simp [Disjoint, eq_empty_iff]
 
 @[grind →] theorem not_mem_of_disjoint (h : A.Disjoint B) {x} :
     x ∈ A → x ∉ B := by
-  sorry
+  grind [disjoint_iff_mem]
 
 @[grind →, grind <=]
 theorem disjoint_of_supset_disjoint : A ⊆ B → B.Disjoint C → A.Disjoint C := by
