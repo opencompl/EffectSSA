@@ -296,13 +296,36 @@ theorem collapse_append : (xs ++ ys).collapse = xs.collapse ++ ys.collapse := by
 section Mem
 variable (I : Pattern n)
 
-theorem mem_iff_get : i ∈ I ↔ ∃ k, ∃ (hk : k < n), i = I.get k hk := by
-  rfl
+theorem mem_iff_get : i ∈ I ↔ ∃ k, ∃ (hk : k < n), i = I.get k hk := by rfl
+
+@[grind .] theorem not_mem_nil : i ∉ nil := by grind [mem_iff_get]
 
 @[simp, grind =] theorem mem_concat : (i ∈ I.concat is) ↔ i ∈ I ∨ i = is := by
-  sorry
+  simp only [mem_iff_get, get_concat]
+  constructor
+  · grind
+  · rintro (⟨k, hk, rfl⟩ | rfl)
+    · refine ⟨k, ?_⟩; grind
+    · refine ⟨n, ?_⟩; grind
 
 end Mem
+
+section Results
+variable {I : Pattern n} {is : InstSeq} {x : Var}
+
+@[simp, grind =] theorem results_concat :
+    (I.concat is).results = I.results ∪ is.results := by grind
+
+@[grind =] theorem mem_results_iff : x ∈ I.results ↔ ∃ is ∈ I, x ∈ is.results := by
+  induction I using Pattern.concatRec <;> grind
+
+@[grind →] theorem mem_results_of_mem (his : is ∈ I) (hx : x ∈ is.results) :
+    x ∈ I.results := by grind
+
+@[grind →] theorem results_subset_of_mem (h : is ∈ I) :
+    is.results ⊆ I.results := by grind
+
+end Results
 
 end Lemmas
 end Pattern
@@ -366,6 +389,7 @@ theorem InstSeq.denote_eq {is : InstSeq} :
     ⟦is⟧ = is.foldl (fun e (i : Inst) => ⟦i⟧ e) := by rfl
 
 @[simp, grind =] theorem InstSeq.denote_nil : ⟦[]⟧ = id := by rfl
+@[simp, grind =] theorem InstSeq.denote_nil_apply : ⟦[]⟧ ρ = ρ := by rfl
 
 @[simp, grind =] theorem InstSeq.denote_cons : ⟦i :: is⟧ = fun ρ => ⟦is⟧ (⟦i⟧ ρ) := by rfl
 
@@ -394,6 +418,17 @@ theorem Pattern.denote_concat (I : Pattern n) (is : InstSeq) :
     simp [*]
   case cons i is ih =>
     simp [concat_cons, ih]
+
+/-! results -/
+variable {x : Var}
+
+/-- Instructions only modify the registers in their `results` set. -/
+@[grind .] axiom Inst.regs_denote_of_not_mem_results (i : Inst) {x : Var} {ρ : SEnv}
+    (h : x ∉ i.results) : (⟦i⟧ ρ).regs x = ρ.regs x
+
+@[grind =] theorem InstSeq.regs_denote_of_not_mem_results (h : x ∉ is.results) :
+    (⟦is⟧ ρ).regs x = ρ.regs x := by
+  induction is generalizing ρ <;> grind
 
 end Properties
 end Semantics
@@ -626,17 +661,14 @@ variable {i : Inst} {is : InstSeq} {I : Pattern n}
 @[grind =>] theorem InstSeq.eqnLemma_of_notMem_results (hx : x ∉ is.results) :
     is.EqnLemma x ρ := by
   intro i hi
-  have : x ∉ i.results := by sorry
   grind
 
 @[grind =>] theorem Pattern.eqnLemma_of_notMem_results (hx : x ∉ I.results) :
     I.EqnLemma x ρ := by
   intro is his
-  have : x ∉ is.results := by sorry
   grind
 
 /-! structural lemmas -/
-section HasEqn
 variable (I : Pattern n) (is : InstSeq)
 
 
@@ -698,6 +730,19 @@ theorem Inst.eqnLemma_of_eqnLemma_instSeq {i : Inst} (hi : i.HasEqn) :
   · exact hi
   · grind
 
+/-! denote lemmas -/
+
+@[grind =] theorem Inst.regs_denote_of_eqnLemma {i : Inst}
+    (h : i.EqnLemma x ρ) : (⟦i⟧ ρ).regs x = ρ.regs x := by
+  grind [EqnLemma]
+
+@[grind .] theorem InstSeq.regs_denote_of_eqnLemma {is : InstSeq} (hEqn : is.HasEqn)
+    (hwf : is.WellFormedFor Γ) (h : is.EqnLemma x ρ) :
+    (⟦is⟧ ρ).regs x = ρ.regs x := by
+  induction is generalizing Γ ρ
+  · rfl
+  · grind
+
 /-! idempotence -/
 
 attribute [grind .] Inst.HasEqn.idempotent
@@ -710,49 +755,7 @@ satisfies its own equation lemma at any variable.
 theorem InstSeq.eqnLemma_denote_self (hEqn : is.HasEqn) (hwf : is.WellFormedFor Γ)
     (ρ) :
     is.EqnLemma x (⟦is⟧ ρ) := by
-  induction is generalizing Γ ρ
-  case nil => simp
-  case cons i is ih =>
-    specialize @ih (i.results ∪ Γ) (by grind) (by grind)
-    grind
-
-@[grind =>]
-theorem Pattern.eqnLemma_denote_mem (his : is.HasEqn) (his : is ∈ I) :
-    I.EqnLemma x (⟦is⟧ ρ) := by
-  intro js hjs
-  stop
-  by_cases heq : is = js
-  · grind
-  · intro j hj hx
-    have : x ∈ js.results := by sorry
-    have : x ∉ is.results := by sorry
-    contradiction
-
-end HasEqn
-
-/-! denote lemmas -/
-
-@[grind →]
-theorem InstSeq.denote_of_eqn {is : InstSeq} (h : is.EqnLemma x ρ) :
-    (⟦is⟧ ρ).regs x = ρ.regs x := by
-  induction is
-  case nil => rfl
-  case cons i is ih =>
-    have : i.EqnLemma x ρ := by grind [EqnLemma]
-    stop
-    grind [EqnLemma, Inst.EqnLemma]
-
-@[grind →]
-theorem Pattern.denote_of_eqn {I : Pattern n} (h : I.EqnLemma x ρ) :
-    (⟦I⟧ ρ).regs x = ρ.regs x := by
-  induction I
-  case nil => rfl
-  case cons is I ih =>
-    stop
-    specialize ih (by grind [EqnLemma])
-    have : is.EqnLemma x ρ := by simpa using h 0
-    stop
-    grind
+  induction is generalizing Γ ρ <;> grind
 
 end Lemmas
 
@@ -771,23 +774,6 @@ abbrev Pattern.usesAt (v : Var) (I : Pattern n) := I.collapse.usesAt v
 See `InstSeq.getDef?` for details.
 -/
 abbrev Pattern.getDef? (v : Var) (I : Pattern n) : Option Inst :=  I.collapse.getDef? v
-
-section Lemmas
-variable {I : Pattern n}
-
-public theorem Pattern.usesAt_eq_of_not_mem_results (h : x ∉ I.results) :
-    I.usesAt x = ∅ := by
-  sorry
-grind_pattern Pattern.usesAt_eq_of_not_mem_results => I.usesAt x, _ ∈ I.results
-
-@[grind =>]
-public theorem Pattern.mem_usesAt_iff_of_mem_results
-    (h : x ∈ i.results) (hi : i ∈ is) (his : is ∈ I) :
-    y ∈ I.usesAt x ↔ (y ∈ is.args ∨ ∃ z ∈ is.args, y ∈ I.usesAt z) := by
-  sorry
-
-end Lemmas
-
 
 /--
 `I.EqnLemmaUpTo h ρ` holds when `ρ` satisfies the equation lemma for all
