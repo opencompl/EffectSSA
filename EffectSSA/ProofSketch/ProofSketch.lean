@@ -576,7 +576,7 @@ grind_pattern disjoint_results_of_wellFormed => is.WellFormedFor Γ, is.results
 
 theorem args_subset_of_wellFormed :
     is.WellFormedFor Γ → is.args ⊆ Γ := by
-  sorry
+  intro h; induction h <;> grind
 grind_pattern args_subset_of_wellFormed => WellFormedFor Γ, is.args ⊆ Γ
 
 end Lemmas
