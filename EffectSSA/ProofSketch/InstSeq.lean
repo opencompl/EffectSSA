@@ -65,6 +65,20 @@ attribute [local grind] results args argsResults argsResults.go
 @[simp, grind =] public theorem results_cons : results (i :: is) = i.results ∪ is.results := by
   show (argsResults.go ..).snd = _; grind
 
+@[simp, grind =] public theorem results_append {xs ys : InstSeq} :
+    results (xs ++ ys) = xs.results ∪ ys.results := by
+  induction xs <;> grind
+
+@[grind =] public theorem mem_results_iff : x ∈ is.results ↔ ∃ i ∈ is, x ∈ i.results := by
+  induction is <;> grind
+
+@[grind →] public theorem mem_results_of_mem_inst {x : Var} (hi : i ∈ is) (hx : x ∈ i.results) :
+    x ∈ is.results := by
+  grind
+
+@[grind →] public theorem results_subset_of_mem (h : i ∈ is) : i.results ⊆ is.results := by
+  grind
+
 end Lemmas
 
 /-! ### getDef / usesAt  -/
@@ -103,6 +117,11 @@ public noncomputable def usesAt (v : Var) : InstSeq → VarSet
 
 section Lemmas
 variable {is : InstSeq}
+
+@[simp, grind =>]
+public theorem usesAt_eq_of_not_mem_results {x : Var} (h : x ∉ is.results) :
+    is.usesAt x = ∅ := by
+  induction is <;> grind [usesAt]
 
 @[grind =]
 public theorem mem_usesAt :
