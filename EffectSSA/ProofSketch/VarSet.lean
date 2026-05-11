@@ -128,7 +128,9 @@ theorem eq_empty_iff : A = ∅ ↔ (∀ v, v ∉ A) := by
 @[grind →] theorem mem_of_subset_of_mem : A ⊆ B → a ∈ A → a ∈ B :=
   Set.mem_of_subset_of_mem
 
-theorem subset_intro (h : ∀ x, x ∈ A → x ∈ B) : A ⊆ B := fun _ ha => h _ ha
+@[grind =] theorem subset_iff : A ⊆ B ↔ ∀ x, x ∈ A → x ∈ B := by
+  show A.toSet ⊆ B.toSet ↔ ∀ x, x ∈ A.toSet → x ∈ B.toSet
+  grind
 
 @[simp, grind .] theorem empty_subset : (∅ : VarSet) ⊆ A := by grind
 
