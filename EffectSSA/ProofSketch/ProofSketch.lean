@@ -660,16 +660,16 @@ variable {i : Inst} {is : InstSeq} {I : Pattern n}
 
 /-! vacuous -/
 
-@[grind =>] theorem Inst.eqnLemma_of_notMem_results (hx : x ∉ i.results) :
+@[grind =>] theorem Inst.eqnLemma_of_not_mem_results (hx : x ∉ i.results) :
     i.EqnLemma x ρ := by
   grind [EqnLemma]
 
-@[grind =>] theorem InstSeq.eqnLemma_of_notMem_results (hx : x ∉ is.results) :
+@[grind =>] theorem InstSeq.eqnLemma_of_not_mem_results (hx : x ∉ is.results) :
     is.EqnLemma x ρ := by
   intro i hi
   grind
 
-@[grind =>] theorem Pattern.eqnLemma_of_notMem_results (hx : x ∉ I.results) :
+@[grind =>] theorem Pattern.eqnLemma_of_not_mem_results (hx : x ∉ I.results) :
     I.EqnLemma x ρ := by
   intro is his
   grind
