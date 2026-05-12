@@ -191,27 +191,38 @@ end Lemmas
 def setOf (P : Var → Prop) : VarSet :=
   ofSet <| _root_.setOf P
 
+/-- Adapted from Mathlib Set notation -/
+scoped syntax (name := varSetBuilder) (priority := high) "{" term " | " term "}" : term
+scoped macro_rules (kind := varSetBuilder)
+  | `( { $x:ident | $p } ) => `(setOf fun $x => $p)
+
+section Lemmas
+
+@[simp, grind =] theorem mem_setOf : x ∈ setOf P ↔ P x := by simp [setOf]
+
+end Lemmas
+
 /-! ### Map -/
 
 /--
 Given a function `f : Var → VarSet` and a set `A : VarSet`, return the set
   `{ f a | a ∈ A }`
 -/
-def flatMap (f : Var → VarSet) (A : VarSet) : VarSet :=
-  ofSet <| ⋃ (a ∈ A), f a
+@[expose, grind] def flatMap (f : Var → VarSet) (A : VarSet) : VarSet :=
+  { x | ∃ y ∈ A, x ∈ f y }
 
 /--
 Given a function `f : α → VarSet` and a list `as : List α`, return the set
   `{ f a | a ∈ A }`
 -/
-def ofListMap [DecidableEq α] (f : α → VarSet) (as : List α) : VarSet :=
-  ofSet <| ⋃ (a ∈ as), (f a).toSet
+@[expose, grind] def ofListMap [DecidableEq α] (f : α → VarSet) (as : List α) : VarSet :=
+  { x | ∃ y ∈ as, x ∈ f y }
 
 section Lemmas
 variable {A : VarSet}
 
 @[simp, grind =] theorem mem_flatMap : x ∈ A.flatMap f ↔ ∃ y ∈ A, x ∈ f y := by
-  simp [flatMap]; rfl
+  simp [flatMap]
 
 @[simp, grind =] theorem mem_ofListMap {as : List α} [DecidableEq α] :
     x ∈ ofListMap f as ↔ ∃ y ∈ as, x ∈ f y := by
