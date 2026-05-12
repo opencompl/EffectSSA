@@ -298,6 +298,12 @@ variable (I : Pattern n)
 
 theorem mem_iff_get : i ∈ I ↔ ∃ k, ∃ (hk : k < n), i = I.get k hk := by rfl
 
+theorem mem_iff_get_hole : i ∈ I ↔ ∃ (h : Hole n), i = I.get h.val := by
+  simp only [mem_iff_get]
+  constructor
+  · rintro ⟨k, hk, h⟩; exact ⟨⟨k, hk⟩, h⟩
+  · grind
+
 @[grind .] theorem not_mem_nil : i ∉ nil := by grind [mem_iff_get]
 
 @[simp, grind =] theorem mem_concat : (i ∈ I.concat is) ↔ i ∈ I ∨ i = is := by
@@ -809,6 +815,13 @@ def HoleEnv n := Hole n → InstSeq
 namespace MultiContext
 variable (C : MultiContext n)
 
+/--
+An `n`-ary context `C` is considered *complete* when each possible named hole `h : Hole n`
+occurs at least once in `C`.
+-/
+abbrev Complete (C : MultiContext n) : Prop :=
+  ∀ (h : Hole n), (.inr h) ∈ C
+
 /-!
 ### Denotation
 -/
@@ -848,6 +861,7 @@ def plug (C : MultiContext n) (I : Pattern n) : InstSeq :=
     | .inr (h : Hole n) => I.get h.val
 
 section Lemmas
+variable {C}
 
 @[simp, grind =] theorem plug_nil : plug [] I = [] := rfl
 
@@ -864,8 +878,22 @@ theorem denote_plug : ⟦C.plug I⟧ = ⟦C⟧ (I.get ·.val) := by
   case nil => simp
   case cons i C ih => cases i <;> grind
 
-theorem results_subset_results_plug : I.results ⊆ (C.plug I).results := by
-  sorry
+@[grind =] theorem mem_plug_iff_of_complete (hC : C.Complete) (i : Inst) :
+    i ∈ (C.plug I) ↔ (.inl i) ∈ C ∨ ∃ (h : Hole n), i ∈ I.get h.val := by
+  simp only [plug, List.mem_flatMap]
+  constructor
+  · grind
+  · rintro (_ | ⟨h, _⟩ )
+    · grind
+    · refine ⟨.inr h, ?_⟩; grind
+
+/--
+If context `C` is complete, then the results of pattern `I` are a subset of the
+results of `C.plug I`.
+-/
+theorem results_subset_results_plug (hC : C.Complete) :
+    I.results ⊆ (C.plug I).results := by
+  grind [Pattern.mem_iff_get_hole]
 grind_pattern results_subset_results_plug => (C.plug I).results
 
 end Lemmas
@@ -917,11 +945,11 @@ section Contextual
 
 /--
 A pattern `I` is contextually refined by pattern `J`,
-when for any context `C` such that `C[I]` and `C[J]` are both wellformed and
-instruction sequences, `C[I]` is (denotationally) refined by `C[J]`.
+when for any complete context `C` such that `C[I]` and `C[J]` are both
+wellformed, `C[I]` is (denotationally) refined by `C[J]`.
 -/
 def Pattern.CtxRefine (I J : Pattern n) : Prop :=
-  ∀ (C : MultiContext n),
+  ∀ (C : MultiContext n), C.Complete →
     let CI := C.plug I;
     let CJ := C.plug J;
     CI.WellFormed → CJ.WellFormed →
@@ -929,8 +957,8 @@ def Pattern.CtxRefine (I J : Pattern n) : Prop :=
 
 /--
 Two patterns `I` and `J` are contextually equivalent,
-when for any context `C` such that `C[I]` and `C[J]` are both wellformed and
-instruction sequences, `C[I]` is (denotationally) equivalent to `C[J]`.
+when for any complete context `C` such that `C[I]` and `C[J]` are both
+wellformed, `C[I]` is (denotationally) equivalent to `C[J]`.
 -/
 def Pattern.CtxEquiv (I J : Pattern n) : Prop :=
   ∀ (C : MultiContext n),
@@ -954,7 +982,7 @@ theorem Pattern.ctxRefine_of_denoteRefine (I J : Pattern n)
     (hI : I.HasEqn) (hJ : J.HasEqn)
     (h_denoteRefine : I.DenRefine J) :
     I.CtxRefine J := by
-  intro C CI CJ hCI hCJ
+  intro C hC CI CJ hCI hCJ
   subst CI CJ
 
   suffices ∀ ρ η, ρ ⊆ η →
@@ -975,12 +1003,16 @@ theorem Pattern.ctxRefine_of_denoteRefine (I J : Pattern n)
   -/
   change InstSeq.WellFormedFor ∅ _ at hCI hCJ
   generalize hΓ : (∅ : VarSet) = Γ at hCI
-  have hΓ_closed  : ∀ x ∈ Γ, ∀ y ∈ I.usesAt x, y ∈ Γ := by grind
+  replace hCI     : (C.plug I).WellFormedFor Γ ∧ I.results - Γ ⊆ (C.plug I).results := by grind
+  have hΓ_closed  : (∀ x ∈ Γ, ∀ y ∈ I.usesAt x, y ∈ Γ) := by grind
   replace hΓ      : ∀ x ∈ Γ, I.EqnLemma x ρ := by grind
 
   generalize hΔ : (∅ : VarSet) = Δ at hCJ
+  replace hCJ    : (C.plug J).WellFormedFor Δ ∧ J.results - Δ ⊆ (C.plug J).results := by grind
   have hΔ_closed : ∀ x ∈ Δ, ∀ y ∈ J.usesAt x, y ∈ Δ := by grind
   replace hΔ     : ∀ x ∈ Δ, J.EqnLemma x η := by grind
+
+  clear hC
 
   induction C generalizing ρ η Γ Δ
   case nil => simpa
@@ -1005,20 +1037,29 @@ theorem Pattern.ctxRefine_of_denoteRefine (I J : Pattern n)
         · intro x (hx : x ∈ js.args)
           have : js.args ⊆ Δ := by grind
           grind
-    cases h_or_i <;> (
-      have : is.results.Disjoint I.results := by
-        have : (is.results ∪ Γ).Disjoint (plug C I).results := by grind
-        grind
-      specialize ih (is.results ∪ Γ) ?_ ?_ ?_
-      · grind
-      · grind
-      · intro x hx
-        have : x ∉ Γ → x ∉ I.results := by grind
-        grind
 
-      have : js.results.Disjoint J.results := by
-        have : (js.results ∪ Δ).Disjoint (plug C J).results := by grind
-        grind
+    have : I.results - Γ ⊆ (plug C I).results := by grind
+    have : is.results.Disjoint I.results := by
+      apply VarSet.disjoint_intro
+      have : (is.results ∪ Γ).Disjoint (plug C I).results := by grind
+      grind
+    specialize ih (is.results ∪ Γ) (by grind) (by grind) <| by
+      intro x hx
+      have : x ∉ Γ → x ∉ I.results := by grind
+      grind
+
+    stop
+
+    have : js.results.Disjoint J.results := by
+      apply VarSet.disjoint_intro
+      have : J.results - Δ ⊆ (plug C J).results := sorry
+      cases h_or_i <;> grind
+
+    cases h_or_i <;> (
+      -- have : js.results.Disjoint J.results := by
+      --   have : J.results - Δ ⊆ (plug C J).results := sorry
+      --   have : (js.results ∪ Δ).Disjoint (plug C J).results := by grind
+      --   grind
       apply ih (js.results ∪ Δ) ?_ ?_ ?_
       · grind
       · grind

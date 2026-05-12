@@ -173,6 +173,8 @@ grind_pattern inter_eq_of_disjoint => A.Disjoint B, A ∩ B
 theorem disjoint_iff_mem : A.Disjoint B ↔ (∀ x, ¬(x ∈ A ∧ x ∈ B)) := by
   simp [Disjoint, eq_empty_iff]
 
+@[grind .] theorem disjoint_intro : (∀ x, ¬(x ∈ A ∧ x ∈ B)) → A.Disjoint B := by grind
+
 @[grind →] theorem not_mem_of_disjoint (h : A.Disjoint B) {x} :
     x ∈ A → x ∉ B := by
   grind [disjoint_iff_mem]
