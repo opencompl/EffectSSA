@@ -863,6 +863,12 @@ occurs at least once in `C`.
 abbrev Complete (C : MultiContext n) : Prop :=
   ∀ (h : Hole n), (.inr h) ∈ C
 
+section Lemmas
+
+@[simp] theorem complete_cons_inst : Complete (.inl i :: C) ↔ Complete C := by grind
+
+end Lemmas
+
 /-!
 ### Denotation
 -/
