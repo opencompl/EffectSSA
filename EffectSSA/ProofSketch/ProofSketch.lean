@@ -956,12 +956,95 @@ grind_pattern results_subset_results_plug => (C.plug I).results
 
 /-! ### WellFormedness -/
 
-@[grind .] theorem wellFormedFor_pattern_of_plug_wellFormedFor (hC : C.Complete) :
+def wellFormedFor_pattern_of_plug_wellFormedFor {n} {C : MultiContext n} {I : Pattern n}
+    (hC : C.Complete) :
     (C.plug I).WellFormedFor Γ → ∃ Δ, I.WellFormedFor Δ := by
-  sorry
+  intro wf
+
+  induction C
+  case nil => sorry
+
+  case cons i C ih =>
+    -- PROBLEM: we captured completeness in the IH, but completeness is not preserved
+
+    sorry
+
+
+  -- fun wf => match n, C with
+  -- | n, [] => by
+  --     obtain rfl : n = 0 := by sorry
+  --     obtain rfl : I = .nil := by ext; grind
+  --     grind
+  -- | _, .inl i :: (C : MultiContext _) => by
+  --     have hC : Complete C := by simpa using hC
+  --     have wf : (C.plug I).WellFormedFor (i.results ∪ Γ) := by grind
+  --     apply wellFormedFor_pattern_of_plug_wellFormedFor hC wf
+  -- | 0, .inr h :: _ => by grind
+  -- | (n+1), .inr h :: (C : MultiContext _) => by
+  --     let is := I.get h.val
+  --     by_cases .inr h ∈ C
+  --     · have hC : Complete C := by grind
+  --       have wf : (C.plug I).WellFormedFor ((I.get h.val).results ∪ Γ) := by grind
+  --       apply wellFormedFor_pattern_of_plug_wellFormedFor hC wf
+  --     · let C' : MultiContext n := C.attach.map fun
+  --         | ⟨.inl i, _⟩ => .inl i
+  --         | ⟨.inr ⟨k, hk⟩, _⟩ =>
+  --             let k := if k < h.val then k else k - 1
+  --             .inr <| ⟨k, by grind⟩
+  --       let I' : Pattern n := I.eraseIdx h.val
+  --       have hC : Complete C' := by
+  --         intro h'
+  --         simp only [List.mem_map, List.mem_attach, true_and, Subtype.exists, C']
+  --         let k : Hole (n+1) := ⟨if h'.val ≥ h.val then h'.val + 1 else h'.val, by grind⟩
+  --         refine ⟨.inr k, ?_⟩
+  --         grind
+  --       have wf : (C'.plug I').WellFormedFor (is.results ∪ Γ) := by
+  --         sorry
+  --       have := wellFormedFor_pattern_of_plug_wellFormedFor hC wf
+  --       subst I'
+
+
+
 
 end Lemmas
 end Plug
+end MultiContext
+
+/-!
+## Residual
+-/
+
+
+namespace MultiContext
+
+/--
+We say that `Γ` is a residual of context `C` under pattern `I` when
+
+TODO: dedup with Invariant
+-/
+@[grind, grind cases]
+structure Residual (Γ : VarSet) (C : MultiContext n) (I : Pattern n) : Prop where
+  wf : (C.plug I).WellFormedFor Γ
+  residual : ∀ x ∈ I.results, x ∈ Γ ∨ (∃ h, .inr h ∈ C ∧ x ∈ (I.get h.val).results)
+
+section Lemmas
+
+theorem wellFormedFor_pattern_of_residual :
+    Residual Γ C I → ∃ Δ, I.WellFormedFor Δ := by
+  intro hr
+  induction C generalizing Γ
+  case nil =>
+
+  case cons i_or_h C ih =>
+    change MultiContext _ at C
+    cases i_or_h
+    case inl i => apply @ih (i.results ∪ Γ); grind
+    case inr h =>
+      let is := I.get h.val
+      apply @ih (is.results ∪ Γ)
+      grind
+
+end Lemmas
 end MultiContext
 
 /-!
@@ -1053,7 +1136,6 @@ induction, thus we keep the following invariant about `Γ`.
   /-- `C.plug I` is well-formed with free variables `Γ`. -/
   wf : (C.plug I).WellFormedFor Γ
   residual : ∀ x ∈ I.results, x ∈ Γ ∨ (∃ h, .inr h ∈ C ∧ x ∈ (I.get h.val).results)
-  -- residual : ∀ x ∈ I.results, x ∈ Γ ∨ x ∈ (C.plug I).results
   /--
   If `x ∈ Γ`, then any transitive dependencies of `x` (in `I`) are also
   part of `Γ`.
