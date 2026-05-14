@@ -79,6 +79,16 @@ attribute [local grind] results args argsResults argsResults.go
 @[grind →] public theorem results_subset_of_mem (h : i ∈ is) : i.results ⊆ is.results := by
   grind
 
+/--
+Recall that `is.args` contains only the *free* arguments of `is`, hence, for some `i ∈ is`,
+in general `i.args ⊈ is.args`. Instead, an argument `x ∈ i.args` might either be
+free (thus in `is.args`), or might refer to the result of an earlier instruction;
+the latter we over-approximate by the results of all instructions (`is.results`)
+-/
+@[grind →] public theorem args_subset_of_mem (h : i ∈ is) :
+    i.args ⊆ is.args ∪ is.results := by
+  induction is <;> grind
+
 end Lemmas
 
 /-! ### getDef / usesAt  -/

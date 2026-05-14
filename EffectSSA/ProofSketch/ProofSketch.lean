@@ -297,6 +297,7 @@ section Mem
 variable (I : Pattern n)
 
 theorem mem_iff_get : i ∈ I ↔ ∃ k, ∃ (hk : k < n), i = I.get k hk := by rfl
+grind_pattern mem_iff_get => i ∈ I, I.get _
 
 theorem mem_iff_get_hole : i ∈ I ↔ ∃ (h : Hole n), i = I.get h.val := by
   simp only [mem_iff_get]
@@ -613,6 +614,23 @@ theorem disjoint_results_of_wellFormed :
   intro h; induction h <;> simp_all
 grind_pattern disjoint_results_of_wellFormed => is.WellFormedFor Γ, is.results
 
+theorem eq_of_not_disjoint_results_of_mem_of_wellFormed {i j : Inst}
+    (hi : i ∈ is) (hj : j ∈ is) (wf : is.WellFormedFor Γ) :
+    ¬(i.results.Disjoint j.results) → i = j := by
+  intro hdj
+  obtain ⟨x, hxi, hxj⟩ : ∃ x, x ∈ i.results ∧ x ∈ j.results := by grind
+  induction hi generalizing Γ
+  case head => grind
+  case tail hd is hi ih =>
+    change i ∈ is at hi
+    have wf : WellFormedFor (hd.results ∪ Γ) is := by grind
+    apply ih ?_ wf
+    suffices j ≠ hd by grind
+    grind
+grind_pattern eq_of_not_disjoint_results_of_mem_of_wellFormed =>
+  i.results.Disjoint j.results, i ∈ is, j ∈ is, is.WellFormedFor Γ
+
+
 /-! arguments -/
 
 theorem args_subset_of_wellFormed :
@@ -622,6 +640,13 @@ grind_pattern args_subset_of_wellFormed => WellFormedFor Γ, is.args ⊆ Γ
 
 end Lemmas
 end InstSeq
+
+/-! ### Pattern -/
+namespace Pattern
+
+abbrev WellFormedFor (Γ : VarSet) (I : Pattern n) : Prop := I.collapse.WellFormedFor Γ
+
+end Pattern
 end WellFormed
 
 /-!
@@ -763,6 +788,11 @@ theorem InstSeq.eqnLemma_denote_self (hEqn : is.HasEqn) (hwf : is.WellFormedFor 
     is.EqnLemma x (⟦is⟧ ρ) := by
   induction is generalizing Γ ρ <;> grind
 
+@[grind .]
+theorem Pattern.eqnLemma_denote_self (hEqn : I.HasEqn) (hwf : I.WellFormedFor Γ) :
+    I.EqnLemma x (⟦I.get k hk⟧ ρ) := by
+  sorry
+
 end Lemmas
 
 section EqnLemmaUpTo
@@ -789,6 +819,17 @@ def Pattern.EqnLemmaUpTo (I : Pattern n) (h : Hole n) (ρ : SEnv) : Prop :=
   ∀ x ∈ (I.get h.val).args,
     ∀ y, y = x ∨ y ∈ (I.usesAt x) → I.EqnLemma y ρ
 
+section Lemmas
+open VarSet -- for set builder notation
+variable {I : Pattern n}
+
+theorem Pattern.usesAt_eq_of_mem_results (his : is ∈ I) (hx : x ∈ is.results)
+    (wf : ∃ Γ, I.WellFormedFor Γ) :
+    I.usesAt x = is.args ∪ { z | (∃ y ∈ is.args, z ∈ I.usesAt y) } := by
+  sorry
+grind_pattern Pattern.usesAt_eq_of_mem_results => I.usesAt x, x ∈ is.results
+
+end Lemmas
 end EqnLemmaUpTo
 end EqnLemma
 
@@ -878,14 +919,24 @@ theorem denote_plug : ⟦C.plug I⟧ = ⟦C⟧ (I.get ·.val) := by
   case nil => simp
   case cons i C ih => cases i <;> grind
 
-@[grind =] theorem mem_plug_iff_of_complete (hC : C.Complete) (i : Inst) :
-    i ∈ (C.plug I) ↔ (.inl i) ∈ C ∨ ∃ (h : Hole n), i ∈ I.get h.val := by
+@[grind =] theorem mem_plug_iff (i : Inst) :
+    i ∈ (C.plug I) ↔ (.inl i) ∈ C ∨ ∃ h, .inr h ∈ C ∧ i ∈ I.get h.val := by
   simp only [plug, List.mem_flatMap]
   constructor
   · grind
   · rintro (_ | ⟨h, _⟩ )
     · grind
     · refine ⟨.inr h, ?_⟩; grind
+
+@[grind =] theorem mem_plug_iff_of_complete (hC : C.Complete) (i : Inst) :
+    i ∈ (C.plug I) ↔ (.inl i) ∈ C ∨ ∃ (h : Hole n), i ∈ I.get h.val := by
+  grind
+
+@[grind =] theorem mem_results_plug_iff {I : Pattern n} :
+    x ∈ (C.plug I).results ↔
+      (∃ i, .inl i ∈ C ∧ x ∈ i.results) ∨ (∃ h, .inr h ∈ C ∧ x ∈ (I.get h.val).results) := by
+  grind
+
 
 /--
 If context `C` is complete, then the results of pattern `I` are a subset of the
@@ -895,6 +946,13 @@ theorem results_subset_results_plug (hC : C.Complete) :
     I.results ⊆ (C.plug I).results := by
   grind [Pattern.mem_iff_get_hole]
 grind_pattern results_subset_results_plug => (C.plug I).results
+
+
+/-! ### WellFormedness -/
+
+@[grind .] theorem wellFormedFor_pattern_of_plug_wellFormedFor (hC : C.Complete) :
+    (C.plug I).WellFormedFor Γ → ∃ Δ, I.WellFormedFor Δ := by
+  sorry
 
 end Lemmas
 end Plug
@@ -975,6 +1033,70 @@ end Contextual
 attribute [grind =] id_eq
 
 open MultiContext (plug)
+
+/--
+In the main proof, we will do induction on the context `C`, meaning that the
+context considered in the inductive step will be a sub-context of the original
+program context.
+
+Within the proof, we will keep track of a residual variable set `Γ`, which has
+all variables of the original program considered in previous steps of the
+induction, thus we keep the following invariant about `Γ`.
+-/
+@[grind] private structure Invariant (Γ : VarSet) (C : MultiContext n) (I : Pattern n) (ρ : SEnv) where
+  /-- `C.plug I` is well-formed with free variables `Γ`. -/
+  wf : (C.plug I).WellFormedFor Γ
+  residual : ∀ x ∈ I.results, x ∈ Γ ∨ (∃ h, .inr h ∈ C ∧ x ∈ (I.get h.val).results)
+  -- residual : ∀ x ∈ I.results, x ∈ Γ ∨ x ∈ (C.plug I).results
+  /--
+  If `x ∈ Γ`, then any transitive dependencies of `x` (in `I`) are also
+  part of `Γ`.
+  -/
+  closed : ∀ x ∈ Γ, ∀ y ∈ I.usesAt x, y ∈ Γ
+  eqn : ∀ x ∈ Γ, I.EqnLemma x ρ
+
+
+namespace Invariant
+variable {Γ} {C : MultiContext n} {I : Pattern n} {ρ : SEnv} {i : Inst}
+
+private theorem initial (wf : (C.plug I).WellFormed) (hC : C.Complete) : Invariant ∅ C I { } := by
+  grind [Pattern.mem_iff_get_hole]
+
+private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
+    Invariant Γ (.inl i :: C) I ρ → Invariant (i.results ∪ Γ) C I (⟦i⟧ ρ) := by
+  rintro ⟨wf, residual, closed, eqn⟩
+  have : ∀ x ∈ i.results, x ∉ I.results := by
+    intro x hx hxI
+    have : x ∉ (C.plug I).results := by grind
+    obtain ⟨h, hhC, hhx⟩ : ∃ h, Sum.inr h ∈ C ∧ x ∈ (I.get h.val).results := by
+      specialize residual x hxI; grind
+    grind
+  constructor
+  · grind
+  · grind
+  · grind
+  · grind
+
+private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
+    Invariant Γ (.inr h :: C) I ρ →
+    Invariant ((I.get h.val).results ∪ Γ) C I (⟦I.get h.val⟧ ρ) := by
+  rintro ⟨wf, residual, closed, eqn⟩
+  let is := I.get h.val
+  simp at wf
+  have : is.args ⊆ Γ := by grind
+  constructor
+  · grind
+  · grind
+  · intro x hx y hy
+    by_cases x ∈ Γ; grind
+    replace hx : x ∈ is.results := by grind
+    · rw [Pattern.usesAt_eq_of_mem_results (is:=is)] at hy
+      <;> grind
+  · grind
+
+
+end Invariant
+
 /--
 Proving denotational refinement is sufficient for showing contextual refinement.
 -/
@@ -986,96 +1108,47 @@ theorem Pattern.ctxRefine_of_denoteRefine (I J : Pattern n)
   subst CI CJ
 
   suffices ∀ ρ η, ρ ⊆ η →
+      ∀ {Γ}, Invariant Γ C I ρ →
+      ∀ {Δ}, Invariant Δ C J η →
       ⟦C⟧ (I.get ·.val) ρ ⊆ ⟦C⟧ (J.get ·.val) η by
-    simpa using this { } { } (by grind)
-  intro ρ η hρη
+    simp only [MultiContext.denote_plug]
+    apply @this { } { } ?_ ∅ ?_ ∅ ?_
+    <;> grind [Invariant.initial]
+  clear hC hCI hCJ
 
-  /-
-  We set up sets `Γ` and `Δ` to track the variables from the original `CI`
-  (resp `CJ`) which have since been evaluated and have been incorporate into the
-  environment `ρ` (resp, `η`).
-  Crucially, we maintain the invariants that if `x ∈ Γ`, then (a) all transitive
-  dependencies of the instruction that defines `x` in `I` (if any) are also
-  contained in `Γ`, and (b) the equation lemma of `x` w.r.t `I` is satisfied.
-
-  That is, throughout the induction, `Γ` (resp. `Δ`) represents all variables
-  that dominate the instruction considered in the current inductive step.
-  -/
-  change InstSeq.WellFormedFor ∅ _ at hCI hCJ
-  generalize hΓ : (∅ : VarSet) = Γ at hCI
-  replace hCI     : (C.plug I).WellFormedFor Γ ∧ I.results - Γ ⊆ (C.plug I).results := by grind
-  have hΓ_closed  : (∀ x ∈ Γ, ∀ y ∈ I.usesAt x, y ∈ Γ) := by grind
-  replace hΓ      : ∀ x ∈ Γ, I.EqnLemma x ρ := by grind
-
-  generalize hΔ : (∅ : VarSet) = Δ at hCJ
-  replace hCJ    : (C.plug J).WellFormedFor Δ ∧ J.results - Δ ⊆ (C.plug J).results := by grind
-  have hΔ_closed : ∀ x ∈ Δ, ∀ y ∈ J.usesAt x, y ∈ Δ := by grind
-  replace hΔ     : ∀ x ∈ Δ, J.EqnLemma x η := by grind
-
-  clear hC
-
-  induction C generalizing ρ η Γ Δ
+  induction C <;> (intro ρ η hρη Γ hCI Δ hCJ)
   case nil => simpa
   case cons h_or_i C ih =>
-    let is : InstSeq := match h_or_i with
-      | .inl i => [i]
-      | .inr h => I.get h.val
-    let js : InstSeq := match h_or_i with
-      | .inl i => [i]
-      | .inr h => J.get h.val
+    cases h_or_i with
+    | inl i =>
+        apply ih (⟦i⟧ ρ) (⟦i⟧ η)
+        · grind
+        · apply Invariant.of_invariant_cons_inst hI hCI
+        · apply Invariant.of_invariant_cons_inst hJ hCJ
+    | inr h =>
+        let is := I.get h.val
+        let js := J.get h.val
+        apply ih (⟦is⟧ ρ) (⟦js⟧ η)
+        · have : is ∈ I := by grind [Pattern.mem_iff_get]
+          have : js ∈ J := by grind [Pattern.mem_iff_get]
+          apply h_denoteRefine
+          · intro x (hx : x ∈ is.args)
+            have : is.args ⊆ Γ := by grind
+            grind
+          · intro x (hx : x ∈ js.args)
+            have : js.args ⊆ Δ := by grind
+            grind
+        · apply Invariant.of_invariant_cons_hole hI hCI
+        · apply Invariant.of_invariant_cons_hole hJ hCJ
 
-    specialize ih (⟦is⟧ ρ) (⟦js⟧ η) <| by
-      show ⟦is⟧ ρ ⊆ ⟦js⟧ η
-      cases h_or_i
-      · grind
-      · have : is ∈ I := by grind [Pattern.mem_iff_get]
-        have : js ∈ J := by grind [Pattern.mem_iff_get]
-        apply h_denoteRefine
-        · intro x (hx : x ∈ is.args)
-          have : is.args ⊆ Γ := by grind
-          grind
-        · intro x (hx : x ∈ js.args)
-          have : js.args ⊆ Δ := by grind
-          grind
-
-    have : I.results - Γ ⊆ (plug C I).results := by grind
-    have : is.results.Disjoint I.results := by
-      apply VarSet.disjoint_intro
-      have : (is.results ∪ Γ).Disjoint (plug C I).results := by grind
-      grind
-    specialize ih (is.results ∪ Γ) (by grind) (by grind) <| by
-      intro x hx
-      have : x ∉ Γ → x ∉ I.results := by grind
-      grind
-
-    stop
-
-    have : js.results.Disjoint J.results := by
-      apply VarSet.disjoint_intro
-      have : J.results - Δ ⊆ (plug C J).results := sorry
-      cases h_or_i <;> grind
-
-    cases h_or_i <;> (
-      -- have : js.results.Disjoint J.results := by
-      --   have : J.results - Δ ⊆ (plug C J).results := sorry
-      --   have : (js.results ∪ Δ).Disjoint (plug C J).results := by grind
-      --   grind
-      apply ih (js.results ∪ Δ) ?_ ?_ ?_
-      · grind
-      · grind
-      · intro x hx
-        have : x ∉ Δ → x ∉ J.results := by grind
-        grind
-    )
-
-/--
-Proving denotational equivalence is sufficient for showing contextual equivalence.
--/
-theorem Pattern.ctxEquiv_of_denoteEquiv (I J : Pattern n)
-    (hI : I.HasEqn) (hJ : J.HasEqn) (h_denoteEquiv : I.DenEquiv J) :
-    I.CtxEquiv J := by
-  intro C hC CI CJ ρ
-  have : I.DenRefine J ∧ J.DenRefine I := by grind [DenRefine, DenEquiv]
-  apply SEnv.refine_antisymm
-  <;> apply ctxRefine_of_denoteRefine
-  <;> grind
+-- /--
+-- Proving denotational equivalence is sufficient for showing contextual equivalence.
+-- -/
+-- theorem Pattern.ctxEquiv_of_denoteEquiv (I J : Pattern n)
+--     (hI : I.HasEqn) (hJ : J.HasEqn) (h_denoteEquiv : I.DenEquiv J) :
+--     I.CtxEquiv J := by
+--   intro C hC CI CJ ρ
+--   have : I.DenRefine J ∧ J.DenRefine I := by grind [DenRefine, DenEquiv]
+--   apply SEnv.refine_antisymm
+--   <;> apply ctxRefine_of_denoteRefine
+--   <;> grind
