@@ -307,6 +307,14 @@ theorem mem_iff_get_hole : i ∈ I ↔ ∃ (h : Hole n), i = I.get h.val := by
 
 @[grind .] theorem not_mem_nil : i ∉ nil := by grind [mem_iff_get]
 
+@[simp, grind =] theorem mem_cons : (js ∈ cons is I) ↔ js = is ∨ js ∈ I := by
+  simp only [mem_iff_get, get_cons]
+  constructor
+  · grind
+  · rintro (rfl | ⟨k, hk, rfl⟩)
+    · refine ⟨0, ?_⟩; grind
+    · refine ⟨k+1, ?_⟩; grind
+
 @[simp, grind =] theorem mem_concat : (i ∈ I.concat is) ↔ i ∈ I ∨ i = is := by
   simp only [mem_iff_get, get_concat]
   constructor
@@ -646,6 +654,32 @@ namespace Pattern
 
 abbrev WellFormedFor (Γ : VarSet) (I : Pattern n) : Prop := I.collapse.WellFormedFor Γ
 
+/--
+A pattern `I` is wellformed, if there is some context `Γ` that `I` is wellformed for.
+
+NOTE: `I.WellFormed` thus does not imply that `I` is closed, unlike `I.collapse.WellFormed`!
+TODO: find a better name, which does not overload InstSeq.WellFormed
+-/
+abbrev WellFormed (I : Pattern n) := ∃ Γ, I.WellFormedFor Γ
+
+section Lemmas
+variable {I : Pattern n}
+
+@[simp, grind =]
+theorem wellFormedFor_cons :
+    (cons is I).WellFormedFor Γ ↔ is.WellFormedFor Γ ∧ I.WellFormedFor (is.results ∪ Γ) := by
+  grind
+
+theorem results_disjoint_of_mem_of_wellFormed (hi : is ∈ I) (hj : js ∈ I) (wf : I.WellFormed) :
+    is ≠ js → is.results.Disjoint js.results := by
+  rcases wf with ⟨Γ, wf⟩
+  induction I generalizing Γ
+  case nil => grind
+  case cons ks I ih => simp at wf; grind
+-- grind_pattern results_disjoint_of_mem_of_wellFormed => is ∈ I, js ∈ I, I.WellFormed
+-- grind_pattern results_disjoint_of_mem_of_wellFormed => is ∈ I, js ∈ I, I.WellFormedFor _
+
+end Lemmas
 end Pattern
 end WellFormed
 
@@ -702,18 +736,34 @@ variable {i : Inst} {is : InstSeq} {I : Pattern n}
 /-! structural lemmas -/
 variable (I : Pattern n) (is : InstSeq)
 
-
-@[simp, grind =]
-theorem Pattern.eqnLemma_concat :
-    (I.concat is).EqnLemma x ρ ↔ I.EqnLemma x ρ ∧ is.EqnLemma x ρ := by
-  grind [EqnLemma]
-
 @[simp, grind .] theorem InstSeq.EqnLemma_nil : InstSeq.EqnLemma [] x ρ := by
   grind [InstSeq.EqnLemma]
 
 @[simp, grind =] theorem InstSeq.EqnLemma_cons {i : Inst} {is : InstSeq} :
     InstSeq.EqnLemma (i :: is) x ρ ↔ i.EqnLemma x ρ ∧ is.EqnLemma x ρ := by
   grind [InstSeq.EqnLemma]
+
+@[simp, grind =]
+theorem Pattern.eqnLemma_concat :
+    (I.concat is).EqnLemma x ρ ↔ I.EqnLemma x ρ ∧ is.EqnLemma x ρ := by
+  grind [EqnLemma]
+
+variable {I} in
+@[grind .]
+theorem Pattern.eqnLemma_of_mem_results_get (hx : x ∈ (I.get k hk).results)
+    (wf : ∃ Γ, I.WellFormedFor Γ):
+    I.EqnLemma x ρ ↔ (I.get k hk).EqnLemma x ρ := by
+  generalize hi : I.get k hk = is
+  constructor
+  · grind
+  · intro h js hj
+    by_cases is = js; grind
+    by_cases x ∈ is.results
+    · have : x ∉ js.results := by
+        have := results_disjoint_of_mem_of_wellFormed (by grind : is ∈ I) hj
+        grind
+      grind
+    · grind
 
 /-! stability -/
 
@@ -788,10 +838,6 @@ theorem InstSeq.eqnLemma_denote_self (hEqn : is.HasEqn) (hwf : is.WellFormedFor 
     is.EqnLemma x (⟦is⟧ ρ) := by
   induction is generalizing Γ ρ <;> grind
 
-@[grind .]
-theorem Pattern.eqnLemma_denote_self (hEqn : I.HasEqn) (hwf : I.WellFormedFor Γ) :
-    I.EqnLemma x (⟦I.get k hk⟧ ρ) := by
-  sorry
 
 end Lemmas
 
@@ -1031,6 +1077,7 @@ section Lemmas
 
 theorem wellFormedFor_pattern_of_residual :
     Residual Γ C I → ∃ Δ, I.WellFormedFor Δ := by
+  stop
   intro hr
   induction C generalizing Γ
   case nil =>
@@ -1172,6 +1219,7 @@ private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
   let is := I.get h.val
   simp at wf
   have : is.args ⊆ Γ := by grind
+  have : ∃ Γ, Pattern.WellFormedFor Γ I := by sorry
   constructor
   · grind
   · grind
@@ -1180,7 +1228,11 @@ private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
     replace hx : x ∈ is.results := by grind
     · rw [Pattern.usesAt_eq_of_mem_results (is:=is)] at hy
       <;> grind
-  · grind
+  · intro x hx
+    by_cases x ∈ Γ; grind
+    have hx : x ∈ is.results := by grind
+    · rw [Pattern.eqnLemma_of_mem_results_get hx]
+      <;> grind
 
 
 end Invariant
