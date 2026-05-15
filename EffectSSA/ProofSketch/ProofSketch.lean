@@ -1095,7 +1095,7 @@ def Pattern.CtxRefine (I J : Pattern n) : Prop :=
   ∀ (C : MultiContext n), C.Complete →
     let CI := C.plug I;
     let CJ := C.plug J;
-    CI.WellFormed → CJ.WellFormed →
+    CI.WellFormed ∅ → CJ.WellFormed ∅ →
       ⟦CI⟧ {} ⊆ ⟦CJ⟧ {}
 
 /--
@@ -1107,7 +1107,7 @@ def Pattern.CtxEquiv (I J : Pattern n) : Prop :=
   ∀ (C : MultiContext n),
     let CI := C.plug I;
     let CJ := C.plug J;
-    CI.WellFormed → CJ.WellFormed →
+    CI.WellFormed ∅ → CJ.WellFormed ∅ →
       ⟦CI⟧ {} = ⟦CJ⟧ {}
 
 end Contextual
@@ -1170,7 +1170,8 @@ Within the proof, we will keep track of a residual variable set `Γ`, which has
 all variables of the original program considered in previous steps of the
 induction, thus we keep the following invariant about `Γ`.
 -/
-@[grind] private structure Invariant (Γ : VarSet) (C : MultiContext n) (I : Pattern n) (ρ : SEnv)
+@[grind, grind cases] private structure Invariant
+    (Γ : VarSet) (C : MultiContext n) (I : Pattern n) (ρ : SEnv)
     extends Residual Γ C I where
   /--
   If `x ∈ Γ`, then any transitive dependencies of `x` (in `I`) are also
@@ -1287,11 +1288,13 @@ theorem Pattern.ctxRefine_of_denoteRefine (I J : Pattern n)
         · have : is ∈ I := by grind [Pattern.mem_iff_get]
           have : js ∈ J := by grind [Pattern.mem_iff_get]
           apply h_denoteRefine
-          · intro x (hx : x ∈ is.args)
+          · intro x (hx : x ∈ is.args) y hy
             have : is.args ⊆ Γ := by grind
+            rcases hCI
             grind
           · intro x (hx : x ∈ js.args)
             have : js.args ⊆ Δ := by grind
+            rcases hCJ
             grind
         · apply Invariant.of_invariant_cons_hole hI hCI
         · apply Invariant.of_invariant_cons_hole hJ hCJ
