@@ -151,4 +151,98 @@ public theorem usesAt_eq_of_not_mem_results {x : Var} (h : x ∉ is.results) :
 
 end Lemmas
 end Vars
+
+
+/-!
+## WellFormed
+In a well-formed SSA program, shadowing of variables is not allowed.
+-/
+public section WellFormed
+
+/--
+`is.NoShadowing` holds if no two instructions in `is` define the same
+resulting variable.
+-/
+inductive NoShadowing : InstSeq → Prop
+  | nil : NoShadowing []
+  | cons {i : Inst} {is : InstSeq} :
+      i.results.Disjoint is.results → NoShadowing is
+      → NoShadowing (i :: is)
+
+/--
+A sequence `is` is well-formed, w.r.t. free variables `Γ`, when
+
+* `is` has no shadowing of results,
+* the arguments of `is` are contained in `Γ`, and
+* `Γ` does not contain any result of `is`.
+-/
+@[grind, grind cases]
+structure WellFormed (Γ : VarSet) (is : InstSeq)  where
+  noShadowing : is.NoShadowing
+  args : is.args ⊆ Γ
+  results : is.results.Disjoint Γ
+
+section Lemmas
+variable {is js : InstSeq}
+
+/-! ### Grind Annotations -/
+section Grind
+
+grind_pattern WellFormed.noShadowing => is.WellFormed Γ
+grind_pattern WellFormed.results => is.WellFormed Γ, is.results
+grind_pattern WellFormed.args => is.WellFormed Γ, is.args
+
+end Grind
+
+/-! ### Basic Unfolding Lemmas -/
+section Basic
+attribute [local grind] WellFormed NoShadowing
+
+@[grind ., simp] theorem noShadowing_nil : NoShadowing [] := by grind
+@[grind =, simp] theorem noShadowing_cons :
+    NoShadowing (i :: is) ↔ i.results.Disjoint is.results ∧ NoShadowing is := by grind
+
+@[grind =, simp] theorem noShadowing_append :
+    NoShadowing (is ++ js) ↔ is.results.Disjoint js.results ∧ is.NoShadowing ∧ js.NoShadowing := by
+  induction is <;> grind
+
+@[grind ., simp] theorem wellFormed_nil : WellFormed Γ [] := by grind
+@[grind =, simp] theorem wellFormed_cons :
+    WellFormed Γ (i :: is) ↔
+      i.args ⊆ Γ ∧ Γ.Disjoint i.results ∧ is.WellFormed (i.results ∪ Γ) := by
+  constructor
+  · rintro ⟨⟩
+    and_intros
+    · grind
+    · grind
+    · constructor <;> grind
+  · rintro ⟨⟩; constructor <;> grind
+
+@[grind =, simp] theorem wellFormed_append :
+    WellFormed Γ (is ++ js) ↔
+      is.WellFormed Γ ∧ js.WellFormed (is.results ∪ Γ) := by
+  induction is generalizing Γ <;> grind
+
+end Basic
+
+/-! ### Results -/
+section ResultLemmas
+
+theorem eq_of_not_disjoint_results_of_noShadowing {i j : Inst}
+    (hi : i ∈ is) (hj : j ∈ is) (wf : is.NoShadowing) :
+    ¬(i.results.Disjoint j.results) → i = j := by
+  induction is <;> grind
+grind_pattern eq_of_not_disjoint_results_of_noShadowing =>
+  i.results.Disjoint j.results, i ∈ is, j ∈ is, is.NoShadowing
+  -- ^^ TODO: this pattern seems overly specific, maybe I could drop the Disjoint pattern
+
+end ResultLemmas
+
+/-! ### Sublist -/
+
+end Lemmas
+end WellFormed
+
+
+
 end InstSeq

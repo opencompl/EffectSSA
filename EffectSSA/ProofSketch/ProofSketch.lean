@@ -578,114 +578,110 @@ end RefineCongr
 
 end RefineLemmas
 
-/-!
-## WellFormedness
--/
-section WellFormed
-namespace InstSeq
-
-/--
-`is.WellFormedFor Γ` holds when `is` uses only variables from the set `Γ`,
-and correctly observes the SSA property (meaning, no variables are shadowed).
-
-Note that this does NOT check types.
--/
-inductive WellFormedFor : (Γ : VarSet) → InstSeq → Prop
-  | nil : WellFormedFor Γ []
-  | cons :
-    i.args ⊆ Γ  →  Γ.Disjoint i.results  →  WellFormedFor (i.results ∪ Γ) is  →
-    -------------------------------------------------------------------
-    WellFormedFor Γ (i :: is)
-
-/-- `is.WellFormed` holds when `is` is wellformed for the empty set of variables. -/
-abbrev WellFormed := WellFormedFor ∅
-
-section Lemmas
-variable {i : Inst} {is js : InstSeq}
-
-@[grind ., simp]
-theorem wellFormedFor_nil : WellFormedFor Γ [] := by
-  grind [WellFormedFor]
-
-@[grind =, simp]
-theorem wellFormedFor_cons :
-    WellFormedFor Γ (i :: is) ↔
-      i.args ⊆ Γ ∧ Γ.Disjoint i.results ∧ is.WellFormedFor (i.results ∪ Γ) := by
-  grind [WellFormedFor]
-
-@[grind =, simp]
-theorem wellFormedFor_append :
-    WellFormedFor Γ (is ++ js) ↔
-      is.WellFormedFor Γ ∧ js.WellFormedFor (is.results ∪ Γ) := by
-  induction is generalizing Γ <;> grind
-
-/-! results -/
-
-theorem disjoint_results_of_wellFormed :
-    is.WellFormedFor Γ → Γ.Disjoint is.results := by
-  intro h; induction h <;> simp_all
-grind_pattern disjoint_results_of_wellFormed => is.WellFormedFor Γ, is.results
-
-theorem eq_of_not_disjoint_results_of_mem_of_wellFormed {i j : Inst}
-    (hi : i ∈ is) (hj : j ∈ is) (wf : is.WellFormedFor Γ) :
-    ¬(i.results.Disjoint j.results) → i = j := by
-  intro hdj
-  obtain ⟨x, hxi, hxj⟩ : ∃ x, x ∈ i.results ∧ x ∈ j.results := by grind
-  induction hi generalizing Γ
-  case head => grind
-  case tail hd is hi ih =>
-    change i ∈ is at hi
-    have wf : WellFormedFor (hd.results ∪ Γ) is := by grind
-    apply ih ?_ wf
-    suffices j ≠ hd by grind
-    grind
-grind_pattern eq_of_not_disjoint_results_of_mem_of_wellFormed =>
-  i.results.Disjoint j.results, i ∈ is, j ∈ is, is.WellFormedFor Γ
-
-
-/-! arguments -/
-
-theorem args_subset_of_wellFormed :
-    is.WellFormedFor Γ → is.args ⊆ Γ := by
-  intro h; induction h <;> grind
-grind_pattern args_subset_of_wellFormed => WellFormedFor Γ, is.args ⊆ Γ
-
-end Lemmas
-end InstSeq
-
-/-! ### Pattern -/
+/-! ## Pattern WellFormedness -/
 namespace Pattern
 
-abbrev WellFormedFor (Γ : VarSet) (I : Pattern n) : Prop := I.collapse.WellFormedFor Γ
+@[inherit_doc InstSeq.NoShadowing]
+abbrev NoShadowing (I : Pattern n) := I.collapse.NoShadowing
 
-/--
-A pattern `I` is wellformed, if there is some context `Γ` that `I` is wellformed for.
-
-NOTE: `I.WellFormed` thus does not imply that `I` is closed, unlike `I.collapse.WellFormed`!
-TODO: find a better name, which does not overload InstSeq.WellFormed
--/
-abbrev WellFormed (I : Pattern n) := ∃ Γ, I.WellFormedFor Γ
+@[inherit_doc InstSeq.WellFormed]
+abbrev WellFormed (Γ : VarSet) (I : Pattern n) : Prop := I.collapse.WellFormed Γ
 
 section Lemmas
 variable {I : Pattern n}
 
 @[simp, grind =]
-theorem wellFormedFor_cons :
-    (cons is I).WellFormedFor Γ ↔ is.WellFormedFor Γ ∧ I.WellFormedFor (is.results ∪ Γ) := by
+theorem wellFormed_cons :
+    (cons is I).WellFormed Γ ↔ is.WellFormed Γ ∧ I.WellFormed (is.results ∪ Γ) := by
   grind
 
-theorem results_disjoint_of_mem_of_wellFormed (hi : is ∈ I) (hj : js ∈ I) (wf : I.WellFormed) :
+theorem wellFormed_get_of_wellFormed :
+    I.WellFormed Γ → ∃ Δ, (I.get k hk).WellFormed Δ := by
+  induction I generalizing Γ k
+  · grind
+  · cases k <;> grind
+grind_pattern wellFormed_get_of_wellFormed => I.WellFormed Γ, (I.get k hk).WellFormed _
+
+/-! results -/
+
+theorem results_disjoint_of_mem_of_noShadowing (hi : is ∈ I) (hj : js ∈ I) (wf : I.NoShadowing) :
     is ≠ js → is.results.Disjoint js.results := by
-  rcases wf with ⟨Γ, wf⟩
-  induction I generalizing Γ
-  case nil => grind
-  case cons ks I ih => simp at wf; grind
+  induction I <;> grind
 -- grind_pattern results_disjoint_of_mem_of_wellFormed => is ∈ I, js ∈ I, I.WellFormed
--- grind_pattern results_disjoint_of_mem_of_wellFormed => is ∈ I, js ∈ I, I.WellFormedFor _
+-- grind_pattern results_disjoint_of_mem_of_wellFormed => is ∈ I, js ∈ I, I.WellFormed _
 
 end Lemmas
 end Pattern
-end WellFormed
+
+/-!
+## Domination
+-/
+section Domination
+namespace InstSeq
+
+/--
+We say that instruction `i` dominates instruction `j` in sequence `is`,
+generally written as `i |>is.IDominates<| j`, when:
+
+* `i ∈ is`
+* `j ∈ is`, and
+* `i` occurs *before* `j` in `is`
+-/
+inductive IDominates (i j : Inst) : (is : InstSeq) → Prop where
+  | head : j ∈ is → IDominates i j (i :: is)
+  | cons : k ≠ i → k ≠ j → IDominates i j is → IDominates i j (k :: is)
+
+/--
+We say that variable `x` dominates instruction `j` in sequence `is`,
+generally written as `x |>is.VDominates<| j`, when there is some instruction
+`i` such that `x ∈ i.results` and `i` dominates `j`
+-/
+abbrev VDominates (x : Var) (j : Inst) (is : InstSeq) : Prop :=
+  ∃ i, x ∈ i.results ∧ (i |>is.IDominates<| j)
+
+section Lemmas
+
+@[simp, grind .] theorem iDominates_nil : ¬(IDominates i j []) := by grind [cases IDominates]
+
+@[grind =]
+theorem iDominates_cons : IDominates i j (k :: is) ↔
+    if k = i then
+      j ∈ is
+    else
+      k ≠ j ∧ IDominates i j is := by
+  grind [IDominates, cases IDominates]
+
+@[grind →] theorem mem_of_iDominates_left : IDominates i j is → i ∈ is := by
+  intro h; induction h <;> grind
+
+@[grind →] theorem mem_of_iDominates_right : IDominates i j is → j ∈ is := by
+  intro h; induction h <;> grind
+
+@[simp] theorem vDominates_cons : VDominates x j (i :: is) ↔ (x ∈ i.results ∧ j ∈ is) ∨ (i ≠ j ∧ VDominates x j is) := by
+  grind
+
+
+
+
+/-! WellFormedness -/
+
+/--
+A sequence `is` is well-formed for `Γ`, when for any instruction `i ∈ is`:
+*) `i` is dominated by all non-free arguments, and
+*) `i` is *not* dominated by any of it's result, nor are it's result considered free
+-/
+theorem wellFormed_iff_dominates (is : InstSeq) :
+  is.WellFormed Γ ↔
+    ∀ i ∈ is,
+      (∀ x ∈ i.args, x ∉ Γ → (x |>is.VDominates<| i))
+      ∧ (∀ y ∈ i.results, y ∉ Γ ∧ ¬(y |>is.VDominates<| i)) := by
+  induction is generalizing Γ
+  · grind
+  · simp; grind
+
+end Lemmas
+end InstSeq
+end Domination
 
 /-!
 ## Equation Lemma
@@ -755,7 +751,7 @@ theorem Pattern.eqnLemma_concat :
 variable {I} in
 @[grind .]
 theorem Pattern.eqnLemma_of_mem_results_get (hx : x ∈ (I.get k hk).results)
-    (wf : ∃ Γ, I.WellFormedFor Γ):
+    (wf : I.NoShadowing):
     I.EqnLemma x ρ ↔ (I.get k hk).EqnLemma x ρ := by
   generalize hi : I.get k hk = is
   constructor
@@ -764,7 +760,7 @@ theorem Pattern.eqnLemma_of_mem_results_get (hx : x ∈ (I.get k hk).results)
     by_cases is = js; grind
     by_cases x ∈ is.results
     · have : x ∉ js.results := by
-        have := results_disjoint_of_mem_of_wellFormed (by grind : is ∈ I) hj
+        have := results_disjoint_of_mem_of_noShadowing (by grind : is ∈ I) hj
         grind
       grind
     · grind
@@ -822,9 +818,9 @@ theorem Inst.eqnLemma_of_eqnLemma_instSeq {i : Inst} (hi : i.HasEqn) :
   grind [EqnLemma]
 
 @[grind .] theorem InstSeq.regs_denote_of_eqnLemma {is : InstSeq} (hEqn : is.HasEqn)
-    (hwf : is.WellFormedFor Γ) (h : is.EqnLemma x ρ) :
+    (hwf : is.NoShadowing) (h : is.EqnLemma x ρ) :
     (⟦is⟧ ρ).regs x = ρ.regs x := by
-  induction is generalizing Γ ρ
+  induction is generalizing ρ
   · rfl
   · grind
 
@@ -837,11 +833,12 @@ If `is.HasEqn`, then evaluating `is` is guaranteed to yield an environment which
 satisfies its own equation lemma at any variable.
 -/
 @[grind =>]
-theorem InstSeq.eqnLemma_denote_self (hEqn : is.HasEqn) (hwf : is.WellFormedFor Γ)
+theorem InstSeq.eqnLemma_denote_self (hEqn : is.HasEqn) (hwf : is.NoShadowing)
     (ρ) :
     is.EqnLemma x (⟦is⟧ ρ) := by
-  induction is generalizing Γ ρ <;> grind
-
+  induction is generalizing ρ
+  · simp
+  · simp; grind
 
 end Lemmas
 
@@ -908,9 +905,7 @@ section Lemmas
 
 end Lemmas
 
-/-!
-### Denotation
--/
+/-! ### Denotation -/
 section Denote
 
 instance : Denote (MultiContext n) (HoleEnv n → SEnv → SEnv) where
@@ -935,9 +930,7 @@ theorem denote_nil : ⟦([] : MultiContext n)⟧ η = id := rfl
 
 end Denote
 
-/-!
-### Plugging
--/
+/-! ### Plugging -/
 section Plug
 
 def plug (C : MultiContext n) (I : Pattern n) : InstSeq :=
@@ -973,15 +966,16 @@ theorem denote_plug : ⟦C.plug I⟧ = ⟦C⟧ (I.get ·.val) := by
     · grind
     · refine ⟨.inr h, ?_⟩; grind
 
-@[grind =] theorem mem_plug_iff_of_complete (hC : C.Complete) (i : Inst) :
-    i ∈ (C.plug I) ↔ (.inl i) ∈ C ∨ ∃ (h : Hole n), i ∈ I.get h.val := by
-  grind
-
 @[grind =] theorem mem_results_plug_iff {I : Pattern n} :
     x ∈ (C.plug I).results ↔
       (∃ i, .inl i ∈ C ∧ x ∈ i.results) ∨ (∃ h, .inr h ∈ C ∧ x ∈ (I.get h.val).results) := by
   grind
 
+/-! #### Completeness -/
+
+@[grind =] theorem mem_plug_iff_of_complete (hC : C.Complete) (i : Inst) :
+    i ∈ (C.plug I) ↔ (.inl i) ∈ C ∨ ∃ (h : Hole n), i ∈ I.get h.val := by
+  grind
 
 /--
 If context `C` is complete, then the results of pattern `I` are a subset of the
@@ -992,14 +986,14 @@ theorem results_subset_results_plug (hC : C.Complete) :
   grind [Pattern.mem_iff_get_hole]
 grind_pattern results_subset_results_plug => (C.plug I).results
 
-
 /-! ### WellFormedness -/
 
-def wellFormedFor_pattern_of_plug_wellFormedFor {n} {C : MultiContext n} {I : Pattern n}
+open List in
+def noShadowing_pattern_of_plug_noShadowing {n} {C : MultiContext n} {I : Pattern n}
     (hC : C.Complete) :
-    (C.plug I).WellFormedFor Γ → ∃ Δ, I.WellFormedFor Δ := by
+    (C.plug I).NoShadowing → I.NoShadowing := by
+  stop
   intro wf
-
   induction C
   case nil => sorry
 
@@ -1016,15 +1010,15 @@ def wellFormedFor_pattern_of_plug_wellFormedFor {n} {C : MultiContext n} {I : Pa
   --     grind
   -- | _, .inl i :: (C : MultiContext _) => by
   --     have hC : Complete C := by simpa using hC
-  --     have wf : (C.plug I).WellFormedFor (i.results ∪ Γ) := by grind
-  --     apply wellFormedFor_pattern_of_plug_wellFormedFor hC wf
+  --     have wf : (C.plug I).WellFormed (i.results ∪ Γ) := by grind
+  --     apply wellFormed_pattern_of_plug_wellFormed hC wf
   -- | 0, .inr h :: _ => by grind
   -- | (n+1), .inr h :: (C : MultiContext _) => by
   --     let is := I.get h.val
   --     by_cases .inr h ∈ C
   --     · have hC : Complete C := by grind
-  --       have wf : (C.plug I).WellFormedFor ((I.get h.val).results ∪ Γ) := by grind
-  --       apply wellFormedFor_pattern_of_plug_wellFormedFor hC wf
+  --       have wf : (C.plug I).WellFormed ((I.get h.val).results ∪ Γ) := by grind
+  --       apply wellFormed_pattern_of_plug_wellFormed hC wf
   --     · let C' : MultiContext n := C.attach.map fun
   --         | ⟨.inl i, _⟩ => .inl i
   --         | ⟨.inr ⟨k, hk⟩, _⟩ =>
@@ -1037,9 +1031,9 @@ def wellFormedFor_pattern_of_plug_wellFormedFor {n} {C : MultiContext n} {I : Pa
   --         let k : Hole (n+1) := ⟨if h'.val ≥ h.val then h'.val + 1 else h'.val, by grind⟩
   --         refine ⟨.inr k, ?_⟩
   --         grind
-  --       have wf : (C'.plug I').WellFormedFor (is.results ∪ Γ) := by
+  --       have wf : (C'.plug I').WellFormed (is.results ∪ Γ) := by
   --         sorry
-  --       have := wellFormedFor_pattern_of_plug_wellFormedFor hC wf
+  --       have := wellFormed_pattern_of_plug_wellFormed hC wf
   --       subst I'
 
 
@@ -1133,44 +1127,29 @@ TODO: dedup with Invariant
 @[grind, grind cases]
 private structure Residual (Γ : VarSet) (C : MultiContext n) (I : Pattern n) where
   /-- `C.plug I` is well-formed with free variables `Γ`. -/
-  wf : (C.plug I).WellFormedFor Γ
-  residual : ∀ x ∈ I.results, x ∈ Γ ∨ (∃ h, .inr h ∈ C ∧ x ∈ (I.get h.val).results)
+  wf : (C.plug I).WellFormed Γ
+  residual : ∀ x ∈ I.results, x ∉ Γ → (∃ h, .inr h ∈ C ∧ x ∈ (I.get h.val).results)
 
 namespace Residual
 
 /-! invariants -/
 
-private theorem initial (wf : (C.plug I).WellFormed) (hC : C.Complete) : Residual ∅ C I := by
+private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Residual ∅ C I := by
   grind [Pattern.mem_iff_get_hole]
 
-private theorem of_cons_inst :
+@[grind →] private theorem of_cons_inst :
     Residual Γ (.inl i :: C) I → Residual (i.results ∪ Γ) C I := by
-  grind
+  rintro ⟨wf, residual⟩; constructor
+  · grind
+  · intro x; have := residual x; grind
 
-private theorem of_cons_hole  :
+@[grind →] private theorem of_cons_hole  :
     Residual Γ (.inr h :: C) I → Residual ((I.get h.val).results ∪ Γ) C I := by
-  grind
+  rintro ⟨wf, residual⟩; constructor
+  · grind
+  · intro x; have := residual x; grind
 
-/-! well-formedness -/
-
-private theorem wellFormedFor_pattern :
-    Residual Γ C I → ∃ Δ, I.WellFormedFor Δ := by
-  stop
-
-  intro hr
-  induction C generalizing Γ
-  case nil =>
-
-
-  case cons i_or_h C ih =>
-    change MultiContext _ at C
-    cases i_or_h
-    case inl i => apply @ih (i.results ∪ Γ); grind
-    case inr h =>
-      let is := I.get h.val
-      apply @ih (is.results ∪ Γ)
-      grind
-
+end Residual
 end Residual
 
 /-!
@@ -1204,7 +1183,7 @@ induction, thus we keep the following invariant about `Γ`.
 namespace Invariant
 variable {Γ} {C : MultiContext n} {I : Pattern n} {ρ : SEnv} {i : Inst}
 
-private theorem initial (wf : (C.plug I).WellFormed) (hC : C.Complete) : Invariant ∅ C I { } := by
+private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Invariant ∅ C I { } := by
   grind [Pattern.mem_iff_get_hole]
 
 private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
@@ -1214,7 +1193,9 @@ private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
     intro x hx hxI
     have : x ∉ (C.plug I).results := by grind
     obtain ⟨h, hhC, hhx⟩ : ∃ h, Sum.inr h ∈ C ∧ x ∈ (I.get h.val).results := by
-      have := residual.residual x hxI; grind
+      have : x ∉ Γ := by grind
+      have := residual.residual x hxI;
+      grind
     grind
   constructor
   · grind
@@ -1224,9 +1205,9 @@ private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
 private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
     Invariant Γ (.inr h :: C) I ρ →
     Invariant ((I.get h.val).results ∪ Γ) C I (⟦I.get h.val⟧ ρ) := by
-  rintro ⟨⟨wf, residual⟩, closed, eqn⟩
+  rintro ⟨residual, closed, eqn⟩
   generalize his : I.get h.val = is at *
-  have wfI : ∃ Δ, I.WellFormedFor Δ := by sorry
+  have nsI : I.NoShadowing := by sorry
   constructor
   · grind
   · have hΔ : is.args ⊆ Γ := by grind
@@ -1251,16 +1232,19 @@ private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
             obtain rfl : i = j := by
               have hi : i ∈ I.collapse := by grind
               have hj : j ∈ I.collapse := by grind
-              apply InstSeq.eq_of_not_disjoint_results_of_mem_of_wellFormed hi hj
-              · apply wfI.choose_spec
-              · grind
-            grind
+              apply InstSeq.eq_of_not_disjoint_results_of_noShadowing hi hj nsI
+              grind
+            rcases hy with ( (hy : y ∈ i.args) | ⟨z, hzi, hyz⟩ )
+            · have : y ∈ Δ := by grind
+              grind
+            · grind
         grind
   · intro x hx
     by_cases x ∈ Γ; grind
     have hx : x ∈ is.results := by grind
-    · subst his
-      rw [Pattern.eqnLemma_of_mem_results_get hx wfI]
+    · obtain ⟨Δ, wf⟩ : ∃ Δ, is.WellFormed Δ := by grind
+      subst his
+      rw [Pattern.eqnLemma_of_mem_results_get hx nsI]
       apply InstSeq.eqnLemma_denote_self _
       · grind
       · grind
