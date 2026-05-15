@@ -7,6 +7,7 @@ public import EffectSSA.ProofSketch.VarSet
 # Instruction Sequence
 -/
 namespace EffectSSA.ProofSketch
+open VarSet
 
 @[expose] public abbrev InstSeq := List Inst
 
@@ -106,6 +107,12 @@ public noncomputable def getDef? (v : Var) : (is : InstSeq) → Option { i // i 
       else
         (getDef? v is).map (fun ⟨i, hi⟩ => ⟨i, by grind⟩)
 
+/-- `is.UsesAt y x` is true when `y` is a (transitive) dependency of `x`. -/
+@[grind cases]
+public inductive UsesAt (is : InstSeq) (y : Var) : Var → Prop
+  | arg  : i ∈ is → x ∈ i.results → y ∈ i.args → UsesAt is y x
+  | trans : i ∈ is → x ∈ i.results → z ∈ i.args → UsesAt is y z → UsesAt is y x
+
 /--
 `is.usesAt v` is the set of all transitive arguments that are used to compute
 variable `v`.
@@ -116,39 +123,31 @@ union of `i.args` with the recursive set `{ is.usesAt y | y ∈ i.args }`.
 If no instruction of `is` defines the variable `v` as a result,
 then `is.usesAt v` is the empty set.
 -/
-public noncomputable def usesAt (v : Var) : InstSeq → VarSet
-  | [] => ∅
-  | i :: (is : InstSeq) =>
-      open Classical in
-      if v ∈ i.results then
-        i.args ∪ i.args.flatMap (is.usesAt ·)
-      else
-        is.usesAt v
+public def usesAt (x : Var) (is : InstSeq) : VarSet :=
+  { y | is.UsesAt y x }
 
 section Lemmas
 variable {is : InstSeq}
+
+@[simp, grind =] public theorem mem_usesAt : y ∈ is.usesAt x ↔ is.UsesAt y x := by
+  simp [usesAt]
+
+public theorem mem_usesAt' :
+    y ∈ is.usesAt x ↔ ∃ i ∈ is, x ∈ i.results ∧ (y ∈ i.args ∨ ∃ z ∈ i.args, y ∈ is.usesAt z) := by
+  constructor
+  · grind
+  · simp only [mem_usesAt, forall_exists_index, and_imp]
+    rintro i hi hxi ( hy | ⟨z, hzi, hyz⟩)
+    · apply UsesAt.arg hi hxi hy
+    · apply UsesAt.trans hi hxi hzi hyz
+
+@[simp, grind .] public theorem not_usesAt_nil : ¬(UsesAt [] y x) := by grind
+@[simp, grind =] public theorem usesAt_nil_eq : usesAt x [] = ∅ := by grind
 
 @[simp, grind =>]
 public theorem usesAt_eq_of_not_mem_results {x : Var} (h : x ∉ is.results) :
     is.usesAt x = ∅ := by
   induction is <;> grind [usesAt]
-
-@[grind =]
-public theorem mem_usesAt :
-    y ∈ is.usesAt x ↔ ∃ i ∈ is, x ∈ i.results ∧
-      (y ∈ i.args ∨ ∃ z ∈ i.args, y ∈ is.usesAt z) := by
-  induction is generalizing y
-  · grind [usesAt]
-  case cons i is ih =>
-    stop
-    by_cases y ∈ i.results
-    · have : usesAt x (i :: is) = i.args ∪ i.args.flatMap (usesAt · is) := by
-        sorry
-      simp_all
-      grind
-    split
-    · grind
-    · simp_all
 
 end Lemmas
 end Vars

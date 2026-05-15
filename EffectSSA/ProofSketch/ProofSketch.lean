@@ -291,6 +291,10 @@ theorem collapse_append : (xs ++ ys).collapse = xs.collapse ++ ys.collapse := by
   cases x
   rfl
 
+@[grind .] theorem get_subset_collapse {I : Pattern n} : I.get k hk ⊆ I.collapse := by
+  induction I generalizing k
+  · grind
+  · cases k <;> grind
 
 /-! ### Membership -/
 section Mem
@@ -865,17 +869,6 @@ def Pattern.EqnLemmaUpTo (I : Pattern n) (h : Hole n) (ρ : SEnv) : Prop :=
   ∀ x ∈ (I.get h.val).args,
     ∀ y, y = x ∨ y ∈ (I.usesAt x) → I.EqnLemma y ρ
 
-section Lemmas
-open VarSet -- for set builder notation
-variable {I : Pattern n}
-
-theorem Pattern.usesAt_eq_of_mem_results (his : is ∈ I) (hx : x ∈ is.results)
-    (wf : ∃ Γ, I.WellFormedFor Γ) :
-    I.usesAt x = is.args ∪ { z | (∃ y ∈ is.args, z ∈ I.usesAt y) } := by
-  sorry
-grind_pattern Pattern.usesAt_eq_of_mem_results => I.usesAt x, x ∈ is.results
-
-end Lemmas
 end EqnLemmaUpTo
 end EqnLemma
 
@@ -1057,44 +1050,6 @@ end Plug
 end MultiContext
 
 /-!
-## Residual
--/
-
-
-namespace MultiContext
-
-/--
-We say that `Γ` is a residual of context `C` under pattern `I` when
-
-TODO: dedup with Invariant
--/
-@[grind, grind cases]
-structure Residual (Γ : VarSet) (C : MultiContext n) (I : Pattern n) : Prop where
-  wf : (C.plug I).WellFormedFor Γ
-  residual : ∀ x ∈ I.results, x ∈ Γ ∨ (∃ h, .inr h ∈ C ∧ x ∈ (I.get h.val).results)
-
-section Lemmas
-
-theorem wellFormedFor_pattern_of_residual :
-    Residual Γ C I → ∃ Δ, I.WellFormedFor Δ := by
-  stop
-  intro hr
-  induction C generalizing Γ
-  case nil =>
-
-  case cons i_or_h C ih =>
-    change MultiContext _ at C
-    cases i_or_h
-    case inl i => apply @ih (i.results ∪ Γ); grind
-    case inr h =>
-      let is := I.get h.val
-      apply @ih (is.results ∪ Γ)
-      grind
-
-end Lemmas
-end MultiContext
-
-/-!
 ## Denotational Refinement & Equivalence
 -/
 section Denotational
@@ -1163,12 +1118,69 @@ def Pattern.CtxEquiv (I J : Pattern n) : Prop :=
 
 end Contextual
 
+
+
+/-!
+## Residual
+-/
+section Residual
+
+/--
+We say that `Γ` is a residual of context `C` under pattern `I` when
+
+TODO: dedup with Invariant
+-/
+@[grind, grind cases]
+private structure Residual (Γ : VarSet) (C : MultiContext n) (I : Pattern n) where
+  /-- `C.plug I` is well-formed with free variables `Γ`. -/
+  wf : (C.plug I).WellFormedFor Γ
+  residual : ∀ x ∈ I.results, x ∈ Γ ∨ (∃ h, .inr h ∈ C ∧ x ∈ (I.get h.val).results)
+
+namespace Residual
+
+/-! invariants -/
+
+private theorem initial (wf : (C.plug I).WellFormed) (hC : C.Complete) : Residual ∅ C I := by
+  grind [Pattern.mem_iff_get_hole]
+
+private theorem of_cons_inst :
+    Residual Γ (.inl i :: C) I → Residual (i.results ∪ Γ) C I := by
+  grind
+
+private theorem of_cons_hole  :
+    Residual Γ (.inr h :: C) I → Residual ((I.get h.val).results ∪ Γ) C I := by
+  grind
+
+/-! well-formedness -/
+
+private theorem wellFormedFor_pattern :
+    Residual Γ C I → ∃ Δ, I.WellFormedFor Δ := by
+  stop
+
+  intro hr
+  induction C generalizing Γ
+  case nil =>
+
+
+  case cons i_or_h C ih =>
+    change MultiContext _ at C
+    cases i_or_h
+    case inl i => apply @ih (i.results ∪ Γ); grind
+    case inr h =>
+      let is := I.get h.val
+      apply @ih (is.results ∪ Γ)
+      grind
+
+end Residual
+
 /-!
 ## Main Result for straight-line programs
 -/
 attribute [grind =] id_eq
 
 open MultiContext (plug)
+
+/-! ### Invariant -/
 
 /--
 In the main proof, we will do induction on the context `C`, meaning that the
@@ -1179,10 +1191,8 @@ Within the proof, we will keep track of a residual variable set `Γ`, which has
 all variables of the original program considered in previous steps of the
 induction, thus we keep the following invariant about `Γ`.
 -/
-@[grind] private structure Invariant (Γ : VarSet) (C : MultiContext n) (I : Pattern n) (ρ : SEnv) where
-  /-- `C.plug I` is well-formed with free variables `Γ`. -/
-  wf : (C.plug I).WellFormedFor Γ
-  residual : ∀ x ∈ I.results, x ∈ Γ ∨ (∃ h, .inr h ∈ C ∧ x ∈ (I.get h.val).results)
+@[grind] private structure Invariant (Γ : VarSet) (C : MultiContext n) (I : Pattern n) (ρ : SEnv)
+    extends Residual Γ C I where
   /--
   If `x ∈ Γ`, then any transitive dependencies of `x` (in `I`) are also
   part of `Γ`.
@@ -1199,15 +1209,14 @@ private theorem initial (wf : (C.plug I).WellFormed) (hC : C.Complete) : Invaria
 
 private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
     Invariant Γ (.inl i :: C) I ρ → Invariant (i.results ∪ Γ) C I (⟦i⟧ ρ) := by
-  rintro ⟨wf, residual, closed, eqn⟩
+  rintro ⟨residual, closed, eqn⟩
   have : ∀ x ∈ i.results, x ∉ I.results := by
     intro x hx hxI
     have : x ∉ (C.plug I).results := by grind
     obtain ⟨h, hhC, hhx⟩ : ∃ h, Sum.inr h ∈ C ∧ x ∈ (I.get h.val).results := by
-      specialize residual x hxI; grind
+      have := residual.residual x hxI; grind
     grind
   constructor
-  · grind
   · grind
   · grind
   · grind
@@ -1215,24 +1224,46 @@ private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
 private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
     Invariant Γ (.inr h :: C) I ρ →
     Invariant ((I.get h.val).results ∪ Γ) C I (⟦I.get h.val⟧ ρ) := by
-  rintro ⟨wf, residual, closed, eqn⟩
-  let is := I.get h.val
-  simp at wf
-  have : is.args ⊆ Γ := by grind
-  have : ∃ Γ, Pattern.WellFormedFor Γ I := by sorry
+  rintro ⟨⟨wf, residual⟩, closed, eqn⟩
+  generalize his : I.get h.val = is at *
+  have wfI : ∃ Δ, I.WellFormedFor Δ := by sorry
   constructor
   · grind
-  · grind
-  · intro x hx y hy
-    by_cases x ∈ Γ; grind
-    replace hx : x ∈ is.results := by grind
-    · rw [Pattern.usesAt_eq_of_mem_results (is:=is)] at hy
-      <;> grind
+  · have hΔ : is.args ⊆ Γ := by grind
+    replace his : is ⊆ I.collapse := by grind
+    generalize Γ = Δ at ⊢ hΔ closed
+    clear eqn
+    intro x hx y hy
+    induction is generalizing Δ with
+    | nil => grind
+    | cons i is ih =>
+        change InstSeq at is
+        have his : is ⊆ I.collapse := by grind
+        have hΔ' : is.args ⊆ i.results ∪ Δ := by grind
+        specialize ih his _ hΔ'
+        specialize ih <| by -- prove closedness
+          clear ih
+          intro x hx y hy
+          by_cases x ∈ Δ; grind
+          have : x ∈ i.results := by grind
+          · rw [InstSeq.mem_usesAt'] at hy
+            obtain ⟨j, hj, hxj, hy⟩ := hy
+            obtain rfl : i = j := by
+              have hi : i ∈ I.collapse := by grind
+              have hj : j ∈ I.collapse := by grind
+              apply InstSeq.eq_of_not_disjoint_results_of_mem_of_wellFormed hi hj
+              · apply wfI.choose_spec
+              · grind
+            grind
+        grind
   · intro x hx
     by_cases x ∈ Γ; grind
     have hx : x ∈ is.results := by grind
-    · rw [Pattern.eqnLemma_of_mem_results_get hx]
-      <;> grind
+    · subst his
+      rw [Pattern.eqnLemma_of_mem_results_get hx wfI]
+      apply InstSeq.eqnLemma_denote_self _
+      · grind
+      · grind
 
 
 end Invariant
