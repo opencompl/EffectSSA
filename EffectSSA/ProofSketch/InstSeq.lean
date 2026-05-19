@@ -152,6 +152,151 @@ public theorem usesAt_eq_of_not_mem_results {x : Var} (h : x ∉ is.results) :
 end Lemmas
 end Vars
 
+/-!
+## Program Counter
+
+To define the SSA property, we'd like to say that "no two instructions define
+the same variable". Just list membership is not sufficient for this.
+`∀ i ∈ is, ∀ j ∈ is, ...` doesn't work, as both `i` and `j` could be
+instantiated with the same instruction. Similarly, adding `i ≠ j` is not
+sufficient either, as the same instruction could occur twice in the sequence.
+
+Thus, we develop a notion of `PC`, program counter (which really is just a `Fin`
+index into the sequence), as well as a way to index into the sequence with
+a PC.
+-/
+section PC
+variable {is : InstSeq}
+
+/--
+`is.PC` is the type of program counters of the sequence `is`.
+
+Each program counter `pc : is.PC` uniquely identifies a location of the program.
+-/
+@[grind cases, grind]
+public structure PC (is : InstSeq) : Type where
+  idx : Nat
+  isLt : idx < is.length := by grind
+
+@[grind] def PC.ofFin (i : Fin is.length) : is.PC where
+  idx := i.val
+  isLt := i.isLt
+
+/-- Get the instruction at the specified location. -/
+public def PC.get (pc : is.PC) : Inst := is[pc.idx]'pc.isLt
+
+section Lemmas
+
+/-! relation to list membership -/
+
+@[grind =]
+public theorem mem_iff_get : i ∈ is ↔ (∃ pc : is.PC, i = pc.get) := by
+  constructor
+  · intro h
+    obtain ⟨n, _⟩ : ∃ (n : Fin is.length), is[n] = i := List.get_of_mem h
+    refine ⟨.ofFin n, ?_⟩
+    grind [PC.get]
+  · rintro ⟨pc, h⟩
+    apply List.mem_of_getElem
+    simpa [PC.get] using h.symm
+
+namespace PC
+
+@[simp, grind =_] theorem eq_iff_idx_eq {i j : is.PC} :
+    i = j ↔ i.idx = j.idx := by grind
+
+
+/-! cases principle -/
+
+@[grind] public def zero {i is} : PC (i :: is) where idx := 0
+@[grind] public def succ {i is} (p : PC is) : PC (i :: is) where idx := p.idx + 1
+
+@[grind =, simp] public theorem get_zero : (@zero i is).get = i := by rfl
+@[grind =, simp] public theorem get_succ (p : PC is) :
+    (@p.succ i _).get (is := no_index _) = p.get := by rfl
+
+@[grind =, simp] public theorem succ_eq_succ_iff {p q : is.PC} :
+    (@p.succ i is) = q.succ ↔ p = q := by grind
+
+@[cases_eliminator, elab_as_elim]
+def consCases {motive : PC (i :: is) → Prop}
+    (zero : motive zero)
+    (succ : ∀ (p : PC is), motive p.succ)
+    (p : PC (i :: is)) : motive p := by
+  cases hp : p.idx
+  case zero   => apply cast ?_ zero; grind
+  case succ n => apply cast ?_ (succ ⟨n, by grind⟩); grind
+
+/-! append -/
+variable {is js : InstSeq}
+
+public def appendLeft (p : PC is) : PC (is ++ js) where idx := p.idx
+public def appendRight (p : PC js) : PC (is ++ js) where idx := p.idx + is.length
+
+@[grind =, simp] public theorem get_appendLeft {p : PC is} :
+    (@appendLeft is js p).get = p.get := by grind [appendLeft, get]
+
+@[grind =, simp] public theorem get_appendRight {p : PC js} :
+    (@appendRight is js p).get = p.get := by grind [appendRight, get]
+
+@[grind =, simp] public theorem appendLeft_eq_appendLeft_iff (p q : PC is) :
+    (@p.appendLeft is js) = q.appendLeft ↔ p = q := by grind [appendLeft]
+@[grind =, simp] public theorem appendRight_eq_appendRight_iff (p q : PC js) :
+    (@p.appendRight is js) = q.appendRight ↔ p = q := by grind [appendRight]
+@[grind ., simp] public theorem appendLeft_neq_appendRight (p : PC is) (q : PC js) :
+    p.appendLeft ≠ q.appendRight := by grind [appendLeft, appendRight]
+
+/-! cast -/
+
+public def cast (h : is = js) (p : PC is) : PC js where idx := p.idx
+
+@[grind =, simp] public theorem get_cast (h : is = js) (p : PC is) :
+    (p.cast h).get = p.get := by grind [cast]
+
+@[grind =, simp] public theorem cast_eq_cast_iff_heq
+    {h₁ : is = is'} {p : PC is}
+    {h₂ : js = is'} {q : PC js} :
+    p.cast h₁ = q.cast h₂ ↔ p ≍ q := by grind [cast]
+
+end PC
+end Lemmas
+end PC
+
+/-!
+## Embedding
+
+Using the notion of program counter, we define what it means to embed one
+program in another.
+-/
+section Embed
+
+public structure EmbedIn (is js : InstSeq) where
+  map : is.PC → js.PC
+  get_map : ∀ i, (map i).get = i.get
+  inj : ∀ i j : is.PC, i ≠ j → i.get.results ≠ ∅ → j.get.results ≠ ∅ → map i ≠ map j
+
+-- `f : is.EmbedIn js` can be used a function
+public instance {is js : InstSeq} : CoeFun (is.EmbedIn js) (fun _ => is.PC → js.PC) where
+  coe f := f.map
+
+section Lemmas
+
+/-! ### Grind Lemmas -/
+attribute [grind .] EmbedIn.inj
+attribute [grind =, simp] EmbedIn.get_map
+
+end Lemmas
+
+/-!
+TODO: we might want some notion of "embedding" one program in another, using PCs.
+For example, we could say that `f : is.EmbedIn js` is defined as a function
+`is.PC → js.PC` such that `i ≠ j → f i ≠ f j`.
+
+Then, we should show a generic embedding `I.collapse.EmbedIn (C.plug I)`, given
+that `C` is complete.
+-/
+
+end Embed
 
 /-!
 ## WellFormed
@@ -225,8 +370,44 @@ attribute [local grind] WellFormed NoShadowing
 
 end Basic
 
+/-!
+### Program Counter
+Let us now characterize `NoShadowing` in terms of a global condition,
+using the program counter.
+-/
+section PC
+
+theorem noShadowing_iff :
+    is.NoShadowing ↔ ∀ (i j : is.PC), i ≠ j →
+      i.get.results.Disjoint j.get.results := by
+  induction is
+  case nil => grind
+  case cons i is ih =>
+    change InstSeq at is
+    simp only [noShadowing_cons, ne_eq]
+    constructor
+    · rintro ⟨hdj, hns⟩
+      intro j k
+      cases j <;> cases k <;> grind
+    · intro h
+      and_intros
+      · suffices ∀ j ∈ is, i.results.Disjoint j.results by grind
+        suffices ∀ j : is.PC, i.results.Disjoint j.get.results by grind
+        intro j
+        simpa using h .zero j.succ (by grind)
+      · suffices ∀ (i j : is.PC), i ≠ j → i.get.results.Disjoint j.get.results by grind
+        intro j k hjk
+        simpa using h j.succ k.succ (by grind)
+
+end PC
+
 /-! ### Results -/
 section ResultLemmas
+
+@[grind <=]
+theorem results_disjoint_of_mem_of_noShadowing (hi : i ∈ is) (hj : j ∈ is) (wf : is.NoShadowing) :
+    i ≠ j → i.results.Disjoint j.results := by
+  induction is <;> grind
 
 theorem eq_of_not_disjoint_results_of_noShadowing {i j : Inst}
     (hi : i ∈ is) (hj : j ∈ is) (wf : is.NoShadowing) :
@@ -242,6 +423,7 @@ end ResultLemmas
 
 end Lemmas
 end WellFormed
+
 
 
 
