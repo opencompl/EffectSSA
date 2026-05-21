@@ -9,11 +9,8 @@ import Mathlib.Data.Set.Lattice
 -/
 namespace EffectSSA.ProofSketch
 
-/-- `Var` is the type of variables -/
-public axiom Var : Type
-
 /-- `VarSet` is a set of variables. -/
-public def VarSet := Set Var
+public def VarSet ν := Set ν
 
 /-!
 For some reason, having the following definitions be computable requires the relevant definitions to
@@ -34,12 +31,12 @@ namespace VarSet
 
 /-! ### Internal API-/
 
-def toSet : VarSet → Set Var := id
-def ofSet : Set Var → VarSet := id
+def toSet : VarSet ν → Set ν := id
+def ofSet : Set ν → VarSet ν := id
 
 section Lemmas
 
-theorem ofSet_toSet (A : VarSet) : ofSet (toSet A) = A := by rfl
+theorem ofSet_toSet (A : VarSet ν) : ofSet (toSet A) = A := by rfl
 
 end Lemmas
 
@@ -47,37 +44,38 @@ public section
 
 /-! ### Standard Set Operations -/
 
-def Subset (A B : VarSet) := A.toSet ⊆ B.toSet
-instance : HasSubset VarSet where Subset := Subset
+def Subset (A B : VarSet ν) := A.toSet ⊆ B.toSet
+instance : HasSubset (VarSet ν) where Subset := Subset
 
-def union (A B : VarSet) : VarSet := ofSet <| A.toSet ∪ B.toSet
-instance : Union VarSet where union := union
+def union (A B : VarSet ν) : VarSet ν := ofSet <| A.toSet ∪ B.toSet
+instance : Union (VarSet ν) where union := union
 
-def inter (A B : VarSet) : VarSet := ofSet <| A.toSet ∩ B.toSet
-instance : Inter VarSet where inter := inter
+def inter (A B : VarSet ν) : VarSet ν := ofSet <| A.toSet ∩ B.toSet
+instance : Inter (VarSet ν) where inter := inter
 
-def empty : VarSet := ofSet ∅
-instance : EmptyCollection VarSet where emptyCollection := empty
+def empty : VarSet ν := ofSet ∅
+instance : EmptyCollection (VarSet ν) where emptyCollection := empty
 
-def singleton (v : Var) : VarSet := ofSet { v }
-instance : Singleton Var VarSet where singleton := singleton
+def singleton (v : ν) : VarSet ν := ofSet { v }
+instance : Singleton ν (VarSet ν) where singleton := singleton
 
-def Mem (A : VarSet) (v : Var) := v ∈ A.toSet
-instance : Membership Var VarSet where mem := Mem
+def Mem (A : VarSet ν) (v : ν) := v ∈ A.toSet
+instance : Membership ν (VarSet ν) where mem := Mem
 
-def sdiff (A B : VarSet) := ofSet <| A.toSet \ B.toSet
-instance : Sub VarSet where sub := sdiff
+def sdiff (A B : VarSet ν) := ofSet <| A.toSet \ B.toSet
+instance : Sub (VarSet ν) where sub := sdiff
 -- ^ N.B: we use `-` notation over `\` set difference since the latter is
 --        is defined in Mathlib
+-- TODO: actually it seems SDiff just exists in core, I should switch over
 
 section Lemmas
-variable {A B C : VarSet}
+variable {A B C : VarSet ν}
 
 /-! ### ext -/
 
-@[simp, grind =] private theorem mem_toSet (x : Var) (A : VarSet) :
+@[simp, grind =] private theorem mem_toSet (x : ν) (A : VarSet ν) :
     x ∈ A.toSet ↔ x ∈ A := by rfl
-@[simp, grind =] private theorem mem_ofSet (x : Var) (A : Set Var) :
+@[simp, grind =] private theorem mem_ofSet (x : ν) (A : Set ν) :
     x ∈ (ofSet A) ↔ x ∈ A := by rfl
 
 @[ext, grind ext]
@@ -88,7 +86,7 @@ theorem ext (h : ∀ x, x ∈ A ↔ x ∈ B) : A = B := by
 
 /-! ### empty -/
 
-@[simp, grind .] theorem not_mem_empty : v ∉ (∅ : VarSet) := by grind
+@[simp, grind .] theorem not_mem_empty : v ∉ (∅ : VarSet ν) := by grind
 
 theorem eq_empty_iff : A = ∅ ↔ (∀ v, v ∉ A) := by
   constructor
@@ -133,24 +131,24 @@ theorem eq_empty_iff : A = ∅ ↔ (∀ v, v ∉ A) := by
   grind
 theorem subset_intro : (∀ x, x ∈ A → x ∈ B) → A ⊆ B := by grind
 
-@[simp, grind .] theorem empty_subset : (∅ : VarSet) ⊆ A := by grind
+@[simp, grind .] theorem empty_subset : (∅ : VarSet ν) ⊆ A := by grind
 
 /-! ### sdiff -/
 
 @[simp, grind =] theorem mem_sdiff : v ∈ A - B ↔ v ∈ A ∧ v ∉ B := Set.mem_diff v
 
-@[simp, grind =] theorem empty_sdiff : (∅ : VarSet) - A = ∅ := by ext; simp
-@[simp, grind =] theorem sdiff_empty : A - (∅ : VarSet) = A := by ext; simp
+@[simp, grind =] theorem empty_sdiff : (∅ : VarSet ν) - A = ∅ := by ext; simp
+@[simp, grind =] theorem sdiff_empty : A - (∅ : VarSet ν) = A := by ext; simp
 
 end Lemmas
 
 /-! ### Disjoint -/
 
-@[expose] def Disjoint (A B : VarSet) : Prop :=
+@[expose] def Disjoint (A B : VarSet ν) : Prop :=
   A ∩ B = ∅
 
 section Lemmas
-variable {A B : VarSet}
+variable {A B : VarSet ν}
 attribute [local grind] Disjoint
 
 @[simp, grind .] theorem empty_disjoint : Disjoint ∅ A := by grind
@@ -188,7 +186,7 @@ end Lemmas
 
 /-! ### setOf -/
 
-def setOf (P : Var → Prop) : VarSet :=
+def setOf (P : ν → Prop) : VarSet ν :=
   ofSet <| _root_.setOf P
 
 /-- Adapted from Mathlib Set notation -/
@@ -205,21 +203,21 @@ end Lemmas
 /-! ### Map -/
 
 /--
-Given a function `f : Var → VarSet` and a set `A : VarSet`, return the set
+Given a function `f : Var → VarSet ν` and a set `A : VarSet ν`, return the set
   `{ f a | a ∈ A }`
 -/
-@[expose, grind] def flatMap (f : Var → VarSet) (A : VarSet) : VarSet :=
+@[expose, grind] def flatMap (f : ν → VarSet ν) (A : VarSet ν) : VarSet ν :=
   { x | ∃ y ∈ A, x ∈ f y }
 
 /--
-Given a function `f : α → VarSet` and a list `as : List α`, return the set
+Given a function `f : α → VarSet ν` and a list `as : List α`, return the set
   `{ f a | a ∈ A }`
 -/
-@[expose, grind] def ofListMap [DecidableEq α] (f : α → VarSet) (as : List α) : VarSet :=
+@[expose, grind] def ofListMap [DecidableEq α] (f : α → VarSet ν) (as : List α) : VarSet ν :=
   { x | ∃ y ∈ as, x ∈ f y }
 
 section Lemmas
-variable {A : VarSet}
+variable {A : VarSet ν}
 
 @[simp, grind =] theorem mem_flatMap : x ∈ A.flatMap f ↔ ∃ y ∈ A, x ∈ f y := by
   simp [flatMap]
