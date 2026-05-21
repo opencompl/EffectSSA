@@ -891,10 +891,7 @@ private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
       grind
     grind
   constructor
-  · grind
-  · grind
-  · grind
-  · grind
+  <;> grind
 
 private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
     Invariant Γ (.inr h :: C) I ρ →
