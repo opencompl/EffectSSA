@@ -165,7 +165,7 @@ Thus, we develop a notion of `PC`, program counter (which really is just a `Fin`
 index into the sequence), as well as a way to index into the sequence with
 a PC.
 -/
-section PC
+public section PC
 variable {is js : InstSeq}
 
 /--
@@ -174,7 +174,7 @@ variable {is js : InstSeq}
 Each program counter `pc : is.PC` uniquely identifies a location of the program.
 -/
 @[grind cases, grind]
-public structure PC (is : InstSeq) : Type where
+structure PC (is : InstSeq) : Type where
   idx : Nat
   isLt : idx < is.length := by grind
 
@@ -183,14 +183,14 @@ public structure PC (is : InstSeq) : Type where
   isLt := i.isLt
 
 /-- Get the instruction at the specified location. -/
-@[expose] public def PC.get (pc : is.PC) : Inst := is[pc.idx]'pc.isLt
+@[expose] def PC.get (pc : is.PC) : Inst := is[pc.idx]'pc.isLt
 
 section Lemmas
 
 /-! relation to list membership -/
 
 @[grind =]
-public theorem mem_iff_get : i ∈ is ↔ (∃ pc : is.PC, i = pc.get) := by
+theorem mem_iff_get : i ∈ is ↔ (∃ pc : is.PC, i = pc.get) := by
   constructor
   · intro h
     obtain ⟨n, _⟩ : ∃ (n : Fin is.length), is[n] = i := List.get_of_mem h
@@ -202,19 +202,19 @@ public theorem mem_iff_get : i ∈ is ↔ (∃ pc : is.PC, i = pc.get) := by
 
 namespace PC
 
-@[grind =_] public theorem eq_iff_idx_eq {i j : is.PC} :
+@[grind =_] theorem eq_iff_idx_eq {i j : is.PC} :
     i = j ↔ i.idx = j.idx := by grind
 
 /-! cases principle -/
 
-@[grind] public def zero {i is} : PC (i :: is) where idx := 0
-@[grind] public def succ {i is} (p : PC is) : PC (i :: is) where idx := p.idx + 1
+@[grind] def zero {i is} : PC (i :: is) where idx := 0
+@[grind] def succ {i is} (p : PC is) : PC (i :: is) where idx := p.idx + 1
 
-@[grind =, simp] public theorem get_zero : (@zero i is).get = i := by rfl
-@[grind =, simp] public theorem get_succ (p : PC is) :
+@[grind =, simp] theorem get_zero : (@zero i is).get = i := by rfl
+@[grind =, simp] theorem get_succ (p : PC is) :
     (@p.succ i _).get (is := no_index _) = p.get := by rfl
 
-@[grind =, simp] public theorem succ_eq_succ_iff {p q : is.PC} :
+@[grind =, simp] theorem succ_eq_succ_iff {p q : is.PC} :
     (@p.succ i is) = q.succ ↔ p = q := by grind
 
 @[cases_eliminator, elab_as_elim]
@@ -229,30 +229,30 @@ def consCases {motive : PC (i :: is) → Prop}
 /-! append -/
 variable {is js : InstSeq}
 
-public def appendLeft (p : PC is) : PC (is ++ js) where idx := p.idx
-public def appendRight (p : PC js) : PC (is ++ js) where idx := p.idx + is.length
+def appendLeft (p : PC is) : PC (is ++ js) where idx := p.idx
+def appendRight (p : PC js) : PC (is ++ js) where idx := p.idx + is.length
 
-@[grind =, simp] public theorem get_appendLeft {p : PC is} :
+@[grind =, simp] theorem get_appendLeft {p : PC is} :
     (@appendLeft is js p).get = p.get := by grind [appendLeft, get]
 
-@[grind =, simp] public theorem get_appendRight {p : PC js} :
+@[grind =, simp] theorem get_appendRight {p : PC js} :
     (@appendRight is js p).get = p.get := by grind [appendRight, get]
 
-@[grind =, simp] public theorem appendLeft_eq_appendLeft_iff (p q : PC is) :
+@[grind =, simp] theorem appendLeft_eq_appendLeft_iff (p q : PC is) :
     (@p.appendLeft is js) = q.appendLeft ↔ p = q := by grind [appendLeft]
-@[grind =, simp] public theorem appendRight_eq_appendRight_iff (p q : PC js) :
+@[grind =, simp] theorem appendRight_eq_appendRight_iff (p q : PC js) :
     (@p.appendRight is js) = q.appendRight ↔ p = q := by grind [appendRight]
-@[grind ., simp] public theorem appendLeft_neq_appendRight (p : PC is) (q : PC js) :
+@[grind ., simp] theorem appendLeft_neq_appendRight (p : PC is) (q : PC js) :
     p.appendLeft ≠ q.appendRight := by grind [appendLeft, appendRight]
 
 /-! cast -/
 
-public def cast (h : is = js) (p : PC is) : PC js where idx := p.idx
+def cast (h : is = js) (p : PC is) : PC js where idx := p.idx
 
-@[grind =, simp] public theorem get_cast (h : is = js) (p : PC is) :
+@[grind =, simp] theorem get_cast (h : is = js) (p : PC is) :
     (p.cast h).get = p.get := by grind [cast]
 
-@[grind =, simp] public theorem cast_eq_cast_iff_heq
+@[grind =, simp] theorem cast_eq_cast_iff_heq
     {h₁ : is = is'} {p : PC is}
     {h₂ : js = is'} {q : PC js} :
     p.cast h₁ = q.cast h₂ ↔ p ≍ q := by grind [cast]
