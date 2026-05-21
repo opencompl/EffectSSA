@@ -437,8 +437,8 @@ section CollapseLemmas
     (p : I.head.PC) (q : I.tail.PC) : ofHeadPC p ≠ ofTailPC q := by
   grind [ofHeadPC, ofTailPC, PC]
 
-@[simp, grind =]
-theorem ofCollapse_inj {p q : I.collapse.PC} : ofCollapse p = ofCollapse q ↔ p = q := by
+@[simp, grind =] theorem ofCollapse_inj {p q : I.collapse.PC} :
+    ofCollapse p = ofCollapse q ↔ p = q := by
   induction n <;> (simp [ofCollapse]; grind)
 
 end CollapseLemmas

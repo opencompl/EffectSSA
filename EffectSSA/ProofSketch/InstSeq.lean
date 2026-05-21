@@ -205,6 +205,9 @@ namespace PC
 @[grind =_] theorem eq_iff_idx_eq {i j : is.PC} :
     i = j ↔ i.idx = j.idx := by grind
 
+@[ext, grind ext] theorem eq_of_idx_eq {i j : is.PC} :
+    i.idx = j.idx → i = j := by grind
+
 /-! cases principle -/
 
 @[grind] def zero {i is} : PC (i :: is) where idx := 0
@@ -232,11 +235,17 @@ variable {is js : InstSeq}
 def appendLeft (p : PC is) : PC (is ++ js) where idx := p.idx
 def appendRight (p : PC js) : PC (is ++ js) where idx := p.idx + is.length
 
+@[grind =, simp] theorem idx_appendLeft :
+    (@appendLeft is js p).idx = p.idx := by rfl
+
+@[grind =, simp] theorem idx_appendRight :
+    (@appendRight is js p).idx = p.idx + is.length := by rfl
+
 @[grind =, simp] theorem get_appendLeft {p : PC is} :
-    (@appendLeft is js p).get = p.get := by grind [appendLeft, get]
+    (@appendLeft is js p).get = p.get := by grind [get]
 
 @[grind =, simp] theorem get_appendRight {p : PC js} :
-    (@appendRight is js p).get = p.get := by grind [appendRight, get]
+    (@appendRight is js p).get = p.get := by grind [get]
 
 @[grind =, simp] theorem appendLeft_eq_appendLeft_iff (p q : PC is) :
     (@p.appendLeft is js) = q.appendLeft ↔ p = q := by grind [appendLeft]
@@ -248,6 +257,9 @@ def appendRight (p : PC js) : PC (is ++ js) where idx := p.idx + is.length
 /-! cast -/
 
 def cast (h : is = js) (p : PC is) : PC js where idx := p.idx
+
+@[grind =, simp] theorem idx_cast (h : is = js) (p : PC is) :
+    (p.cast h).idx = p.idx := by rfl
 
 @[grind =, simp] theorem get_cast (h : is = js) (p : PC is) :
     (p.cast h).get = p.get := by grind [cast]

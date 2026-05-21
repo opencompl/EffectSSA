@@ -700,7 +700,7 @@ def embedPlug (I : Pattern n) (C : MultiContext n) (hC : C.Complete) :
       cases h_or_i
       case inl i => grind [embedPlugAux]
       case inr h =>
-        simp [embedPlugAux]
+        simp only [embedPlugAux, ne_eq]
         by_cases h = p'.hole
         · by_cases hhole : p'.hole = q'.hole
           · rcases p' with ⟨hole, p'⟩
