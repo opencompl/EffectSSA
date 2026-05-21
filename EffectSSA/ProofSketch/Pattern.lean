@@ -238,11 +238,6 @@ theorem collapse_append : (xs ++ ys).collapse = xs.collapse ++ ys.collapse := by
 
 @[simp, grind =] theorem collapse_cast (h : n = m) : (xs.cast h).collapse = xs.collapse := by rfl
 
-@[simp, grind =] theorem collapse_eq_head (x : Pattern 1) : x.collapse = x.head := by
-  cases x with | cons i x =>
-  cases x
-  rfl
-
 @[grind .] theorem get_subset_collapse {I : Pattern n} : I.get k hk ⊆ I.collapse := by
   induction I generalizing k
   · grind
