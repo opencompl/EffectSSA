@@ -202,7 +202,7 @@ public theorem mem_iff_get : i ∈ is ↔ (∃ pc : is.PC, i = pc.get) := by
 
 namespace PC
 
-@[simp, grind =_] public theorem eq_iff_idx_eq {i j : is.PC} :
+@[grind =_] public theorem eq_iff_idx_eq {i j : is.PC} :
     i = j ↔ i.idx = j.idx := by grind
 
 /-! cases principle -/
