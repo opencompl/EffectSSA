@@ -14,9 +14,9 @@ namespace EffectSSA.ProofSketch
 /-- `Inst` is the type of instructions. -/
 axiom Inst : Type
 
-
 namespace Inst
 
+@[instance] axiom decideEq : DecidableEq Inst
 
 /-!
 ## Variables

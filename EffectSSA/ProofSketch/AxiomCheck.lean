@@ -15,10 +15,14 @@ info: 'EffectSSA.ProofSketch.Pattern.ctxRefine_of_denoteRefine' depends on axiom
  State,
  Val,
  Var,
+ Inst.args,
+ Inst.decideEq,
  Inst.denote,
  Inst.denote_isRefinedBy_congr,
+ Inst.results,
  SEnv.refine_refl,
  State.Refine,
+ State.initial,
  Val.Refine]
 -/
 #guard_msgs in #print axioms Pattern.ctxRefine_of_denoteRefine
