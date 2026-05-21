@@ -303,15 +303,15 @@ end PC
 Using the notion of program counter, we define what it means to embed one
 program in another.
 -/
-section Embed
+public section Embed
 
-public structure EmbedIn (is js : InstSeq) where
+structure EmbedIn (is js : InstSeq) where
   map : is.PC → js.PC
   get_map : ∀ i, (map i).get = i.get
   inj : ∀ i j : is.PC, i ≠ j → i.get.results ≠ ∅ → j.get.results ≠ ∅ → map i ≠ map j
 
 -- `f : is.EmbedIn js` can be used a function
-public instance {is js : InstSeq} : CoeFun (is.EmbedIn js) (fun _ => is.PC → js.PC) where
+instance {is js : InstSeq} : CoeFun (is.EmbedIn js) (fun _ => is.PC → js.PC) where
   coe f := f.map
 
 section Lemmas
