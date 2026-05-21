@@ -65,11 +65,6 @@ def get (i : Nat) (hi : i < n := by grind) : InstSeq :=
 @[grind] abbrev head [NeZero n] : Pattern n → InstSeq := (·.get 0)
 def tail [NeZero n] : Pattern n → Pattern (n - 1) := Vector.tail
 
-/-- Take the first `i` elements, padding with junk if `i > n`. -/
-def take (i : Nat) : Pattern i :=
-  let vs := ofVector <| Vector.take v.toVector i
-  (vs ++ junk (i - n)).cast (by grind)
-
 /-! ### Collapse -/
 
 /--
@@ -145,10 +140,6 @@ attribute [local grind ext] ext
     v.tail.get i hi = v.get (i + 1) (by grind) := by
   simp; grind
 
-@[simp, grind =] theorem get_take (v : Pattern n) (hj : _) :
-    (v.take i).get j hj = if _ : j < min i n then v.get j else [] := by
-  simp [get, take]; grind [Vector.getElem_extract]
-
 end Get
 
 /-! append -/
@@ -182,15 +173,6 @@ theorem cons_eq_append : (cons x xs) = ((ofVector #v[x]) ++ xs).cast (by grind) 
 
 @[simp, grind =] theorem head_cons : (cons i is).head = i := by grind
 @[simp, grind =] theorem tail_cons : (cons i is).tail = is := by ext; grind
-
-/-! take -/
-
-@[simp, grind =] theorem take_zero : v.take 0 = junk 0 := by ext; grind
-@[simp, grind =] theorem take_all : v.take n = v := by ext; grind
-
-@[simp, grind =] theorem take_succ [NeZero n] :
-    v.take (k + 1) = cons v.head (v.tail.take k) := by
-  ext; grind
 
 /-! #### Cases -/
 section Cases
