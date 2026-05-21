@@ -95,16 +95,6 @@ theorem Pattern.denote_cons  (is : InstSeq) (I : Pattern n) :
     ⟦cons is I⟧ = fun ρ => ⟦I⟧ (⟦is⟧ ρ) := by
   simp [Pattern.denote_eq]
 
-@[simp, grind =]
-theorem Pattern.denote_concat (I : Pattern n) (is : InstSeq) :
-    ⟦I.concat is⟧ = fun ρ => ⟦is⟧ (⟦I⟧ ρ) := by
-  induction I
-  case nil =>
-    have : ⟦Pattern.nil.concat is⟧ = ⟦is⟧ := by rfl
-    simp [*]
-  case cons i is ih =>
-    simp [concat_cons, ih]
-
 /-! results -/
 variable {x : Var}
 
@@ -412,11 +402,6 @@ variable (I : Pattern n) (is : InstSeq)
 @[simp, grind =] theorem InstSeq.EqnLemma_cons {i : Inst} {is : InstSeq} :
     InstSeq.EqnLemma (i :: is) x ρ ↔ i.EqnLemma x ρ ∧ is.EqnLemma x ρ := by
   grind [InstSeq.EqnLemma]
-
-@[simp, grind =]
-theorem Pattern.eqnLemma_concat :
-    (I.concat is).EqnLemma x ρ ↔ I.EqnLemma x ρ ∧ is.EqnLemma x ρ := by
-  grind [EqnLemma]
 
 variable {I} in
 @[grind .]

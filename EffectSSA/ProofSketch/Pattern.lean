@@ -57,9 +57,6 @@ def nil : Pattern 0 := ofVector #v[]
 def cons (is : InstSeq) (I : Pattern n) : Pattern (n + 1) :=
   (ofVector <| #v[is] ++ I.toVector).cast (by grind)
 
-def concat (I : Pattern n) (is : InstSeq) : Pattern (n + 1) :=
-  I.push is
-
 /-! ### Getters / Destructors -/
 
 def get (i : Nat) (hi : i < n := by grind) : InstSeq :=
@@ -109,7 +106,6 @@ theorem eq_of_toVector_eq (h : v.toVector = w.toVector) : v = w := by
 
 @[simp, grind =] theorem toVector_junk : toVector (junk n) = Vector.replicate n [] := rfl
 @[simp, grind =] theorem toVector_nil : toVector nil = #v[] := rfl
-@[simp, grind =] theorem toVector_concat : toVector (xs.concat y) = xs.toVector.push y := rfl
 @[simp, grind =] theorem toVector_cons :
     toVector (cons x xs) = (#v[x] ++ xs.toVector).cast (by grind) := rfl
 
@@ -141,10 +137,6 @@ attribute [local grind ext] ext
     (cons x xs).get i hi = if hi : i = 0 then x else xs.get (i - 1) (by grind) := by
   simp; grind
 
-@[simp, grind =] theorem get_concat {y : InstSeq} {i : Nat} (hi : i < n + 1) :
-    (xs.concat y).get i hi = if hi : i = n then y else xs.get i := by
-  simp; grind
-
 @[simp, grind =] theorem get_junk {k : Nat} {i : Nat} (hi : i < k) :
     (junk k).get i hi = [] := by
   simp
@@ -169,10 +161,6 @@ end Get
 theorem cons_append : (cons x xs) ++ ys = (cons x (xs ++ ys)).cast (by grind) := by
   ext; grind
 
-@[simp, grind =, grind =_]
-theorem append_eq_concat : xs ++ (ofVector #v[y]) = xs.concat y := by
-  ext; grind
-
 /-! cast -/
 
 @[simp, grind =] theorem cast_eq (h : n = n) : v.cast h = v := rfl
@@ -190,16 +178,6 @@ theorem cons_head_tail [NeZero n] (v : Pattern n) : cons v.head v.tail = v.cast 
 theorem cons_eq_append : (cons x xs) = ((ofVector #v[x]) ++ xs).cast (by grind) := by
   ext; grind
 
-/-! concat -/
-
-@[grind =] theorem concat_nil : nil.concat i = cons i nil := by ext; grind
-@[grind =] theorem concat_cons : concat (cons i v) j = cons i (concat v j) := by
-  ext; grind
-
-@[simp, grind =]
-theorem append_concat : xs ++ (ys.concat y) = (xs ++ ys).concat y := by
-  ext; simp; grind
-
 /-! head / tail -/
 
 @[simp, grind =] theorem head_cons : (cons i is).head = i := by grind
@@ -212,10 +190,6 @@ theorem append_concat : xs ++ (ys.concat y) = (xs ++ ys).concat y := by
 
 @[simp, grind =] theorem take_succ [NeZero n] :
     v.take (k + 1) = cons v.head (v.tail.take k) := by
-  ext; grind
-
-theorem take_succ_eq_concat (hk : k < n) (v : Pattern n) :
-    v.take (k + 1) = (v.take k).concat (v.get k hk) := by
   ext; grind
 
 /-! #### Cases -/
@@ -239,39 +213,23 @@ def consCases {motive : ∀ {n}, Pattern n → Sort u}
     ∀ {n} (v : Pattern n), motive v :=
   consRec nil (fun i v _ => cons i v)
 
-
-@[elab_as_elim]
-def concatRec {motive : ∀ {n}, Pattern n → Sort u}
-    (nil : motive nil)
-    (concat : ∀ {n}, (v : Pattern n) → (i : InstSeq) → motive v → motive (concat v i) ) :
-    ∀ {n} (v : Pattern n), motive v := @fun n v =>
-  match n with
-  | 0 => _root_.cast (by congr; ext; grind) nil
-  | n+1 =>
-    let m := concat (v.take n) (v.get n) (concatRec nil concat _)
-    _root_.cast (by congr 1; ext; grind) m
-
-@[elab_as_elim]
-def concatCases {motive : ∀ {n}, Pattern n → Sort u}
-    (nil : motive nil)
-    (concat : ∀ {n}, (v : Pattern n) → (i : InstSeq) →  motive (concat v i) ) :
-    ∀ {n} (v : Pattern n), motive v :=
-  concatRec nil (fun v i _ => concat v i)
-
 end Cases
 
 /-! #### Collapse -/
 
 
 @[simp, grind =] theorem collapse_nil (I : Pattern 0) : I.collapse = [] := by cases I; rfl
-@[simp, grind =] theorem collapse_concat : (concat xs x).collapse = xs.collapse ++ x := by
-  simp [collapse]
 
+open Vector (foldl) in
 @[simp, grind =]
 theorem collapse_append : (xs ++ ys).collapse = xs.collapse ++ ys.collapse := by
-  induction ys using concatRec
-  · simp
-  · simp; grind
+  suffices foldl (· ++ ·) xs.collapse ys.toVector = xs.collapse ++ ys.collapse by simpa [collapse]
+  generalize xs.collapse = xs
+  induction ys generalizing xs
+  case nil => simp [nil]
+  case cons y ys ih =>
+    show foldl (· ++ ·) xs (#v[y] ++ ys.toVector) = _ ++ foldl (· ++ ·) [] (#v[y] ++ ys.toVector)
+    simp [ih]
 
 @[simp, grind =] theorem collapse_cons : (cons x xs).collapse = x ++ xs.collapse := by
   suffices (ofVector #v[x] ++ xs).collapse = x ++ xs.collapse by grind [cons_eq_append]
@@ -322,24 +280,13 @@ theorem mem_iff_get_hole : i ∈ I ↔ ∃ (h : Hole n), i = I.get h.val := by
     · refine ⟨0, ?_⟩; grind
     · refine ⟨k+1, ?_⟩; grind
 
-@[simp, grind =] theorem mem_concat : (i ∈ I.concat is) ↔ i ∈ I ∨ i = is := by
-  simp only [mem_iff_get, get_concat]
-  constructor
-  · grind
-  · rintro (⟨k, hk, rfl⟩ | rfl)
-    · refine ⟨k, ?_⟩; grind
-    · refine ⟨n, ?_⟩; grind
-
 end Mem
 
 section Results
 variable {I : Pattern n} {is : InstSeq} {x : Var}
 
-@[simp, grind =] theorem results_concat :
-    (I.concat is).results = I.results ∪ is.results := by grind
-
 @[grind =] theorem mem_results_iff : x ∈ I.results ↔ ∃ is ∈ I, x ∈ is.results := by
-  induction I using Pattern.concatRec <;> grind
+  induction I <;> grind
 
 @[grind →] theorem mem_results_of_mem (his : is ∈ I) (hx : x ∈ is.results) :
     x ∈ I.results := by grind
