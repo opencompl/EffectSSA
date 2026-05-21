@@ -292,11 +292,12 @@ theorem collapse_append : (xs ++ ys).collapse = xs.collapse ++ ys.collapse := by
 
 @[grind =] theorem length_collapse_tail {I : Pattern n} [NeZero n] :
     I.tail.collapse.length = I.collapse.length - I.head.length := by
-  sorry
+  suffices I ≍ cons I.head I.tail by grind
+  grind
 
 @[grind .] theorem length_get_le_length_collapse {I : Pattern n} :
     (I.get k hk).length ≤ I.collapse.length := by
-  sorry
+  induction I generalizing k <;> grind
 
 /-! ### Membership -/
 section Mem
@@ -378,19 +379,18 @@ def ofTailPC [NeZero n] : I.tail.PC → I.PC
   | ⟨h, p⟩ => ⟨⟨h.val + 1, by grind⟩, ⟨p.idx, by grind⟩⟩
 
 /-- Map a pattern PC into the sequence PC of the collapsed pattern. -/
-def collapse {n} {I : Pattern n} (p : I.PC) : I.collapse.PC := by
-  rcases p with ⟨hole, pc⟩
-  induction hole using Fin.succRecOn <;> (
-    suffices (I.head ++ I.tail.collapse).PC by
-      apply this.cast
-      suffices I = (cons I.head I.tail) by grind
-      grind
-  )
-  case zero => exact pc.ofAppendLeft
-  case succ hole rec =>
-    apply InstSeq.PC.ofAppendRight (rec (pc.cast ?_))
-    suffices I.tail.get hole.val = I.get hole.succ.val by grind
-    grind
+def collapse : {n : Nat} → {I : Pattern n} → (p : I.PC) → I.collapse.PC
+  | n + 1, I, ⟨⟨0, _⟩, pc⟩ =>
+      let pc : (I.head ++ I.tail.collapse).PC := pc.ofAppendLeft
+      pc.cast <| by
+        suffices I = (cons I.head I.tail) by grind
+        grind
+  | n + 1, I, ⟨⟨h+1, _⟩, pc⟩ =>
+      let pc : I.tail.collapse.PC := collapse ⟨⟨h, by grind⟩, pc.cast (by grind)⟩
+      let pc : (I.head ++ I.tail.collapse).PC := pc.ofAppendRight
+      pc.cast <| by
+        suffices I = (cons I.head I.tail) by grind
+        grind
 
 /-- Map a sequence PC of a collapsed pattern back into the pattern PC. -/
 def ofCollapse {n} {I : Pattern n} (p : I.collapse.PC) : I.PC :=
@@ -411,15 +411,10 @@ section CollapseLemmas
 @[simp, grind =] theorem get_ofTailPC [NeZero n] {p : I.tail.PC} : (ofTailPC p).get = p.get := by
   grind [ofTailPC, PC]
 
+/-! injectivity -/
+
 @[simp, grind =] theorem get_collapse {p : I.PC} : p.collapse.get = p.get := by
-  simp only [collapse, Nat.succ_eq_add_one, Fin.val_zero, Nat.add_one_sub_one, Fin.val_succ]
-  rcases p with ⟨hole, pc⟩
-  induction hole using Fin.succRecOn
-  · grind
-  case succ ih =>
-    specialize @ih I.tail
-    simp_all
-    sorry
+  fun_induction collapse <;> grind
 
 @[simp, grind =] theorem get_ofCollapse {p : I.collapse.PC} : (ofCollapse p).get = p.get := by
   induction n
@@ -428,27 +423,23 @@ section CollapseLemmas
     simp only [ofCollapse]
     split <;> (simp [InstSeq.PC.get, *]; grind)
 
-/-! custom cases -/
-
-@[elab_as_elim]
-def headTailCases {I : Pattern n} [NeZero n] {motive : I.PC → Sort u}
-    (head : ∀ (p : I.head.PC), motive (ofHeadPC p))
-    (tail : ∀ (p : I.tail.PC), motive (ofTailPC p))
-    (p : I.PC) : motive p := by
-  sorry
-
 /-! injectivity -/
+
+@[simp, grind =] theorem ofHeadPC_inj [NeZero n] {p q : I.head.PC} :
+    ofHeadPC p = ofHeadPC q ↔ p = q := by
+  simp [ofHeadPC, InstSeq.PC.eq_iff_idx_eq]
+
+@[simp, grind =] theorem ofTailPC_inj [NeZero n] {p q : I.tail.PC} :
+    ofTailPC p = ofTailPC q ↔ p = q := by
+  grind [ofTailPC, PC]
+
+@[simp, grind .] theorem ofHeadPC_ne_ofTailPC [NeZero n]
+    (p : I.head.PC) (q : I.tail.PC) : ofHeadPC p ≠ ofTailPC q := by
+  grind [ofHeadPC, ofTailPC, PC]
 
 @[simp, grind =]
 theorem ofCollapse_inj {p q : I.collapse.PC} : ofCollapse p = ofCollapse q ↔ p = q := by
-  generalize ofCollapse p = p'
-  generalize ofCollapse q = q'
-  induction n
-  · grind
-  · cases p' using headTailCases
-    <;> cases q' using headTailCases
-
-    simp_all
+  induction n <;> (simp [ofCollapse]; grind)
 
 end CollapseLemmas
 

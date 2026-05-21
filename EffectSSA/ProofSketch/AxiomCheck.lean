@@ -9,7 +9,6 @@ namespace EffectSSA.ProofSketch
 
 /--
 info: 'EffectSSA.ProofSketch.Pattern.ctxRefine_of_denoteRefine' depends on axioms: [propext,
- sorryAx,
  Classical.choice,
  Quot.sound,
  Inst,
@@ -17,6 +16,7 @@ info: 'EffectSSA.ProofSketch.Pattern.ctxRefine_of_denoteRefine' depends on axiom
  Val,
  Var,
  Inst.args,
+ Inst.decideEq,
  Inst.denote,
  Inst.denote_isRefinedBy_congr,
  Inst.results,
