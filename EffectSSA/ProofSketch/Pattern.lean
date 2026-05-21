@@ -290,6 +290,14 @@ theorem collapse_append : (xs ++ ys).collapse = xs.collapse ++ ys.collapse := by
   · grind
   · cases k <;> grind
 
+@[grind =] theorem length_collapse_tail {I : Pattern n} [NeZero n] :
+    I.tail.collapse.length = I.collapse.length - I.head.length := by
+  sorry
+
+@[grind .] theorem length_get_le_length_collapse {I : Pattern n} :
+    (I.get k hk).length ≤ I.collapse.length := by
+  sorry
+
 /-! ### Membership -/
 section Mem
 variable (I : Pattern n)
@@ -341,4 +349,108 @@ variable {I : Pattern n} {is : InstSeq} {x : Var}
 end Results
 
 end Lemmas
+
+/-! ## Program Counter
+
+We define an analogous notion of a "program counter" in a pattern,
+which just bundles a hole variable with a program counter of the corresponding
+pattern element.
+We then show a bijection between the pattern-PC and the PC of the collapsed
+instruction sequence.
+-/
+
+structure PC (I : Pattern n) where
+  hole : Hole n
+  pc : (I.get hole.val).PC
+
+namespace PC
+variable {I : Pattern n}
+
+/-! ### Defs -/
+
+@[inherit_doc InstSeq.PC.get]
+abbrev get (p : I.PC) : Inst := p.pc.get
+
+def ofHeadPC [NeZero n] (p : I.head.PC) : I.PC :=
+  ⟨(0 : Fin n), p⟩
+
+def ofTailPC [NeZero n] : I.tail.PC → I.PC
+  | ⟨h, p⟩ => ⟨⟨h.val + 1, by grind⟩, ⟨p.idx, by grind⟩⟩
+
+/-- Map a pattern PC into the sequence PC of the collapsed pattern. -/
+def collapse {n} {I : Pattern n} (p : I.PC) : I.collapse.PC := by
+  rcases p with ⟨hole, pc⟩
+  induction hole using Fin.succRecOn <;> (
+    suffices (I.head ++ I.tail.collapse).PC by
+      apply this.cast
+      suffices I = (cons I.head I.tail) by grind
+      grind
+  )
+  case zero => exact pc.ofAppendLeft
+  case succ hole rec =>
+    apply InstSeq.PC.ofAppendRight (rec (pc.cast ?_))
+    suffices I.tail.get hole.val = I.get hole.succ.val by grind
+    grind
+
+/-- Map a sequence PC of a collapsed pattern back into the pattern PC. -/
+def ofCollapse {n} {I : Pattern n} (p : I.collapse.PC) : I.PC :=
+  match n with
+  | 0 => False.elim <| by grind
+  | n + 1 =>
+      let m := I.head.length
+      if hp : p.idx < m then
+        ofHeadPC <| ⟨p.idx, by grind⟩
+      else
+        ofTailPC <| ofCollapse ⟨p.idx - m, by grind⟩
+
+section CollapseLemmas
+
+/-! get lemmas -/
+
+@[simp, grind =] theorem get_ofHeadPC [NeZero n] {p : I.head.PC} : (ofHeadPC p).get = p.get := by rfl
+@[simp, grind =] theorem get_ofTailPC [NeZero n] {p : I.tail.PC} : (ofTailPC p).get = p.get := by
+  grind [ofTailPC, PC]
+
+@[simp, grind =] theorem get_collapse {p : I.PC} : p.collapse.get = p.get := by
+  simp only [collapse, Nat.succ_eq_add_one, Fin.val_zero, Nat.add_one_sub_one, Fin.val_succ]
+  rcases p with ⟨hole, pc⟩
+  induction hole using Fin.succRecOn
+  · grind
+  case succ ih =>
+    specialize @ih I.tail
+    simp_all
+    sorry
+
+@[simp, grind =] theorem get_ofCollapse {p : I.collapse.PC} : (ofCollapse p).get = p.get := by
+  induction n
+  · grind
+  · cases I
+    simp only [ofCollapse]
+    split <;> (simp [InstSeq.PC.get, *]; grind)
+
+/-! custom cases -/
+
+@[elab_as_elim]
+def headTailCases {I : Pattern n} [NeZero n] {motive : I.PC → Sort u}
+    (head : ∀ (p : I.head.PC), motive (ofHeadPC p))
+    (tail : ∀ (p : I.tail.PC), motive (ofTailPC p))
+    (p : I.PC) : motive p := by
+  sorry
+
+/-! injectivity -/
+
+@[simp, grind =]
+theorem ofCollapse_inj {p q : I.collapse.PC} : ofCollapse p = ofCollapse q ↔ p = q := by
+  generalize ofCollapse p = p'
+  generalize ofCollapse q = q'
+  induction n
+  · grind
+  · cases p' using headTailCases
+    <;> cases q' using headTailCases
+
+    simp_all
+
+end CollapseLemmas
+
+end PC
 end Pattern

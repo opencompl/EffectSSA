@@ -283,38 +283,6 @@ theorem results_disjoint_of_mem_of_noShadowing (hi : is ∈ I) (hj : js ∈ I) (
 end Lemmas
 end Pattern
 
-/-! ## Pattern Program Counter
-
-We define an analogous notion of a "program counter" in a pattern,
-which just bundles a hole variable with a program counter of the corresponding
-pattern element.
--/
-namespace Pattern
-
-structure PC (I : Pattern n) where
-  hole : Hole n
-  pc : (I.get hole.val).PC
-
-namespace PC
-variable {I : Pattern n}
-
-/-! ### Defs -/
-
-abbrev get (p : I.PC) : Inst := p.pc.get
-
-def collapse (p : I.PC) : I.collapse.PC := sorry
-def ofCollapse : I.collapse.PC → I.PC := sorry
-
-section CollapseLemmas
-
-@[simp, grind =] theorem get_collapse {p : I.PC} : p.collapse.get = p.get := sorry
-@[simp, grind =] theorem get_ofCollapse {p : I.collapse.PC} : (ofCollapse p).get = p.get := sorry
-
-end CollapseLemmas
-
-end PC
-end Pattern
-
 /-!
 ## Domination
 -/
@@ -721,7 +689,7 @@ def embedPlug (I : Pattern n) (C : MultiContext n) (hC : C.Complete) :
   inj p q hpq hp hq := by
     let p' : I.PC := .ofCollapse p
     let q' : I.PC := .ofCollapse q
-    have : p' ≠ q' := by sorry
+    have : p' ≠ q' := by grind
     have hCp : .inr p'.hole ∈ C := by grind
     have hCq : .inr q'.hole ∈ C := by grind
     show (embedPlugAux p' C hCp) ≠ (embedPlugAux q' C hCq)

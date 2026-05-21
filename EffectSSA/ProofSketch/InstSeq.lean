@@ -166,7 +166,7 @@ index into the sequence), as well as a way to index into the sequence with
 a PC.
 -/
 section PC
-variable {is : InstSeq}
+variable {is js : InstSeq}
 
 /--
 `is.PC` is the type of program counters of the sequence `is`.
@@ -183,7 +183,7 @@ public structure PC (is : InstSeq) : Type where
   isLt := i.isLt
 
 /-- Get the instruction at the specified location. -/
-public def PC.get (pc : is.PC) : Inst := is[pc.idx]'pc.isLt
+@[expose] public def PC.get (pc : is.PC) : Inst := is[pc.idx]'pc.isLt
 
 section Lemmas
 
@@ -202,9 +202,8 @@ public theorem mem_iff_get : i ∈ is ↔ (∃ pc : is.PC, i = pc.get) := by
 
 namespace PC
 
-@[simp, grind =_] theorem eq_iff_idx_eq {i j : is.PC} :
+@[simp, grind =_] public theorem eq_iff_idx_eq {i j : is.PC} :
     i = j ↔ i.idx = j.idx := by grind
-
 
 /-! cases principle -/
 
@@ -260,6 +259,30 @@ public def cast (h : is = js) (p : PC is) : PC js where idx := p.idx
 
 end PC
 end Lemmas
+
+/-! Map PCs of `is` or `js` into `is ++ js`. -/
+section OfAppend
+variable {is js : InstSeq}
+
+public def PC.ofAppendLeft : is.PC → (is ++ js).PC
+  | ⟨idx, isLt⟩ => ⟨idx, by grind⟩
+
+public def PC.ofAppendRight : js.PC → (is ++ js).PC
+  | ⟨idx, isLt⟩ => ⟨idx + is.length, by grind⟩
+
+section AppendLemmas
+
+@[simp, grind =] public theorem get_ofAppendLeft :
+    (@PC.ofAppendLeft is js p).get = p.get := by
+  grind [PC.get, PC.ofAppendLeft]
+
+@[simp, grind =] public theorem get_ofAppendRight :
+    (@PC.ofAppendRight is js p).get = p.get := by
+  grind [PC.get, PC.ofAppendRight]
+
+end AppendLemmas
+end OfAppend
+
 end PC
 
 /-!
