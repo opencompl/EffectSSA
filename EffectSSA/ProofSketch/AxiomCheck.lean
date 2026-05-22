@@ -20,7 +20,6 @@ info: 'EffectSSA.ProofSketch.Pattern.ctxRefine_of_denoteRefine' depends on axiom
  Inst.denote,
  Inst.denote_isRefinedBy_congr,
  Inst.results,
- SEnv.refine_refl,
  State.Refine,
  State.initial,
  Val.Refine]

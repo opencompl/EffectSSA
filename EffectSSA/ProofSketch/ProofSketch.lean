@@ -1,5 +1,6 @@
 module
 
+public import EffectSSA.ProofSketch.Notation.Refinement
 public import EffectSSA.ProofSketch.Denote
 public import EffectSSA.ProofSketch.VarSet
 public import EffectSSA.ProofSketch.Inst
@@ -161,48 +162,24 @@ end Equiv
 -/
 section Refine
 
-axiom State.Refine : State → State → Prop
-instance : HasSubset State where Subset := State.Refine
-
-axiom Val.Refine : Val → Val → Prop
-instance : HasSubset Val where Subset := Val.Refine
-
-@[grind, grind cases]
-inductive Val.Refine? : Option Val → Option Val → Prop
-  | some {v₁ v₂} (h : v₁ ⊆ v₂) : Refine? (some v₁) (some v₂)
-  | none {v?} : Refine? none v?
-instance : HasSubset (Option Val) where
-  Subset := Val.Refine?
+@[instance] axiom State.Refine : Refinement State
+@[instance] axiom Val.Refine : Refinement Val
 
 /--
-We say that `ρ` is a sub-environment of `η`, written as `ρ ⊆ η`,
-when `ρ` has an error, or:
+We say that `ρ` is a sub-environment of `η`, written as `ρ ⊑ η`,
 
-* `η` is error-free,
-* the global state of `ρ` is refined by the global state of `η`,
+* the global state of `ρ` is refined by the global state of `η`, and
 * for each variable `v` in the domain of `ρ`,
     the value `ρ v` is refined by `η v`.
 -/
-instance : HasSubset SEnv where
-  Subset ρ η := ρ.state ⊆ η.state ∧ (∀ v, ρ.regs v ⊆ η.regs v)
+instance : Refinement SEnv where
+  IsRefinedBy ρ η := ρ.state ⊑ η.state ∧ (∀ v, ρ.regs v ⊑ η.regs v)
+  antisymm := by
+    rintro ⟨s, ρ⟩ ⟨t, η⟩ hxy hyx
+    suffices s = t ∧ ρ = η by grind
+    grind
 
 section RefineLemmas
-variable {ρ₁ ρ₂ ρ₃ : SEnv}
-
-@[simp, grind .]
-axiom SEnv.refine_refl (ρ : SEnv) : ρ ⊆ ρ
-
-axiom SEnv.refine_trans {ρ₁ ρ₂ ρ₃ : SEnv} : ρ₁ ⊆ ρ₂ → ρ₂ ⊆ ρ₃ → ρ₁ ⊆ ρ₃
-
-instance : Trans (α := SEnv) (· ⊆ ·) (· ⊆ ·) (· ⊆ ·) where
-  trans := SEnv.refine_trans
-
-@[grind →]
-axiom SEnv.refine_antisymm {ρ₁ ρ₂ : SEnv} : ρ₁ ⊆ ρ₂ → ρ₂ ⊆ ρ₁ → ρ₁ = ρ₂
-
-theorem SEnv.eq_iff_refine_refine {ρ₁ ρ₂ : SEnv} :
-    ρ₁ = ρ₂ ↔ (ρ₁ ⊆ ρ₂ ∧ ρ₂ ⊆ ρ₁) := by
-  grind
 
 /-! #### Congruence Lemmas -/
 section RefineCongr
@@ -212,17 +189,17 @@ We assume that each instruction's semantics preserves refinement.
 
 In other words, the semantics are *monotone* w.r.t. the refinement relation.
 -/
-@[grind .] axiom Inst.denote_isRefinedBy_congr (hρ : ρ₁ ⊆ ρ₂) (i : Inst) :
-    ⟦i⟧ ρ₁ ⊆ ⟦i⟧ ρ₂
+@[grind .] axiom Inst.denote_isRefinedBy_congr (hρ : ρ₁ ⊑ ρ₂) (i : Inst) :
+    ⟦i⟧ ρ₁ ⊑ ⟦i⟧ ρ₂
 
-@[grind .] theorem InstSeq.denote_isRefinedBy_congr (hρ : ρ₁ ⊆ ρ₂) (is : InstSeq) :
-    ⟦is⟧ ρ₁ ⊆ ⟦is⟧ ρ₂ := by
+@[grind .] theorem InstSeq.denote_isRefinedBy_congr (hρ : ρ₁ ⊑ ρ₂) (is : InstSeq) :
+    ⟦is⟧ ρ₁ ⊑ ⟦is⟧ ρ₂ := by
   induction is generalizing ρ₁ ρ₂
   · simpa
   · grind
 
-@[grind .] theorem Pattern.denote_isRefinedBy_congr (hρ : ρ₁ ⊆ ρ₂) (I : Pattern n) :
-    ⟦I⟧ ρ₁ ⊆ ⟦I⟧ ρ₂ := by
+@[grind .] theorem Pattern.denote_isRefinedBy_congr (hρ : ρ₁ ⊑ ρ₂) (I : Pattern n) :
+    ⟦I⟧ ρ₁ ⊑ ⟦I⟧ ρ₂ := by
   simp [Pattern.denote_eq, InstSeq.denote_isRefinedBy_congr hρ]
 
 end RefineCongr
@@ -644,21 +621,21 @@ section Denotational
 
 /--
 A pattern `I` is denotationally refined by pattern `J`,
-when for any hole `h` and environments such that `ρ ⊆ η` and
+when for any hole `h` and environments such that `ρ ⊑ η` and
 `ρ` (resp `η`) satisfies the equation lemma for all (transitive) dependencies
 of the `h`-th sequence of `I` (resp `J`), it is the case that the denotation of
 `h`-th of `I` under `ρ` is refined by the denotation of the `h`-th hole of `J`
 under `η`.
 
 TODO: We ought to prove that this condition is actually implied by the much more
-simple `⟦I⟧ ρ ⊆ ⟦J⟧ ρ` with some side-condition on the variables of each pattern
+simple `⟦I⟧ ρ ⊑ ⟦J⟧ ρ` with some side-condition on the variables of each pattern
 in `I` and `J`.
 -/
 def Pattern.DenRefine (I J : Pattern n) : Prop :=
   ∀ h : Hole n, ∀ ρ η,
     I.EqnLemmaUpTo h ρ →
     J.EqnLemmaUpTo h η →
-    ⟦ I[h] ⟧ ρ ⊆ ⟦ J[h] ⟧ η
+    ⟦ I[h] ⟧ ρ ⊑ ⟦ J[h] ⟧ η
 
 /--
 A pattern `I` is denotationally equivalent to pattern `J`,
@@ -690,7 +667,7 @@ def Pattern.CtxRefine (I J : Pattern n) : Prop :=
     let CI := C.plug I;
     let CJ := C.plug J;
     CI.WellFormed ∅ → CJ.WellFormed ∅ →
-      ⟦CI⟧ {} ⊆ ⟦CJ⟧ {}
+      ⟦CI⟧ {} ⊑ ⟦CJ⟧ {}
 
 /--
 Two patterns `I` and `J` are contextually equivalent,
@@ -859,10 +836,10 @@ theorem Pattern.ctxRefine_of_denoteRefine (I J : Pattern n)
   intro C hC CI CJ hCI hCJ
   subst CI CJ
 
-  suffices ∀ ρ η, ρ ⊆ η →
+  suffices ∀ ρ η, ρ ⊑ η →
       ∀ {Γ}, Invariant Γ C I ρ →
       ∀ {Δ}, Invariant Δ C J η →
-      ⟦C⟧ (I[·]) ρ ⊆ ⟦C⟧ (J[·]) η by
+      ⟦C⟧ (I[·]) ρ ⊑ ⟦C⟧ (J[·]) η by
     simp only [MultiContext.denote_plug]
     apply @this { } { } ?_ ∅ ?_ ∅ ?_
     <;> grind [Invariant.initial]
@@ -899,6 +876,6 @@ theorem Pattern.ctxEquiv_of_denoteEquiv (I J : Pattern n)
     I.CtxEquiv J := by
   intro C hC CI CJ hCI hCJ
   have : I.DenRefine J ∧ J.DenRefine I := by grind [DenRefine, DenEquiv]
-  apply SEnv.refine_antisymm
+  apply Refinement.antisymm
   <;> apply ctxRefine_of_denoteRefine
   <;> grind
