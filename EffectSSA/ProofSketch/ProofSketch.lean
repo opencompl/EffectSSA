@@ -1,6 +1,7 @@
 module
 
 public import EffectSSA.ProofSketch.Notation.Refinement
+public import EffectSSA.ProofSketch.Notation.Reduce
 public import EffectSSA.ProofSketch.Denote
 public import EffectSSA.ProofSketch.VarSet
 public import EffectSSA.ProofSketch.Inst
@@ -34,15 +35,23 @@ axiom State : Type
 
 axiom State.initial : State
 
-/--
-A stateful environment `e : SEnv`
-bundles a pure environment with a global state.
--/
-structure SEnv where
+/-- An environment contains a partial map from variables to values and the global state. -/
+structure SEnv where -- TODO: rename SEnv to just Env
   /-- A partial map from variables (i.e, virtual registers) to values. -/
   regs : Var → Option Val := fun _ => none
   /-- The global state, e.g, for memory and UB -/
   state : State := .initial
+
+/--
+`RunningState` captures the intermediate states of a program being interpreted.
+
+That is, it bundles an environment with the current location in program `p`.
+-/
+@[grind]
+structure InterpState (p : InstSeq) where
+  env : SEnv
+  /-- The current location in the program, or `none` if the program has finished executing. -/
+  pc? : Option p.PC
 
 /-! ### Defs -/
 
@@ -54,43 +63,41 @@ instance : Denote Inst (SEnv → SEnv) where
 An `InstSeq` is evaluated by evaluating each instruction in turn,
 threading the environment through.
 -/
-@[default_instance]
-instance : Denote InstSeq (SEnv → SEnv) where
-  denote is := is.foldl (fun e i => ⟦i⟧ e)
-
-/--
-A `Pattern` is evaluated by collapsing it into an instruction sequence,
-and evaluating that.
--/
-instance : Denote (Pattern n) (SEnv → SEnv) where
-  denote I := ⟦I.collapse⟧
+instance : BReduce (InterpState p) SEnv where
+  ReducesTo s t := ∃ pc, s.pc? = some pc ∧ t.env = ⟦pc.get⟧ s.env ∧ t.pc? = pc.incr?
+  stateOfValue env := ⟨env, none⟩
 
 /-! ### Properties -/
 section Properties
+variable {s t : InterpState p}
 
-theorem InstSeq.denote_eq {is : InstSeq} :
-    ⟦is⟧ = is.foldl (fun e (i : Inst) => ⟦i⟧ e) := by rfl
-
-@[simp, grind =] theorem InstSeq.denote_nil : ⟦[]⟧ = id := by rfl
-@[simp, grind =] theorem InstSeq.denote_nil_apply : ⟦[]⟧ ρ = ρ := by rfl
-
-@[simp, grind =] theorem InstSeq.denote_cons : ⟦i ;> is⟧ = fun ρ => ⟦is⟧ (⟦i⟧ ρ) := by rfl
-
-@[simp, grind =] theorem InstSeq.denote_append (is js : InstSeq) :
-    ⟦is ++ js⟧ = fun ρ => ⟦js⟧ (⟦is⟧ ρ) := by
-  grind [InstSeq.denote_eq]
+@[grind =] theorem InterpState.reduce_iff :
+    s ⟹ t ↔ ∃ pc, s.pc? = some pc ∧ t.env = ⟦pc.get⟧ s.env ∧ t.pc? = pc.incr? := by rfl
 
 
-@[grind =] theorem Pattern.denote_eq {I : Pattern n} :
-    ⟦I⟧ = ⟦I.collapse⟧ := by rfl
+-- theorem InstSeq.denote_eq {is : InstSeq} :
+--     ⟦is⟧ = is.foldl (fun e (i : Inst) => ⟦i⟧ e) := by rfl
 
-@[simp, grind =] theorem Pattern.denote_nil {I : Pattern 0} : ⟦I⟧ = id := by
-  cases I; rfl
+-- @[simp, grind =] theorem InstSeq.denote_nil : ⟦[]⟧ = id := by rfl
+-- @[simp, grind =] theorem InstSeq.denote_nil_apply : ⟦[]⟧ ρ = ρ := by rfl
 
-@[simp, grind =]
-theorem Pattern.denote_cons  (is : InstSeq) (I : Pattern n) :
-    ⟦cons is I⟧ = fun ρ => ⟦I⟧ (⟦is⟧ ρ) := by
-  simp [Pattern.denote_eq]
+-- @[simp, grind =] theorem InstSeq.denote_cons : ⟦i :: is⟧ = fun ρ => ⟦is⟧ (⟦i⟧ ρ) := by rfl
+
+-- @[simp, grind =] theorem InstSeq.denote_append (is js : InstSeq) :
+--     ⟦is ++ js⟧ = fun ρ => ⟦js⟧ (⟦is⟧ ρ) := by
+--   grind [InstSeq.denote_eq]
+
+
+-- @[grind =] theorem Pattern.denote_eq {I : Pattern n} :
+--     ⟦I⟧ = ⟦I.collapse⟧ := by rfl
+
+-- @[simp, grind =] theorem Pattern.denote_nil {I : Pattern 0} : ⟦I⟧ = id := by
+--   cases I; rfl
+
+-- @[simp, grind =]
+-- theorem Pattern.denote_cons  (is : InstSeq) (I : Pattern n) :
+--     ⟦cons is I⟧ = fun ρ => ⟦I⟧ (⟦is⟧ ρ) := by
+--   simp [Pattern.denote_eq]
 
 /-! results -/
 variable {x : Var}
@@ -99,9 +106,9 @@ variable {x : Var}
 @[grind .] axiom Inst.regs_denote_of_not_mem_results (i : Inst) {x : Var} {ρ : SEnv}
     (h : x ∉ i.results) : (⟦i⟧ ρ).regs x = ρ.regs x
 
-@[grind =] theorem InstSeq.regs_denote_of_not_mem_results (h : x ∉ is.results) :
-    (⟦is⟧ ρ).regs x = ρ.regs x := by
-  induction is generalizing ρ <;> grind
+-- @[grind =] theorem InstSeq.regs_denote_of_not_mem_results (h : x ∉ is.results) :
+--     (⟦is⟧ ρ).regs x = ρ.regs x := by
+--   induction is generalizing ρ <;> grind
 
 end Properties
 
@@ -200,7 +207,7 @@ section Refine
 @[instance] axiom Val.Refine : Refinement Val
 
 /--
-We say that `ρ` is a sub-environment of `η`, written as `ρ ⊑ η`,
+We say that environment `ρ` is refined by `η`, written as `ρ ⊑ η`, when:
 
 * the global state of `ρ` is refined by the global state of `η`, and
 * for each variable `v` in the domain of `ρ`,
@@ -213,7 +220,22 @@ instance : Refinement SEnv where
     suffices s = t ∧ ρ = η by grind
     grind
 
+/--
+An interpreter state `(ρ, p)` is refined by another state `(η, q)`, when:
+
+* The PCs are equal, `p = q`, and
+* `ρ` is refined by `η`.
+-/
+instance : Refinement (InterpState p) where
+  IsRefinedBy s t := s.pc? = t.pc? ∧ s.env ⊑ t.env
+
 section RefineLemmas
+
+@[grind =] theorem SEnv.refine_iff {ρ η : SEnv} :
+  ρ ⊑ η ↔ ρ.state ⊑ η.state ∧ (∀ v, ρ.regs v ⊑ η.regs v) := by rfl
+
+@[grind =] theorem InterpState.refine_iff {s t : InterpState p} :
+  s ⊑ t ↔ s.pc? = t.pc? ∧ s.env ⊑ t.env := by rfl
 
 /-! #### Congruence Lemmas -/
 section RefineCongr
@@ -226,15 +248,24 @@ In other words, the semantics are *monotone* w.r.t. the refinement relation.
 @[grind .] axiom Inst.denote_isRefinedBy_congr (hρ : ρ₁ ⊑ ρ₂) (i : Inst) :
     ⟦i⟧ ρ₁ ⊑ ⟦i⟧ ρ₂
 
-@[grind .] theorem InstSeq.denote_isRefinedBy_congr (hρ : ρ₁ ⊑ ρ₂) (is : InstSeq) :
-    ⟦is⟧ ρ₁ ⊑ ⟦is⟧ ρ₂ := by
-  induction is generalizing ρ₁ ρ₂
-  · simpa
-  · grind
+theorem InterpState.reduce_isRefinedBy {s t s' t' : InterpState p} :
+    s ⊑ t → s ⟹ s' → t ⟹ t' → s' ⊑ t' := by grind
 
-@[grind .] theorem Pattern.denote_isRefinedBy_congr (hρ : ρ₁ ⊑ ρ₂) (I : Pattern n) :
-    ⟦I⟧ ρ₁ ⊑ ⟦I⟧ ρ₂ := by
-  simp [Pattern.denote_eq, InstSeq.denote_isRefinedBy_congr hρ]
+-- TODO: prove the following, if it turns out we need it
+-- theorem InterpState.bReduce_isRefinedBy {s t : InterpState p} {ρ η} :
+--     s ⊑ t → s ⇓ ρ → t ⇓ η → ρ ⊑ η := by
+--   intro hst hs ht
+--   grind
+
+-- @[grind .] theorem InstSeq.denote_isRefinedBy_congr (hρ : ρ₁ ⊑ ρ₂) (is : InstSeq) :
+--     ⟦is⟧ ρ₁ ⊑ ⟦is⟧ ρ₂ := by
+--   induction is generalizing ρ₁ ρ₂
+--   · simpa
+--   · grind
+
+-- @[grind .] theorem Pattern.denote_isRefinedBy_congr (hρ : ρ₁ ⊑ ρ₂) (I : Pattern n) :
+--     ⟦I⟧ ρ₁ ⊑ ⟦I⟧ ρ₂ := by
+--   simp [Pattern.denote_eq, InstSeq.denote_isRefinedBy_congr hρ]
 
 end RefineCongr
 end RefineLemmas
@@ -339,29 +370,30 @@ theorem Pattern.eqnLemma_of_eqnLemma_inst (hEqn : I.HasEqn) :
     I.EqnLemma x ρ → ∀ j : Inst, x ∉ j.results → I.EqnLemma x (⟦j⟧ ρ) := by
   grind
 
-/--
-If `I.HasEqn`, then validity of the equation lemma is stable under the execution
-another sequence of instructions `js`.
--/
-@[grind .]
-theorem Pattern.eqnLemma_of_eqnLemma_instSeq (hI : I.HasEqn) :
-    I.EqnLemma x ρ → ∀ js : InstSeq, x ∉ js.results → I.EqnLemma x (⟦js⟧ ρ) := by
-  intro hI js hjs
-  induction js generalizing ρ
-  · exact hI
-  · grind
+-- TODO: figure out if we need to adapt
+-- /--
+-- If `I.HasEqn`, then validity of the equation lemma is stable under the execution
+-- another sequence of instructions `js`.
+-- -/
+-- @[grind .]
+-- theorem Pattern.eqnLemma_of_eqnLemma_instSeq (hI : I.HasEqn) :
+--     I.EqnLemma x ρ → ∀ js : InstSeq, x ∉ js.results → I.EqnLemma x (⟦js⟧ ρ) := by
+--   intro hI js hjs
+--   induction js generalizing ρ
+--   · exact hI
+--   · grind
 
-/--
-If `I.HasEqn`, then validity of the equation lemma is stable under the execution
-another sequence of instructions `js`.
--/
-@[grind .]
-theorem Inst.eqnLemma_of_eqnLemma_instSeq {i : Inst} (hi : i.HasEqn) :
-    i.EqnLemma x ρ → ∀ js : InstSeq, x ∉ js.results → i.EqnLemma x (⟦js⟧ ρ) := by
-  intro hi js hjs
-  induction js generalizing ρ
-  · exact hi
-  · grind
+-- /--
+-- If `I.HasEqn`, then validity of the equation lemma is stable under the execution
+-- another sequence of instructions `js`.
+-- -/
+-- @[grind .]
+-- theorem Inst.eqnLemma_of_eqnLemma_instSeq {i : Inst} (hi : i.HasEqn) :
+--     i.EqnLemma x ρ → ∀ js : InstSeq, x ∉ js.results → i.EqnLemma x (⟦js⟧ ρ) := by
+--   intro hi js hjs
+--   induction js generalizing ρ
+--   · exact hi
+--   · grind
 
 /-! denote lemmas -/
 
@@ -369,28 +401,28 @@ theorem Inst.eqnLemma_of_eqnLemma_instSeq {i : Inst} (hi : i.HasEqn) :
     (h : i.EqnLemma x ρ) : (⟦i⟧ ρ).regs x = ρ.regs x := by
   grind [EqnLemma]
 
-@[grind .] theorem InstSeq.regs_denote_of_eqnLemma {is : InstSeq} (hEqn : is.HasEqn)
-    (hwf : is.NoShadowing) (h : is.EqnLemma x ρ) :
-    (⟦is⟧ ρ).regs x = ρ.regs x := by
-  induction is generalizing ρ
-  · rfl
-  · grind
+-- @[grind .] theorem InstSeq.regs_denote_of_eqnLemma {is : InstSeq} (hEqn : is.HasEqn)
+--     (hwf : is.NoShadowing) (h : is.EqnLemma x ρ) :
+--     (⟦is⟧ ρ).regs x = ρ.regs x := by
+--   induction is generalizing ρ
+--   · rfl
+--   · grind
 
 /-! idempotence -/
 
 attribute [grind .] Inst.HasEqn.idempotent
 
-/--
-If `is.HasEqn`, then evaluating `is` is guaranteed to yield an environment which
-satisfies its own equation lemma at any variable.
--/
-@[grind =>]
-theorem InstSeq.eqnLemma_denote_self (hEqn : is.HasEqn) (hwf : is.NoShadowing)
-    (ρ) :
-    is.EqnLemma x (⟦is⟧ ρ) := by
-  induction is generalizing ρ
-  · simp
-  · simp; grind
+-- /--
+-- If `is.HasEqn`, then evaluating `is` is guaranteed to yield an environment which
+-- satisfies its own equation lemma at any variable.
+-- -/
+-- @[grind =>]
+-- theorem InstSeq.eqnLemma_denote_self (hEqn : is.HasEqn) (hwf : is.NoShadowing)
+--     (ρ) :
+--     is.EqnLemma x (⟦is⟧ ρ) := by
+--   induction is generalizing ρ
+--   · simp
+--   · simp; grind
 
 end Lemmas
 

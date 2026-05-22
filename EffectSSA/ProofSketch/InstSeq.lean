@@ -209,13 +209,34 @@ structure PC (is : InstSeq) : Type where
   idx : Nat
   isLt : idx < is.length := by grind
 
-@[grind] def PC.ofFin (i : Fin is.length) : is.PC where
+/-! ### Definitions -/
+namespace PC
+
+@[grind] def ofFin (i : Fin is.length) : is.PC where
   idx := i.val
   isLt := i.isLt
 
 /-- Get the instruction at the specified location. -/
-@[expose] def PC.get (pc : is.PC) : Inst := is[pc.idx]'pc.isLt
+@[expose] def get (pc : is.PC) : Inst := is[pc.idx]'pc.isLt
 
+/-- Get the initial PC of a given program, or `none` if the program is empty. -/
+def zero? (is : InstSeq) : Option is.PC :=
+  if h : is.length > 0 then
+    some ⟨0, h⟩
+  else
+    none
+
+/-- Increment the PC, returning `none` if the end of the program was reached. -/
+def incr? (pc : is.PC) : Option is.PC :=
+  let q := pc.idx + 1
+  if h : q < is.length then
+    some ⟨q, h⟩
+  else
+    none
+
+end PC
+
+/-! ### Lemmas -/
 section Lemmas
 
 /-! relation to list membership -/
@@ -303,7 +324,10 @@ def cast (h : is = js) (p : PC is) : PC js where idx := p.idx
 end PC
 end Lemmas
 
-/-! Map PCs of `is` or `js` into `is ++ js`. -/
+/-!
+## Append
+Map PCs of `is` or `js` into `is ++ js`.
+-/
 section OfAppend
 variable {is js : InstSeq}
 
