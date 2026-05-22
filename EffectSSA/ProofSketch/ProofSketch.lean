@@ -41,11 +41,6 @@ structure SEnv where
   regs : Var → Option Val := fun _ => none
   /-- The global state, e.g, for memory and UB -/
   state : State := .initial
-  /--
-  Whether an interpreter error occured (e.g, a reference to an undefined
-  variable). This should never happen in well-formed programs.
-  -/
-  error : Bool := false
 
 /-! ### Defs -/
 
@@ -129,13 +124,12 @@ types is all that we need to compare.
 -/
 def SEnv.EquivOn (P : Var → Prop) : SEnv → SEnv → Prop := fun ρ η =>
   ρ.state = η.state
-  ∧ ρ.error = η.error
   ∧ (∀ v, P v → ρ.regs v = η.regs v)
 
 /-- If two environments are equivalent on all variables, they are equal. -/
 theorem SEnv.eq_of_equivOn {ρ η} : EquivOn (fun _ => True) ρ η → ρ = η := by
-  rcases ρ with ⟨ρ_regs, ρ_state, ρ_error⟩
-  rcases η with ⟨η_regs, η_state, η_error⟩
+  rcases ρ with ⟨ρ_regs, ρ_state⟩
+  rcases η with ⟨η_regs, η_state⟩
   simp only [EquivOn]
   intro h
   have : ρ_regs = η_regs := by funext; simp_all
@@ -190,10 +184,7 @@ when `ρ` has an error, or:
     the value `ρ v` is refined by `η v`.
 -/
 instance : HasSubset SEnv where
-  Subset ρ η := ¬ρ.error →
-    ¬η.error
-    ∧ ρ.state ⊆ η.state
-    ∧ (∀ v, ρ.regs v ⊆ η.regs v)
+  Subset ρ η := ρ.state ⊆ η.state ∧ (∀ v, ρ.regs v ⊆ η.regs v)
 
 section RefineLemmas
 variable {ρ₁ ρ₂ ρ₃ : SEnv}
