@@ -10,6 +10,8 @@ public import EffectSSA.ProofSketch.MultiContext
 public import EffectSSA.ProofSketch.Effect
 public import EffectSSA.ProofSketch.CFG
 
+public import Std.Data.HashMap
+
 /-!
 # Contextual Equivalence Proof Sketch
 
@@ -684,3 +686,47 @@ theorem Pattern.ctxEquiv_of_denoteEquiv (I J : Pattern n)
   apply Refinement.antisymm
   <;> apply ctxRefine_of_denoteRefine
   <;> grind
+
+
+/-!
+# Control Flow
+-/
+
+/-!
+## AST
+-/
+section AST
+
+axiom Terminator : Type
+
+structure Block n where
+  insts : MultiContext n
+  term : Terminator
+
+structure BlockId where
+  id : String
+deriving Hashable, DecidableEq
+
+/--
+`CFG n` is a control-flow graph with `n` holes.
+
+TODO: incorporate `Context` in the name somehow.
+-/
+structure CFG n where
+  blocks : Std.HashMap BlockId (Block n)
+  entry : BlockId
+
+abbrev Program := CFG 0
+
+end AST
+
+/-!
+## Semantics
+-/
+section Semantics
+
+#check Denote
+
+axiom Terminator.denote : Denote Terminator _
+
+end Semantics
