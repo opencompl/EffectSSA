@@ -246,12 +246,12 @@ theorem wellFormed_cons :
     (cons is I).WellFormed Γ ↔ is.WellFormed Γ ∧ I.WellFormed (is.results ∪ Γ) := by
   grind
 
-theorem wellFormed_get_of_wellFormed :
-    I.WellFormed Γ → ∃ Δ, (I.get k hk).WellFormed Δ := by
+theorem wellFormed_get_of_wellFormed {k : Nat} {hk : k < n} :
+    I.WellFormed Γ → ∃ Δ, (I[k]).WellFormed Δ := by
   induction I generalizing Γ k
   · grind
   · cases k <;> grind
-grind_pattern wellFormed_get_of_wellFormed => I.WellFormed Γ, (I.get k hk).WellFormed _
+grind_pattern wellFormed_get_of_wellFormed => I.WellFormed Γ, (I[k]).WellFormed _
 
 /-! results -/
 
@@ -326,10 +326,10 @@ variable (I : Pattern n) (is : InstSeq)
 
 variable {I} in
 @[grind .]
-theorem Pattern.eqnLemma_of_mem_results_get (hx : x ∈ (I.get k hk).results)
-    (wf : I.NoShadowing):
-    I.EqnLemma x ρ ↔ (I.get k hk).EqnLemma x ρ := by
-  generalize hi : I.get k hk = is
+theorem Pattern.eqnLemma_of_mem_results_get {k : Nat} {hk}
+    (hx : x ∈ I[k].results) (wf : I.NoShadowing):
+    I.EqnLemma x ρ ↔ I[k].EqnLemma x ρ := by
+  generalize hi : I[k] = is
   constructor
   · grind
   · intro h js hj
@@ -439,7 +439,7 @@ abbrev Pattern.getDef? (v : Var) (I : Pattern n) : Option Inst :=  I.collapse.ge
 (transitive) dependencies of the `h`-th pattern of `I`.
 -/
 def Pattern.EqnLemmaUpTo (I : Pattern n) (h : Hole n) (ρ : SEnv) : Prop :=
-  ∀ x ∈ (I.get h.val).args,
+  ∀ x ∈ I[h].args,
     ∀ y, y = x ∨ y ∈ (I.usesAt x) → I.EqnLemma y ρ
 
 end EqnLemmaUpTo
@@ -513,7 +513,7 @@ def plug (C : MultiContext n) (I : Pattern n) : InstSeq :=
   C.flatMap <| fun i =>
     match i with
     | .inl (i : Inst) => [i]
-    | .inr (h : Hole n) => I.get h.val
+    | .inr (h : Hole n) => I[h]
 
 section Lemmas
 variable {C}
@@ -524,17 +524,17 @@ variable {C}
     plug (.inl i :: C) I = i :: plug C I := by rfl
 
 @[simp, grind =] theorem plug_cons_hole (h : Hole n) :
-    plug (.inr h :: C) I = I.get h.val ++ plug C I := by rfl
+    plug (.inr h :: C) I = I[h] ++ plug C I := by rfl
 
 @[simp, grind =]
-theorem denote_plug : ⟦C.plug I⟧ = ⟦C⟧ (I.get ·.val) := by
+theorem denote_plug : ⟦C.plug I⟧ = ⟦C⟧ (I[·]) := by
   funext ρ
   induction C generalizing ρ
   case nil => simp
   case cons i C ih => cases i <;> grind
 
 @[grind =] theorem mem_plug_iff (i : Inst) :
-    i ∈ (C.plug I) ↔ (.inl i) ∈ C ∨ ∃ h, .inr h ∈ C ∧ i ∈ I.get h.val := by
+    i ∈ (C.plug I) ↔ (.inl i) ∈ C ∨ ∃ h, .inr h ∈ C ∧ i ∈ I[h] := by
   simp only [plug, List.mem_flatMap]
   constructor
   · grind
@@ -544,13 +544,13 @@ theorem denote_plug : ⟦C.plug I⟧ = ⟦C⟧ (I.get ·.val) := by
 
 @[grind =] theorem mem_results_plug_iff {I : Pattern n} :
     x ∈ (C.plug I).results ↔
-      (∃ i, .inl i ∈ C ∧ x ∈ i.results) ∨ (∃ h, .inr h ∈ C ∧ x ∈ (I.get h.val).results) := by
+      (∃ i, .inl i ∈ C ∧ x ∈ i.results) ∨ (∃ h, .inr h ∈ C ∧ x ∈ (I[h]).results) := by
   grind
 
 /-! #### Completeness -/
 
 @[grind =] theorem mem_plug_iff_of_complete (hC : C.Complete) (i : Inst) :
-    i ∈ (C.plug I) ↔ (.inl i) ∈ C ∨ ∃ (h : Hole n), i ∈ I.get h.val := by
+    i ∈ (C.plug I) ↔ (.inl i) ∈ C ∨ ∃ (h : Hole n), i ∈ I[h] := by
   grind
 
 /--
@@ -559,7 +559,7 @@ results of `C.plug I`.
 -/
 theorem results_subset_results_plug (hC : C.Complete) :
     I.results ⊆ (C.plug I).results := by
-  grind [Pattern.mem_iff_get_hole]
+  grind [Pattern.mem_iff_getElem_hole]
 grind_pattern results_subset_results_plug => (C.plug I).results
 
 /-! ### WellFormedness -/
@@ -658,7 +658,7 @@ def Pattern.DenRefine (I J : Pattern n) : Prop :=
   ∀ h : Hole n, ∀ ρ η,
     I.EqnLemmaUpTo h ρ →
     J.EqnLemmaUpTo h η →
-    ⟦I.get h.val⟧ ρ ⊆ ⟦J.get h.val⟧ η
+    ⟦ I[h] ⟧ ρ ⊆ ⟦ J[h] ⟧ η
 
 /--
 A pattern `I` is denotationally equivalent to pattern `J`,
@@ -671,7 +671,7 @@ def Pattern.DenEquiv (I J : Pattern n) : Prop :=
   ∀ h : Hole n, ∀ ρ η,
     I.EqnLemmaUpTo h ρ →
     J.EqnLemmaUpTo h η →
-    ⟦I.get h.val⟧ ρ = ⟦J.get h.val⟧ η
+    ⟦ I[h] ⟧ ρ = ⟦ J[h] ⟧ η
 
 end Denotational
 
@@ -722,14 +722,14 @@ TODO: dedup with Invariant
 private structure Residual (Γ : VarSet) (C : MultiContext n) (I : Pattern n) where
   /-- `C.plug I` is well-formed with free variables `Γ`. -/
   wf : (C.plug I).WellFormed Γ
-  residual : ∀ x ∈ I.results, x ∉ Γ → (∃ h, .inr h ∈ C ∧ x ∈ (I.get h.val).results)
+  residual : ∀ x ∈ I.results, x ∉ Γ → (∃ h, .inr h ∈ C ∧ x ∈ I[h].results)
 
 namespace Residual
 
 /-! invariants -/
 
 private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Residual ∅ C I := by
-  grind [Pattern.mem_iff_get_hole]
+  grind [Pattern.mem_iff_getElem_hole]
 
 @[grind →] private theorem of_cons_inst :
     Residual Γ (.inl i :: C) I → Residual (i.results ∪ Γ) C I := by
@@ -738,7 +738,7 @@ private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Res
   · intro x; have := residual x; grind
 
 @[grind →] private theorem of_cons_hole  :
-    Residual Γ (.inr h :: C) I → Residual ((I.get h.val).results ∪ Γ) C I := by
+    Residual Γ (.inr h :: C) I → Residual (I[h].results ∪ Γ) C I := by
   rintro ⟨wf, residual⟩; constructor
   · grind
   · intro x; have := residual x; grind
@@ -783,7 +783,7 @@ private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Inv
   have nsI : I.NoShadowing := by
     apply C.noShadowing_pattern_of_plug_noShadowing
     <;> grind
-  grind [Pattern.mem_iff_get_hole]
+  grind [Pattern.mem_iff_getElem_hole]
 
 private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
     Invariant Γ (.inl i :: C) I ρ → Invariant (i.results ∪ Γ) C I (⟦i⟧ ρ) := by
@@ -791,7 +791,7 @@ private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
   have : ∀ x ∈ i.results, x ∉ I.results := by
     intro x hx hxI
     have : x ∉ (C.plug I).results := by grind
-    obtain ⟨h, hhC, hhx⟩ : ∃ h, Sum.inr h ∈ C ∧ x ∈ (I.get h.val).results := by
+    obtain ⟨h, hhC, hhx⟩ : ∃ h, Sum.inr h ∈ C ∧ x ∈ I[h].results := by
       have : x ∉ Γ := by grind
       have := residual.residual x hxI;
       grind
@@ -801,9 +801,9 @@ private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
 
 private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
     Invariant Γ (.inr h :: C) I ρ →
-    Invariant ((I.get h.val).results ∪ Γ) C I (⟦I.get h.val⟧ ρ) := by
+    Invariant (I[h].results ∪ Γ) C I (⟦I[h]⟧ ρ) := by
   rintro ⟨residual, closed, eqn, nsI⟩
-  generalize his : I.get h.val = is at *
+  generalize his : I[h] = is at *
   constructor
   · grind
   · have hΔ : is.args ⊆ Γ := by grind
@@ -862,7 +862,7 @@ theorem Pattern.ctxRefine_of_denoteRefine (I J : Pattern n)
   suffices ∀ ρ η, ρ ⊆ η →
       ∀ {Γ}, Invariant Γ C I ρ →
       ∀ {Δ}, Invariant Δ C J η →
-      ⟦C⟧ (I.get ·.val) ρ ⊆ ⟦C⟧ (J.get ·.val) η by
+      ⟦C⟧ (I[·]) ρ ⊆ ⟦C⟧ (J[·]) η by
     simp only [MultiContext.denote_plug]
     apply @this { } { } ?_ ∅ ?_ ∅ ?_
     <;> grind [Invariant.initial]
@@ -878,18 +878,14 @@ theorem Pattern.ctxRefine_of_denoteRefine (I J : Pattern n)
         · apply Invariant.of_invariant_cons_inst hI hCI
         · apply Invariant.of_invariant_cons_inst hJ hCJ
     | inr h =>
-        let is := I.get h.val
-        let js := J.get h.val
-        apply ih (⟦is⟧ ρ) (⟦js⟧ η)
-        · have : is ∈ I := by grind [Pattern.mem_iff_get]
-          have : js ∈ J := by grind [Pattern.mem_iff_get]
-          apply h_denoteRefine
-          · intro x (hx : x ∈ is.args) y hy
-            have : is.args ⊆ Γ := by grind
+        apply ih (⟦I[h]⟧ ρ) (⟦J[h]⟧ η)
+        · apply h_denoteRefine
+          · intro x (hx : x ∈ I[h].args) y hy
+            have : I[h].args ⊆ Γ := by grind
             rcases hCI
             grind
-          · intro x (hx : x ∈ js.args)
-            have : js.args ⊆ Δ := by grind
+          · intro x (hx : x ∈ J[h].args)
+            have : J[h].args ⊆ Δ := by grind
             rcases hCJ
             grind
         · apply Invariant.of_invariant_cons_hole hI hCI

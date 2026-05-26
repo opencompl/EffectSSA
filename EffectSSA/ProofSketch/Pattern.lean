@@ -57,12 +57,17 @@ def nil : Pattern 0 := ofVector #v[]
 def cons (is : InstSeq) (I : Pattern n) : Pattern (n + 1) :=
   (ofVector <| #v[is] ++ I.toVector).cast (by grind)
 
-/-! ### Getters / Destructors -/
+/-! ### GetElem -/
 
-def get (i : Nat) (hi : i < n := by grind) : InstSeq :=
-  v.toVector[i]
+instance : GetElem (Pattern n) Nat InstSeq (fun _ i => i < n) where
+  getElem I i _ := I.toVector[i]
 
-@[grind] abbrev head [NeZero n] : Pattern n → InstSeq := (·.get 0)
+instance : GetElem (Pattern n) (Hole n) InstSeq (fun _ _ => True) where
+  getElem I h _ := I[h.val]
+
+/-! ### Destructors -/
+
+@[grind] abbrev head [NeZero n] (I : Pattern n) : InstSeq := I[0]'(by grind)
 def tail [NeZero n] : Pattern n → Pattern (n - 1) := Vector.tail
 
 /-! ### Collapse -/
@@ -77,7 +82,7 @@ def collapse (xs : Pattern n) : InstSeq :=
 /-! ### Membership -/
 
 instance : Membership InstSeq (Pattern n) where
-  mem I i := ∃ k hk, i = I.get k hk
+  mem I i := ∃ (k : Nat) (hk : k < n), i = I[k]
 
 /-! ### Variables -/
 
@@ -112,32 +117,40 @@ end ToVector
 /-! ext -/
 
 @[ext]
-theorem ext {v w : Pattern n} (h : ∀ i (hi : i < n), v.get i hi = w.get i hi) : v = w := by
+theorem ext {v w : Pattern n} (h : ∀ i (hi : i < n), v[i] = w[i]) : v = w := by
   apply Vector.ext
   grind [get, Vector.get_eq_getElem]
 
 /-! get -/
 section Get
-attribute [local grind =, local simp] get
 attribute [local grind ext] ext
 
-@[simp, grind =] theorem get_ofVector (xs : Vector _ n) : (ofVector xs).get i hi = xs[i] := by rfl
-@[simp, grind =] theorem get_cast : (xs.cast h).get i hi = xs.get i (by grind) := by rfl
+variable (i : Nat)
 
-@[simp, grind =] theorem get_append {i : Nat} (hi : i < n + m) :
-    (xs ++ ys).get i hi = if hi : i < n then xs.get i else ys.get (i - n) := by
+@[local simp, local grind =] theorem getElem_eq_getElem_toVector (I : Pattern n)
+    (i : Nat) (hi : i < n) : I[i]'hi = I.toVector[i] := rfl
+
+@[simp, grind =, grind =_] theorem getElem_hole (I : Pattern n) (h : Hole n) :
+    I[h] = I[h.val] := by rfl
+
+@[simp, grind =] theorem getElem_ofVector (xs : Vector _ n) : (ofVector xs)[i]'hi = xs[i] := by rfl
+@[simp, grind =] theorem getElem_cast (h : n = m) :
+  (xs.cast h)[i]'hi = xs[i] := by rfl
+
+@[simp, grind =] theorem getElem_append {i : Nat} (hi : i < n + m) :
+    (xs ++ ys)[i] = if hi : i < n then xs[i] else ys[i - n] := by
   simp; grind
 
-@[simp, grind =] theorem get_cons {x : InstSeq} {i : Nat} (hi : i < n + 1) :
-    (cons x xs).get i hi = if hi : i = 0 then x else xs.get (i - 1) (by grind) := by
+@[simp, grind =] theorem getElem_cons {x : InstSeq} {i : Nat} (hi : i < n + 1) :
+    (cons x xs)[i] = if h : i = 0 then x else xs[i - 1] := by
   simp; grind
 
-@[simp, grind =] theorem get_junk {k : Nat} {i : Nat} (hi : i < k) :
-    (junk k).get i hi = [] := by
+@[simp, grind =] theorem getElem_junk {k : Nat} {i : Nat} (hi : i < k) :
+    (junk k)[i] = [] := by
   simp
 
-@[simp, grind =] theorem get_tail [NeZero n] (v : Pattern n) {i : Nat} (hi : i < (n - 1)) :
-    v.tail.get i hi = v.get (i + 1) (by grind) := by
+@[simp, grind =] theorem getElem_tail [NeZero n] (v : Pattern n) {i : Nat} (hi : i < (n - 1)) :
+    v.tail[i] = v[i + 1] := by
   simp; grind
 
 end Get
@@ -167,7 +180,7 @@ theorem cons_head_tail [NeZero n] (v : Pattern n) : cons v.head v.tail = v.cast 
   ext; grind
 
 theorem cons_eq_append : (cons x xs) = ((ofVector #v[x]) ++ xs).cast (by grind) := by
-  ext; grind
+  ext; simp
 
 /-! head / tail -/
 
@@ -220,7 +233,7 @@ theorem collapse_append : (xs ++ ys).collapse = xs.collapse ++ ys.collapse := by
 
 @[simp, grind =] theorem collapse_cast (h : n = m) : (xs.cast h).collapse = xs.collapse := by rfl
 
-@[grind .] theorem get_subset_collapse {I : Pattern n} : I.get k hk ⊆ I.collapse := by
+@[grind .] theorem getElem_subset_collapse {I : Pattern n} {k : Nat} {hk : k < n} : I[k]'hk ⊆ I.collapse := by
   induction I generalizing k
   · grind
   · cases k <;> grind
@@ -230,27 +243,27 @@ theorem collapse_append : (xs ++ ys).collapse = xs.collapse ++ ys.collapse := by
   suffices I ≍ cons I.head I.tail by grind
   grind
 
-@[grind .] theorem length_get_le_length_collapse {I : Pattern n} :
-    (I.get k hk).length ≤ I.collapse.length := by
+@[grind .] theorem length_getElem_le_length_collapse {I : Pattern n} {k : Nat} {hk : k < n} :
+    (I[k]'hk).length ≤ I.collapse.length := by
   induction I generalizing k <;> grind
 
 /-! ### Membership -/
 section Mem
 variable (I : Pattern n)
 
-theorem mem_iff_get : i ∈ I ↔ ∃ k, ∃ (hk : k < n), i = I.get k hk := by rfl
-grind_pattern mem_iff_get => i ∈ I, I.get _
+theorem mem_iff_getElem : i ∈ I ↔ ∃ k, ∃ (hk : k < n), i = I[k]'hk := by rfl
+grind_pattern mem_iff_getElem => i ∈ I, GetElem.getElem I
 
-theorem mem_iff_get_hole : i ∈ I ↔ ∃ (h : Hole n), i = I.get h.val := by
-  simp only [mem_iff_get]
+theorem mem_iff_getElem_hole : i ∈ I ↔ ∃ (h : Hole n), i = I[h] := by
+  simp only [mem_iff_getElem]
   constructor
   · rintro ⟨k, hk, h⟩; exact ⟨⟨k, hk⟩, h⟩
   · grind
 
-@[grind .] theorem not_mem_nil : i ∉ nil := by grind [mem_iff_get]
+@[grind .] theorem not_mem_nil : i ∉ nil := by grind [mem_iff_getElem]
 
 @[simp, grind =] theorem mem_cons : (js ∈ cons is I) ↔ js = is ∨ js ∈ I := by
-  simp only [mem_iff_get, get_cons]
+  simp only [mem_iff_getElem, getElem_cons]
   constructor
   · grind
   · rintro (rfl | ⟨k, hk, rfl⟩)
@@ -286,7 +299,7 @@ instruction sequence.
 
 structure PC (I : Pattern n) where
   hole : Hole n
-  pc : (I.get hole.val).PC
+  pc : (I[hole]).PC
 
 namespace PC
 variable {I : Pattern n}
@@ -351,7 +364,7 @@ section CollapseLemmas
 
 @[simp, grind =] theorem ofHeadPC_inj [NeZero n] {p q : I.head.PC} :
     ofHeadPC p = ofHeadPC q ↔ p = q := by
-  simp [ofHeadPC, InstSeq.PC.eq_iff_idx_eq]
+  grind [ofHeadPC]
 
 @[simp, grind =] theorem ofTailPC_inj [NeZero n] {p q : I.tail.PC} :
     ofTailPC p = ofTailPC q ↔ p = q := by
