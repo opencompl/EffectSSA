@@ -1,6 +1,7 @@
 module
 
 public import EffectSSA.ProofSketch.Notation.Refinement
+public import EffectSSA.ProofSketch.Notation.Reduce
 public import EffectSSA.ProofSketch.Denote
 public import EffectSSA.ProofSketch.VarSet
 public import EffectSSA.ProofSketch.Inst
@@ -531,8 +532,65 @@ private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Res
 end Residual
 end Residual
 
+
+
 /-!
-## Main Result for straight-line programs
+# Control Flow
+-/
+
+
+/-!
+## Semantics
+-/
+section Semantics
+
+inductive TerminatorResult
+  | jump (b : BlockId)
+  | ret (ρ : SEnv)
+
+@[instance] axiom Terminator.denote : Denote Terminator (SEnv → TerminatorResult)
+
+inductive ContextCFG.InterpState (C : ContextCFG n) (ζ : HoleEnv n) where
+  | running (block : BlockId) (env : SEnv)
+  | ret (env : SEnv)
+
+
+end Semantics
+
+/-!
+## Contextual Refinement & Equivalence
+-/
+section Contextual
+
+/--
+A pattern `I` is contextually refined by pattern `J`,
+when for any complete context `C` such that `C[I]` and `C[J]` are both
+wellformed, `C[I]` is (denotationally) refined by `C[J]`.
+-/
+def Pattern.CtxRefine (I J : Pattern n) : Prop :=
+  ∀ (C : ContextCFG n), C.Complete →
+    let CI := C.plug I;
+    let CJ := C.plug J;
+    CI.WellFormed ∅ → CJ.WellFormed ∅ →
+      ⟦CI⟧ {} ⊑ ⟦CJ⟧ {}
+
+/--
+Two patterns `I` and `J` are contextually equivalent,
+when for any complete context `C` such that `C[I]` and `C[J]` are both
+wellformed, `C[I]` is (denotationally) equivalent to `C[J]`.
+-/
+def Pattern.CtxEquiv (I J : Pattern n) : Prop :=
+  ∀ (C : MultiContext n), C.Complete →
+    let CI := C.plug I;
+    let CJ := C.plug J;
+    CI.WellFormed ∅ → CJ.WellFormed ∅ →
+      ⟦CI⟧ {} = ⟦CJ⟧ {}
+
+end Contextual
+
+
+/-!
+## Main Result
 -/
 attribute [grind =] id_eq
 
@@ -686,47 +744,3 @@ theorem Pattern.ctxEquiv_of_denoteEquiv (I J : Pattern n)
   apply Refinement.antisymm
   <;> apply ctxRefine_of_denoteRefine
   <;> grind
-
-
-/-!
-# Control Flow
--/
-
-/-!
-## AST
--/
-section AST
-
-axiom Terminator : Type
-
-structure Block n where
-  insts : MultiContext n
-  term : Terminator
-
-structure BlockId where
-  id : String
-deriving Hashable, DecidableEq
-
-/--
-`CFG n` is a control-flow graph with `n` holes.
-
-TODO: incorporate `Context` in the name somehow.
--/
-structure CFG n where
-  blocks : Std.HashMap BlockId (Block n)
-  entry : BlockId
-
-abbrev Program := CFG 0
-
-end AST
-
-/-!
-## Semantics
--/
-section Semantics
-
-#check Denote
-
-axiom Terminator.denote : Denote Terminator _
-
-end Semantics

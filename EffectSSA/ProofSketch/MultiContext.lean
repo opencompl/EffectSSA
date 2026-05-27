@@ -189,15 +189,19 @@ end Lemmas
 end Plug
 
 /-!
-## Conversion from `InstSeq`
+## Conversion to `InstSeq`
 -/
 section Conv
 
-/--
-`ofSeq is` interprets an instruction sequence `is` as a context,
-which happens to not have any holes.
--/
+def toSeq : MultiContext 0 → InstSeq :=
+  List.map (fun | .inl i => i)
+instance : Coe (MultiContext 0) InstSeq where coe := toSeq
+
 def ofSeq : InstSeq → MultiContext n :=
   List.map Sum.inl
+instance : Coe InstSeq (MultiContext n) where coe := ofSeq
 
+section Lemmas
+
+end Lemmas
 end Conv
