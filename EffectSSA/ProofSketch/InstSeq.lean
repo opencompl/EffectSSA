@@ -11,8 +11,39 @@ open VarSet
 
 @[expose] public abbrev InstSeq := List Inst
 
+
+/-!
+## Custom Cons Notation
+We set up `;>` as a wrapper around `::` which includes an `InstSeq` type
+annotation, to avoid leaking the definition as a `List`.
+We then also include custom induction & cases principle for the same purpose.
+-/
+section Cons
+
+@[grind, match_pattern, expose] public abbrev InstSeq.cons : Inst → InstSeq → InstSeq :=
+  (· :: ·)
+
+scoped infixl:67 " ;> " => InstSeq.cons
+
 namespace InstSeq
 
+@[induction_eliminator, elab_as_elim]
+public noncomputable def rec {motive : InstSeq → Sort u} :
+    (nil : motive []) →
+    (cons : (head : Inst) → (tail : InstSeq) → motive tail → motive (head ;> tail)) →
+    ∀ is, motive is := List.rec
+
+@[cases_eliminator, elab_as_elim]
+public noncomputable def cases {motive : InstSeq → Sort u}
+    (nil : motive [])
+    (cons : (head : Inst) → (tail : InstSeq) → motive (head ;> tail)) :
+    ∀ is, motive is :=
+  (List.casesOn · nil cons)
+
+end InstSeq
+end Cons
+
+namespace InstSeq
 /-!
 ## Variables
 -/
@@ -22,7 +53,7 @@ noncomputable section Vars
 def argsResults : InstSeq → VarSet × VarSet := go ∅ ∅
 where go (A R : VarSet)
   | [] => (A, R)
-  | i :: is =>
+  | i ;> is =>
     let A := A ∪ (i.args - R)
     let R := R ∪ i.results
     go A R is
@@ -53,7 +84,7 @@ attribute [local grind] results args argsResults argsResults.go
 
 @[simp, grind =] public theorem args_nil : args [] = ∅ := by rfl
 @[simp, grind =] public theorem args_cons :
-    args (i :: is) = i.args ∪ (args is - i.results) := by
+    args (i ;> is) = i.args ∪ (args is - i.results) := by
   show (argsResults.go ..).fst = _; grind
 
 @[grind =] theorem argsResults_go_snd : (argsResults.go A R is).2 = R ∪ is.results := by
@@ -63,7 +94,7 @@ attribute [local grind] results args argsResults argsResults.go
   induction is generalizing A R <;> grind
 
 @[simp, grind =] public theorem results_nil  : results [] = ∅ := by rfl
-@[simp, grind =] public theorem results_cons : results (i :: is) = i.results ∪ is.results := by
+@[simp, grind =] public theorem results_cons : results (i ;> is) = i.results ∪ is.results := by
   show (argsResults.go ..).snd = _; grind
 
 @[simp, grind =] public theorem results_append {xs ys : InstSeq} :
@@ -100,7 +131,7 @@ or `none` if no such instruction exists
 -/
 public noncomputable def getDef? (v : Var) : (is : InstSeq) → Option { i // i ∈ is ∧ v ∈ is.results }
   | [] => none
-  | i :: is =>
+  | i ;> is =>
       open Classical in
       if hi : v ∈ i.results then
         some ⟨i, by grind⟩
@@ -210,8 +241,8 @@ namespace PC
 
 /-! cases principle -/
 
-@[grind] def zero {i is} : PC (i :: is) where idx := 0
-@[grind] def succ {i is} (p : PC is) : PC (i :: is) where idx := p.idx + 1
+@[grind] def zero {i is} : PC (i ;> is) where idx := 0
+@[grind] def succ {i is} (p : PC is) : PC (i ;> is) where idx := p.idx + 1
 
 @[grind =, simp] theorem get_zero : (@zero i is).get = i := by rfl
 @[grind =, simp] theorem get_succ (p : PC is) :
@@ -221,10 +252,10 @@ namespace PC
     (@p.succ i is) = q.succ ↔ p = q := by grind
 
 @[cases_eliminator, elab_as_elim]
-def consCases {motive : PC (i :: is) → Prop}
+def consCases {motive : PC (i ;> is) → Prop}
     (zero : motive zero)
     (succ : ∀ (p : PC is), motive p.succ)
-    (p : PC (i :: is)) : motive p := by
+    (p : PC (i ;> is)) : motive p := by
   cases hp : p.idx
   case zero   => apply cast ?_ zero; grind
   case succ n => apply cast ?_ (succ ⟨n, by grind⟩); grind
@@ -347,7 +378,7 @@ inductive NoShadowing : InstSeq → Prop
   | nil : NoShadowing []
   | cons {i : Inst} {is : InstSeq} :
       i.results.Disjoint is.results → NoShadowing is
-      → NoShadowing (i :: is)
+      → NoShadowing (i ;> is)
 
 /--
 A sequence `is` is well-formed, w.r.t. free variables `Γ`, when
@@ -380,7 +411,7 @@ attribute [local grind] WellFormed NoShadowing
 
 @[grind ., simp] theorem noShadowing_nil : NoShadowing [] := by grind
 @[grind =, simp] theorem noShadowing_cons :
-    NoShadowing (i :: is) ↔ i.results.Disjoint is.results ∧ NoShadowing is := by grind
+    NoShadowing (i ;> is) ↔ i.results.Disjoint is.results ∧ NoShadowing is := by grind
 
 @[grind =, simp] theorem noShadowing_append :
     NoShadowing (is ++ js) ↔ is.results.Disjoint js.results ∧ is.NoShadowing ∧ js.NoShadowing := by
@@ -388,7 +419,7 @@ attribute [local grind] WellFormed NoShadowing
 
 @[grind ., simp] theorem wellFormed_nil : WellFormed Γ [] := by grind
 @[grind =, simp] theorem wellFormed_cons :
-    WellFormed Γ (i :: is) ↔
+    WellFormed Γ (i ;> is) ↔
       i.args ⊆ Γ ∧ Γ.Disjoint i.results ∧ is.WellFormed (i.results ∪ Γ) := by
   constructor
   · rintro ⟨⟩
