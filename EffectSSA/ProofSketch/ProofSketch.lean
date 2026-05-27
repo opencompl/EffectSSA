@@ -47,7 +47,7 @@ structure SEnv where -- TODO: rename SEnv to just Env
 
 That is, it bundles an environment with the current location in program `p`.
 -/
-@[grind]
+@[grind, grind cases]
 structure InterpState (p : InstSeq) where
   env : SEnv
   /-- The current location in the program, or `none` if the program has finished executing. -/
@@ -64,24 +64,54 @@ An `InstSeq` is evaluated by evaluating each instruction in turn,
 threading the environment through.
 -/
 instance : BReduce (InterpState p) SEnv where
-  ReducesTo s t := ∃ pc, s.pc? = some pc ∧ t.env = ⟦pc.get⟧ s.env ∧ t.pc? = pc.incr?
+  ReducesTo s t := ∃ pc, s.pc? = some pc ∧ t.env = ⟦pc.get⟧ s.env ∧ t.pc? = pc.succ?
   stateOfValue env := ⟨env, none⟩
+
+/--
+`is.exec ρ` is the initial state of interpreting `is` in environment `ρ`.
+-/
+def InstSeq.exec (is : InstSeq) (ρ : SEnv) : InterpState is where
+  env := ρ
+  pc? := PC.zero? _
+
+instance : Denote InstSeq (SEnv → SEnv → Prop) where
+  denote is ρ := ⟦is.exec ρ⟧
 
 /-! ### Properties -/
 section Properties
+open InstSeq (PC)
 variable {s t : InterpState p}
 
 @[grind =] theorem InterpState.reduce_iff :
-    s ⟹ t ↔ ∃ pc, s.pc? = some pc ∧ t.env = ⟦pc.get⟧ s.env ∧ t.pc? = pc.incr? := by rfl
+    s ⟹ t ↔ ∃ pc, s.pc? = some pc ∧ t.env = ⟦pc.get⟧ s.env ∧ t.pc? = pc.succ? := by rfl
 
+@[grind =] theorem InterpState.tReduce_iff :
+    s ⟹* t ↔ s = t ∨ (∃ pc, s.pc? = some pc ∧ ⟨⟦pc.get⟧ s.env, pc.succ?⟩ ⟹* t) := by
+  constructor
+  · grind
+  · rintro (rfl| ⟨pc, _⟩)
+    · grind
+    · apply TRReducesTo.step (y := ⟨⟦pc.get⟧ s.env, pc.succ?⟩)
+      <;> grind
 
--- theorem InstSeq.denote_eq {is : InstSeq} :
---     ⟦is⟧ = is.foldl (fun e (i : Inst) => ⟦i⟧ e) := by rfl
+@[simp, grind =] theorem InterpState.bReduce_iff : s ⇓ η ↔ s ⟹* ⟨η, none⟩ := by rfl
 
--- @[simp, grind =] theorem InstSeq.denote_nil : ⟦[]⟧ = id := by rfl
--- @[simp, grind =] theorem InstSeq.denote_nil_apply : ⟦[]⟧ ρ = ρ := by rfl
+@[grind =] theorem InstSeq.denote_eq {is : InstSeq} :
+    ⟦is⟧ ρ = (is.exec ρ ⇓ ·) := by rfl
 
--- @[simp, grind =] theorem InstSeq.denote_cons : ⟦i :: is⟧ = fun ρ => ⟦is⟧ (⟦i⟧ ρ) := by rfl
+@[simp, grind =] theorem InstSeq.exec_nil : exec [] ρ = ⟨ρ, none⟩ := by grind [exec]
+
+@[simp, grind =] theorem InstSeq.denote_nil : ⟦([] : InstSeq)⟧ = (· = ·) := by grind
+
+-- @[simp, grind .] theorem InterpState.reduce_cons {i : Inst} {is : InstSeq} :
+--     (⟨ρ, PC.zero? _⟩ : InterpState (i :: is)) ⟹ ⟨⟦i⟧ ρ, PC.zero.succ?⟩ := by
+--   simp [reduce_iff]
+
+-- @[simp, grind =] theorem InstSeq.denote_cons {i : Inst} {is : InstSeq} :
+--     ⟦i :: is⟧ = fun ρ => ⟦is⟧ (⟦i⟧ ρ) := by
+--   funext ρ η
+--   simp [denote_eq, exec]
+--   grind
 
 -- @[simp, grind =] theorem InstSeq.denote_append (is js : InstSeq) :
 --     ⟦is ++ js⟧ = fun ρ => ⟦js⟧ (⟦is⟧ ρ) := by

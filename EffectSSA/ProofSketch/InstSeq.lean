@@ -219,15 +219,18 @@ namespace PC
 /-- Get the instruction at the specified location. -/
 @[expose] def get (pc : is.PC) : Inst := is[pc.idx]'pc.isLt
 
-/-- Get the initial PC of a given program, or `none` if the program is empty. -/
-def zero? (is : InstSeq) : Option is.PC :=
+@[grind] def zero {i is} : PC (i ;> is) where idx := 0
+@[grind] def succ {i is} (p : PC is) : PC (i ;> is) where idx := p.idx + 1
+
+/-- The initial PC of a given program, or `none` if the program is empty. -/
+@[expose, grind] def zero? (is : InstSeq) : Option is.PC :=
   if h : is.length > 0 then
     some ⟨0, h⟩
   else
     none
 
 /-- Increment the PC, returning `none` if the end of the program was reached. -/
-def incr? (pc : is.PC) : Option is.PC :=
+@[expose, grind] def succ? (pc : is.PC) : Option is.PC :=
   let q := pc.idx + 1
   if h : q < is.length then
     some ⟨q, h⟩
@@ -260,10 +263,9 @@ namespace PC
 @[ext, grind ext] theorem eq_of_idx_eq {i j : is.PC} :
     i.idx = j.idx → i = j := by grind
 
-/-! cases principle -/
+/-! zero / succ -/
 
-@[grind] def zero {i is} : PC (i ;> is) where idx := 0
-@[grind] def succ {i is} (p : PC is) : PC (i ;> is) where idx := p.idx + 1
+@[grind =, simp] theorem zero?_cons : zero? (i ;> is) = some (zero) := by rfl
 
 @[grind =, simp] theorem get_zero : (@zero i is).get = i := by rfl
 @[grind =, simp] theorem get_succ (p : PC is) :
@@ -271,6 +273,8 @@ namespace PC
 
 @[grind =, simp] theorem succ_eq_succ_iff {p q : is.PC} :
     (@p.succ i is) = q.succ ↔ p = q := by grind
+
+/-! cases principle -/
 
 @[cases_eliminator, elab_as_elim]
 def consCases {motive : PC (i ;> is) → Prop}
