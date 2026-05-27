@@ -73,7 +73,7 @@ theorem InstSeq.denote_eq {is : InstSeq} :
 @[simp, grind =] theorem InstSeq.denote_nil : ⟦[]⟧ = id := by rfl
 @[simp, grind =] theorem InstSeq.denote_nil_apply : ⟦[]⟧ ρ = ρ := by rfl
 
-@[simp, grind =] theorem InstSeq.denote_cons : ⟦i :: is⟧ = fun ρ => ⟦is⟧ (⟦i⟧ ρ) := by rfl
+@[simp, grind =] theorem InstSeq.denote_cons : ⟦i ;> is⟧ = fun ρ => ⟦is⟧ (⟦i⟧ ρ) := by rfl
 
 @[simp, grind =] theorem InstSeq.denote_append (is js : InstSeq) :
     ⟦is ++ js⟧ = fun ρ => ⟦js⟧ (⟦is⟧ ρ) := by
@@ -298,7 +298,7 @@ variable (I : Pattern n) (is : InstSeq)
   grind [InstSeq.EqnLemma]
 
 @[simp, grind =] theorem InstSeq.EqnLemma_cons {i : Inst} {is : InstSeq} :
-    InstSeq.EqnLemma (i :: is) x ρ ↔ i.EqnLemma x ρ ∧ is.EqnLemma x ρ := by
+    InstSeq.EqnLemma (i ;> is) x ρ ↔ i.EqnLemma x ρ ∧ is.EqnLemma x ρ := by
   grind [InstSeq.EqnLemma]
 
 variable {I} in
@@ -498,7 +498,7 @@ variable {C}
 @[simp, grind =] theorem plug_nil : plug [] I = [] := rfl
 
 @[simp, grind =] theorem plug_cons_inst (i : Inst) :
-    plug (.inl i :: C) I = i :: plug C I := by rfl
+    plug (.inl i :: C) I = i ;> plug C I := by rfl
 
 @[simp, grind =] theorem plug_cons_hole (h : Hole n) :
     plug (.inr h :: C) I = I[h] ++ plug C I := by rfl
@@ -791,7 +791,6 @@ private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
     induction is generalizing Δ with
     | nil => grind
     | cons i is ih =>
-        change InstSeq at is
         have his : is ⊆ I.collapse := by grind
         have hΔ' : is.args ⊆ i.results ∪ Δ := by grind
         specialize ih his _ hΔ'
