@@ -381,4 +381,37 @@ section CollapseLemmas
 end CollapseLemmas
 
 end PC
+
+/-! ## Pattern WellFormedness -/
+
+@[inherit_doc InstSeq.NoShadowing]
+abbrev NoShadowing (I : Pattern n) := I.collapse.NoShadowing
+
+@[inherit_doc InstSeq.WellFormed]
+abbrev WellFormed (Γ : VarSet) (I : Pattern n) : Prop := I.collapse.WellFormed Γ
+
+section Lemmas
+variable {I : Pattern n}
+
+@[simp, grind =]
+theorem wellFormed_cons :
+    (cons is I).WellFormed Γ ↔ is.WellFormed Γ ∧ I.WellFormed (is.results ∪ Γ) := by
+  grind
+
+theorem wellFormed_get_of_wellFormed {k : Nat} {hk : k < n} :
+    I.WellFormed Γ → ∃ Δ, (I[k]).WellFormed Δ := by
+  induction I generalizing Γ k
+  · grind
+  · cases k <;> grind
+grind_pattern wellFormed_get_of_wellFormed => I.WellFormed Γ, (I[k]).WellFormed _
+
+/-! results -/
+
+theorem results_disjoint_of_mem_of_noShadowing (hi : is ∈ I) (hj : js ∈ I) (wf : I.NoShadowing) :
+    is ≠ js → is.results.Disjoint js.results := by
+  induction I <;> grind
+-- grind_pattern results_disjoint_of_mem_of_wellFormed => is ∈ I, js ∈ I, I.WellFormed
+-- grind_pattern results_disjoint_of_mem_of_wellFormed => is ∈ I, js ∈ I, I.WellFormed _
+
+end Lemmas
 end Pattern
