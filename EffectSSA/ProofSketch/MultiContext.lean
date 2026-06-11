@@ -165,3 +165,21 @@ def noShadowing_pattern_of_plug_noShadowing {n} {C : MultiContext n} {I : Patter
 
 end Lemmas
 end Plug
+
+/-!
+## Conversion to `InstSeq`
+-/
+section Conv
+
+def toSeq : MultiContext 0 → InstSeq :=
+  List.map (fun | .inl i => i)
+instance : Coe (MultiContext 0) InstSeq where coe := toSeq
+
+def ofSeq : InstSeq → MultiContext n :=
+  List.map Sum.inl
+instance : Coe InstSeq (MultiContext n) where coe := ofSeq
+
+section Lemmas
+
+end Lemmas
+end Conv

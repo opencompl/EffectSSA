@@ -8,6 +8,7 @@ public import EffectSSA.ProofSketch.Inst
 public import EffectSSA.ProofSketch.InstSeq
 public import EffectSSA.ProofSketch.Pattern
 public import EffectSSA.ProofSketch.MultiContext
+public import EffectSSA.ProofSketch.CFG
 
 public import Std.Data.HashMap
 
@@ -506,31 +507,6 @@ end Residual
 # Control Flow
 -/
 
-/-!
-## AST
--/
-section AST
-
-axiom Terminator : Type
-
-structure Block n where
-  insts : MultiContext n
-  term : Terminator
-
-structure BlockId where
-  id : String
-deriving Hashable, DecidableEq
-
-/--
-`ContextCFG n` is a control-flow graph with `n` holes.
--/
-structure ContextCFG n where
-  blocks : Std.HashMap BlockId (Block n)
-  entry : BlockId
-
-abbrev ProgramCFG := ContextCFG 0
-
-end AST
 
 /-!
 ## Semantics
@@ -560,22 +536,20 @@ instance : Reduce (C.InterpState ζ) where
 
 end Semantics
 
-#check MultiContext.plug
-
 /-!
-## Plug
+### Plug
 -/
+section Plug
 namespace ContextCFG
 
 def plug (C : ContextCFG n) (I : Pattern n) : ProgramCFG :=
-  { C with blocks := C.blocks.map fun bId b =>
+  { C with blocks := C.blocks.map fun _id b =>
     { b with insts := b.insts.plug I }
   }
 
-
-#check _
-
 end ContextCFG
+end Plug
+
 
 /-!
 ## Contextual Refinement & Equivalence
@@ -588,7 +562,7 @@ when for any complete context `C` such that `C[I]` and `C[J]` are both
 wellformed, `C[I]` is (denotationally) refined by `C[J]`.
 -/
 def Pattern.CtxRefine (I J : Pattern n) : Prop :=
-  ∀ (C : MultiContext n), C.Complete →
+  ∀ (C : ContextCFG n), C.Complete →
     let CI := C.plug I;
     let CJ := C.plug J;
     CI.WellFormed ∅ → CJ.WellFormed ∅ →
