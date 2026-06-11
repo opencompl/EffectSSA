@@ -1,3 +1,4 @@
+module
 
 /-!
 # Dominance
@@ -7,6 +8,7 @@ Based on CompcertSSA [1]
 
 [1] https://compcertssa.gitlabpages.inria.fr/html/compcert.midend.Dom.html
 -/
+@[expose] public section
 namespace EffectSSA.ProofSketch
 
 /--
