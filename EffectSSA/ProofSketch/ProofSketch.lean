@@ -523,33 +523,8 @@ inductive ContextCFG.InterpState (C : ContextCFG n) (ζ : HoleEnv n) where
   | running (block : BlockId) (env : SEnv)
   | ret (env : SEnv)
 
-variable {C : ContextCFG n}
-
-instance : Reduce (C.InterpState ζ) where
-  ReducesTo s t :=
-    ∃ bId ρ, s = .running bId ρ
-    ∧ ∃ b, C.blocks[bId]? = some b
-      ∧ let ρ' := ⟦b.insts⟧ ζ ρ
-        match t with
-        | .running cId η => η = ρ' ∧ ⟦b.term⟧ ρ' = .jump cId
-        | .ret η => ⟦b.term⟧ ρ' = .ret η
 
 end Semantics
-
-/-!
-### Plug
--/
-section Plug
-namespace ContextCFG
-
-def plug (C : ContextCFG n) (I : Pattern n) : ProgramCFG :=
-  { C with blocks := C.blocks.map fun _id b =>
-    { b with insts := b.insts.plug I }
-  }
-
-end ContextCFG
-end Plug
-
 
 /-!
 ## Contextual Refinement & Equivalence
