@@ -26,23 +26,18 @@ deriving Hashable, DecidableEq
 def BlockContext := List BlockId
 
 axiom TerminatorOp : Type
-structure Terminator where
-  op : TerminatorOp
-  successors : List BlockId
 
-structure Block (n : Nat) (BId : Type) where
-  insts : MultiContext n
+structure Block (n : Nat) where
+  code : MultiContext n
   term : TerminatorOp
-  succ : List BId
 
 /--
 `ContextCFG n` is a control-flow graph with `n` holes.
 -/
 structure ContextCFG n where
-  blockIds : List BlockId
-  blocks : {b // b ∈ blockIds} → (Block n {b // b ∈ blockIds})
+  blocks : Std.HashMap BlockId (Block n)
   entryId : BlockId
-  entryId_mem_blocks : entryId ∈ blockIds
+  entryId_mem_blocks : entryId ∈ blocks
 
 abbrev ProgramCFG := ContextCFG 0
 
@@ -53,6 +48,7 @@ end Types
 -/
 namespace TerminatorOp
 
+axiom canJumpTo : TerminatorOp → BlockId → Bool
 axiom isReturn : TerminatorOp → Bool
 
 end TerminatorOp
@@ -63,15 +59,17 @@ end TerminatorOp
 namespace ContextCFG
 variable {C : ContextCFG n}
 
+attribute [simp, grind .] entryId_mem_blocks
+
 /-! ### BlockRef -/
 section BlockRef
 
-abbrev BlockRef (C : ContextCFG n) := { b : BlockId // b ∈ C.blockIds }
+abbrev BlockRef (C : ContextCFG n) := { b : BlockId // b ∈ C.blocks }
 abbrev entry (C : ContextCFG n) : C.BlockRef :=
   ⟨C.entryId, C.entryId_mem_blocks⟩
 
-abbrev BlockRef.get (b : C.BlockRef) : Block n C.BlockRef :=
-  C.blocks b
+abbrev BlockRef.get (b : C.BlockRef) : Block n :=
+  C.blocks[b.val]'b.property
 
 end BlockRef
 
@@ -79,7 +77,7 @@ end BlockRef
 section Completeness
 
 def Complete (C : ContextCFG n) : Prop :=
-  ∀ h : Hole n, ∃ b : C.BlockRef, .inr h ∈ b.get.insts
+  ∀ h : Hole n, ∃ b ∈ C.blocks.values, .inr h ∈ b.code
 
 end Completeness
 
@@ -89,7 +87,7 @@ variable {C : ContextCFG n}
 
 instance : HasDominance (C.BlockRef) where
   entry := C.entry
-  cfg a b := b ∈ a.get.succ
+  cfg a b := a.get.term.canJumpTo b.val
   isExit b := b.get.term.isReturn
 
 end WellFormedness
@@ -98,9 +96,11 @@ end WellFormedness
 section Plug
 
 def plug (C : ContextCFG n) (I : Pattern n) : ProgramCFG :=
-  { C with blocks := fun b =>
-    let block := C.blocks b
-    { block with insts := block.insts.plug I }
+  { C with
+    blocks := C.blocks.map fun _ block => { block with
+      code := block.code.plug I
+    }
+    entryId_mem_blocks := by simp
   }
 
 end Plug
