@@ -50,6 +50,9 @@ def HoleEnv n := Hole n → InstSeq
 namespace MultiContext
 variable (C : MultiContext n)
 
+/-! ### Completeness -/
+section Complete
+
 /--
 An `n`-ary context `C` is considered *complete* when each possible named hole `h : Hole n`
 occurs at least once in `C`.
@@ -62,6 +65,7 @@ section Lemmas
 @[simp] theorem complete_cons_inst : Complete (.inl i :: C) ↔ Complete C := by grind
 
 end Lemmas
+end Complete
 
 
 /-! ### Plugging -/

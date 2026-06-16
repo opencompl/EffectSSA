@@ -25,7 +25,7 @@ variable {ε : Type} {κε : ε → Type} [Effect ε κε]
 -/
 
 /--
-`ErrUB` allows raising errors (which indicate a malformed program)
+`ErrUB` allows raising errors (which indicate a mallformed program)
 as well as Undefined Behaviour.
 -/
 inductive ErrUB
@@ -71,7 +71,7 @@ placeholder effect in `HoleEff`.
 
 Note that although holes in the AST have an intrinsically typed upper bound,
 `HoleEff` carries only the raw `Nat`-typed id of the hole, to prevent too many
-dependent types showing up in the semantics.
+depedent types showing up in the semantics.
 -/
 abbrev HoleEff := HoleId
 
@@ -134,7 +134,7 @@ def pushVar [LocalEff -< ε] (var : VarId) (value : Val) : ITree ε Unit :=
 structure LocalStack where
   raw : Std.HashMap VarId Val := { }
 
-def interpLocalStackM [ErrUB -< ε] :
+def interpLocalStack [ErrUB -< ε] :
     (x : ITree (LocalEff ⊕ ε) α) → StateT LocalStack (ITree ε) α :=
   ITree.interpM fun
     | .inr e => liftM <| ITree.vis e .ret
@@ -150,10 +150,6 @@ def interpLocalStackM [ErrUB -< ε] :
         -- does not necessarily indicate a mall-formed program. In particular, the
         -- pre-existing value might actually come from the same instruction in
         -- a previous iteration of a loop.
-
-/-- Interpret local stack effects starting from an empty initial stack. -/
-def interpLocalStack [ErrUB -< ε] (x : ITree (LocalEff ⊕ ε) α) : ITree ε α :=
-  (interpLocalStackM x).run' { }
 
 /-!
 ## Instructions

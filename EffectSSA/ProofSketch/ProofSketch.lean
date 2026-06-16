@@ -13,6 +13,8 @@ public import EffectSSA.ProofSketch.CFG
 
 public import Std.Data.HashMap
 
+public import ITree
+
 /-!
 # Contextual Equivalence Proof Sketch
 
@@ -23,6 +25,8 @@ implies contextual equivalence, in an SSA-based rewriting setting.
 
 @[expose] public noncomputable section
 namespace EffectSSA.ProofSketch
+
+open ITree (ITree)
 
 /-!
 ## Semantics
@@ -537,22 +541,6 @@ end Residual
 /-!
 # Control Flow
 -/
-
-
-/-!
-## Semantics
--/
-section Semantics
-
-inductive TerminatorResult
-  | jump (b : BlockId)
-  | ret (ρ : SEnv)
-
-@[instance] axiom Terminator.denote : Denote Terminator (SEnv → TerminatorResult)
-
-inductive ContextCFG.InterpState (C : ContextCFG n) (ζ : HoleEnv n) where
-  | running (block : BlockId) (env : SEnv)
-  | ret (env : SEnv)
 
 
 end Semantics

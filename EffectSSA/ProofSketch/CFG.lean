@@ -2,6 +2,7 @@ module
 
 public import EffectSSA.ProofSketch.MultiContext
 public import EffectSSA.ProofSketch.Dominance
+public import EffectSSA.ProofSketch.Effect
 
 public import Std.Data.HashMap
 
@@ -13,6 +14,7 @@ making it a multi-context.
 -/
 @[expose] public section
 namespace EffectSSA.ProofSketch
+open ITree
 
 variable {ε : Type} {κε : ε → Type} [Effect ε κε]
 
@@ -22,16 +24,19 @@ variable {ε : Type} {κε : ε → Type} [Effect ε κε]
 section Types
 
 structure BlockId where
-  id : String
+  toString : String
 deriving Hashable, DecidableEq
+instance : ToString BlockId where toString := BlockId.toString
 
 def BlockContext := List BlockId
 
-axiom TerminatorOp : Type
+/-- A terminator -/
+axiom Term : Type
 
 structure Block (n : Nat) where
+  args : List VarId
   code : MultiContext n
-  term : TerminatorOp
+  term : Term
 
 /--
 `ContextCFG n` is a control-flow graph with `n` holes.
@@ -44,6 +49,49 @@ structure ContextCFG n where
 abbrev ProgramCFG := ContextCFG 0
 
 end Types
+
+/-!
+## Semantics
+-/
+
+structure Branch where
+  target : BlockId
+  args : List Val
+
+structure ReturnVals where
+  toList : List Val
+
+axiom Term.denote [ErrUB -< ε] [SideEff -< ε] [LocalEff -< ε] :
+    Term → ITree ε (Branch ⊕ ReturnVals)
+
+noncomputable
+def ContextCFG.denote (C : ContextCFG n) : ITree (HoleEff ⊕ InstEff ⊕ LocalEff ⊕ SideEff ⊕ ErrUB) ReturnVals :=
+  ITree.iter (fun (⟨bId, args⟩ : Branch) => do
+    let some b := C.blocks[bId]? | raiseError s!"Missing Block: {bId}"
+    unless b.args.length = args.length do
+      raiseError s!"Block {bId} expected {b.args.length} arguments, but got {args.length}"
+    (b.args.zip args).forM pushVar.uncurry
+    -- ^^ push all block arguments to the local stack
+    b.code.denote -- denote the instructions that make up the block
+    b.term.denote -- denote the block terminator
+  ) ⟨C.entryId, []⟩
+
+def Hole.fromId? {n} (h : HoleId) : Option (Hole n) :=
+  if hr : h.toNat < n then some ⟨h.toNat, hr⟩ else none
+
+noncomputable
+def ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ InstEff) Unit) :
+    (ITree (SideEff ⊕ ErrUB)) ReturnVals := do
+  let ⟨res, _finalStack⟩ ←
+    C.denote
+    |> interpHoles (fun holeId => do
+        let some (h : Hole n) := Hole.fromId? holeId | raiseError s!"Unknown hole: {holeId}"
+        f h
+    )
+    |> interpInst
+    |> interpLocalStack
+    |>.run {}
+  return res
 
 /-!
 ## TerminatorOp API
@@ -87,10 +135,10 @@ end Completeness
 section WellFormedness
 variable {C : ContextCFG n}
 
-instance : HasDominance (C.BlockRef) where
-  entry := C.entry
-  cfg a b := a.get.term.canJumpTo b.val
-  isExit b := b.get.term.isReturn
+-- instance : HasDominance (C.BlockRef) where
+--   entry := C.entry
+--   cfg a b := a.get.term.canJumpTo b.val
+--   isExit b := b.get.term.isReturn
 
 end WellFormedness
 
