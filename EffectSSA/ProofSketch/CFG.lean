@@ -32,6 +32,7 @@ def BlockContext := List BlockId
 axiom Term : Type
 
 structure Block (n : Nat) where
+  args : List VarId
   code : MultiContext n
   term : Term
 
@@ -51,19 +52,27 @@ end Types
 ## Semantics
 -/
 
+structure Branch where
+  target : BlockId
+  args : List Val
+
 structure ReturnVals where
   toList : List Val
 
 axiom Term.denote [ErrUB -< ε] [SideEff -< ε] [LocalEff -< ε] :
-    Term → ITree ε (BlockId ⊕ ReturnVals)
+    Term → ITree ε (Branch ⊕ ReturnVals)
 
 noncomputable
 def ContextCFG.denote (C : ContextCFG n) : ITree (HoleEff ⊕ₑ InstEff ⊕ₑ LocalEff ⊕ₑ SideEff ⊕ₑ ErrUB) ReturnVals :=
-  ITree.iter (fun b => do
-    let some b := C.blocks[b]? | raiseError s!"Missing Block: {b}"
-    b.code.denote
-    b.term.denote
-  ) C.entryId
+  ITree.iter (fun (⟨bId, args⟩ : Branch) => do
+    let some b := C.blocks[bId]? | raiseError s!"Missing Block: {bId}"
+    unless b.args.length = args.length do
+      raiseError s!"Block {bId} expected {b.args.length} arguments, but got {args.length}"
+    (b.args.zip args).forM pushVar.uncurry
+    -- ^^ push all block arguments to the local stack
+    b.code.denote -- denote the instructions that make up the block
+    b.term.denote -- denote the block terminator
+  ) ⟨C.entryId, []⟩
 
 def Hole.fromId? {n} (h : HoleId) : Option (Hole n) :=
   if hr : h.toNat < n then some ⟨h.toNat, hr⟩ else none
