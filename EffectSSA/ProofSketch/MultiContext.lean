@@ -2,6 +2,7 @@ module
 
 public import EffectSSA.ProofSketch.Inst
 public import EffectSSA.ProofSketch.Pattern
+public import EffectSSA.ProofSketch.Effect
 
 @[expose] public section
 /-!
@@ -11,6 +12,7 @@ We define a notion of a context with multiple holes, also called a multi-context
 by naming each hole.
 -/
 namespace EffectSSA.ProofSketch
+open ITree
 
 /--
 A `MultiContext n` is a sequence of instructions, interspersed by (named) holes, such that:
@@ -20,6 +22,15 @@ A `MultiContext n` is a sequence of instructions, interspersed by (named) holes,
 -/
 abbrev MultiContext (n : Nat) := List (Inst ⊕ Hole n)
 
+def Hole.id (h : Hole n) : HoleId where
+  toNat := h.val
+
+@[grind]
+def MultiContext.denote [HoleEff -< ε] [InstEff -< ε] : MultiContext n → ITree ε Unit
+  | .inl i :: is => InstEff.trigger i    *> denote is
+  | .inr h :: is => HoleEff.trigger h.id *> denote is
+  | [] => .ret ()
+
 /--
 A `HoleEnv n` associates each hole variable `h : Hole n` with an instruction sequence.
 -/
@@ -27,6 +38,9 @@ def HoleEnv n := Hole n → InstSeq
 
 namespace MultiContext
 variable (C : MultiContext n)
+
+/-! ### Completeness -/
+section Complete
 
 /--
 An `n`-ary context `C` is considered *complete* when each possible named hole `h : Hole n`
@@ -40,6 +54,7 @@ section Lemmas
 @[simp] theorem complete_cons_inst : Complete (.inl i :: C) ↔ Complete C := by grind
 
 end Lemmas
+end Complete
 
 
 /-! ### Plugging -/

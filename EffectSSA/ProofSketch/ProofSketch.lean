@@ -9,8 +9,11 @@ public import EffectSSA.ProofSketch.InstSeq
 public import EffectSSA.ProofSketch.Pattern
 public import EffectSSA.ProofSketch.MultiContext
 public import EffectSSA.ProofSketch.CFG
+public import EffectSSA.ProofSketch.Effect
 
 public import Std.Data.HashMap
+
+public import ITree
 
 /-!
 # Contextual Equivalence Proof Sketch
@@ -23,15 +26,14 @@ implies contextual equivalence, in an SSA-based rewriting setting.
 @[expose] public noncomputable section
 namespace EffectSSA.ProofSketch
 
+open ITree (ITree)
+
 /-!
 ## Semantics
 -/
 section Semantics
 
 /-! ### Definition -/
-
-/-- `Val` is the type of runtime values -/
-axiom Val : Type
 
 /-- `State` is the type of global runtime state (e.g, memory) -/
 axiom State : Type
@@ -506,22 +508,6 @@ end Residual
 /-!
 # Control Flow
 -/
-
-
-/-!
-## Semantics
--/
-section Semantics
-
-inductive TerminatorResult
-  | jump (b : BlockId)
-  | ret (ρ : SEnv)
-
-@[instance] axiom Terminator.denote : Denote Terminator (SEnv → TerminatorResult)
-
-inductive ContextCFG.InterpState (C : ContextCFG n) (ζ : HoleEnv n) where
-  | running (block : BlockId) (env : SEnv)
-  | ret (env : SEnv)
 
 
 end Semantics

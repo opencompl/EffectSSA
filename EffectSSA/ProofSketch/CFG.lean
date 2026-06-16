@@ -2,6 +2,7 @@ module
 
 public import EffectSSA.ProofSketch.MultiContext
 public import EffectSSA.ProofSketch.Dominance
+public import EffectSSA.ProofSketch.Effect
 
 public import Std.Data.HashMap
 
@@ -13,6 +14,7 @@ making it a multi-context.
 -/
 @[expose] public section
 namespace EffectSSA.ProofSketch
+open ITree
 
 /-!
 ## CFG Types
@@ -20,16 +22,18 @@ namespace EffectSSA.ProofSketch
 section Types
 
 structure BlockId where
-  id : String
+  toString : String
 deriving Hashable, DecidableEq
+instance : ToString BlockId where toString := BlockId.toString
 
 def BlockContext := List BlockId
 
-axiom TerminatorOp : Type
+/-- A terminator -/
+axiom Term : Type
 
 structure Block (n : Nat) where
   code : MultiContext n
-  term : TerminatorOp
+  term : Term
 
 /--
 `ContextCFG n` is a control-flow graph with `n` holes.
@@ -42,6 +46,41 @@ structure ContextCFG n where
 abbrev ProgramCFG := ContextCFG 0
 
 end Types
+
+/-!
+## Semantics
+-/
+
+structure ReturnVals where
+  toList : List Val
+
+axiom Term.denote [ErrUB -< ε] [SideEff -< ε] [LocalEff -< ε] :
+    Term → ITree ε (BlockId ⊕ ReturnVals)
+
+noncomputable
+def ContextCFG.denote (C : ContextCFG n) : ITree (HoleEff ⊕ₑ InstEff ⊕ₑ LocalEff ⊕ₑ SideEff ⊕ₑ ErrUB) ReturnVals :=
+  ITree.iter (fun b => do
+    let some b := C.blocks[b]? | raiseError s!"Missing Block: {b}"
+    b.code.denote
+    b.term.denote
+  ) C.entryId
+
+def Hole.fromId? {n} (h : HoleId) : Option (Hole n) :=
+  if hr : h.toNat < n then some ⟨h.toNat, hr⟩ else none
+
+noncomputable
+def ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ₑ InstEff) Unit) :
+    (ITree (SideEff ⊕ₑ ErrUB)) ReturnVals := do
+  let ⟨res, _finalStack⟩ ←
+    C.denote
+    |> interpHoles (fun holeId => do
+        let some (h : Hole n) := Hole.fromId? holeId | raiseError s!"Unknown hole: {holeId}"
+        f h
+    )
+    |> interpInst
+    |> interpLocalStack
+    |>.run {}
+  return res
 
 /-!
 ## TerminatorOp API
@@ -85,10 +124,10 @@ end Completeness
 section WellFormedness
 variable {C : ContextCFG n}
 
-instance : HasDominance (C.BlockRef) where
-  entry := C.entry
-  cfg a b := a.get.term.canJumpTo b.val
-  isExit b := b.get.term.isReturn
+-- instance : HasDominance (C.BlockRef) where
+--   entry := C.entry
+--   cfg a b := a.get.term.canJumpTo b.val
+--   isExit b := b.get.term.isReturn
 
 end WellFormedness
 
