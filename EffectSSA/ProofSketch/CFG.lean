@@ -65,33 +65,43 @@ axiom Term.denote [ErrUB -< ε] [SideEff -< ε] [LocalEff -< ε] :
     Term → ITree ε (Branch ⊕ ReturnVals)
 
 noncomputable
-def ContextCFG.denote (C : ContextCFG n) : ITree (HoleEff ⊕ InstEff ⊕ LocalEff ⊕ SideEff ⊕ ErrUB) ReturnVals :=
+def Block.denote (b : Block n) (bId : BlockId) (args : List Val) :
+    ITree (HoleEff ⊕ InstEff ⊕ LocalEff ⊕ SideEff ⊕ ErrUB) (Branch ⊕ ReturnVals) := do
+  unless b.args.length = args.length do
+    raiseError s!"Block {bId} expected {b.args.length} arguments, but got {args.length}"
+  (b.args.zip args).forM pushVar.uncurry
+                -- ^^ push block arguments to the local stack
+  b.code.denote -- denote the instructions that make up the block
+  b.term.denote -- denote the block terminator
+
+noncomputable
+def ContextCFG.denote (C : ContextCFG n) :
+    ITree (HoleEff ⊕ InstEff ⊕ LocalEff ⊕ SideEff ⊕ ErrUB) ReturnVals :=
   ITree.iter (fun (⟨bId, args⟩ : Branch) => do
     let some b := C.blocks[bId]? | raiseError s!"Missing Block: {bId}"
-    unless b.args.length = args.length do
-      raiseError s!"Block {bId} expected {b.args.length} arguments, but got {args.length}"
-    (b.args.zip args).forM pushVar.uncurry
-    -- ^^ push all block arguments to the local stack
-    b.code.denote -- denote the instructions that make up the block
-    b.term.denote -- denote the block terminator
+    b.denote bId args
   ) ⟨C.entryId, []⟩
 
-def Hole.fromId? {n} (h : HoleId) : Option (Hole n) :=
-  if hr : h.toNat < n then some ⟨h.toNat, hr⟩ else none
+def Hole.fromId? {n} [ErrUB -< ε] (h : HoleId) : ITree ε (Hole n) :=
+  if hr : h.toNat < n then
+    return ⟨h.toNat, hr⟩
+  else
+    raiseError s!"Unknown hole: {h}"
+
+abbrev Hole.elim0 : Hole 0 → α := Fin.elim0
 
 noncomputable
 def ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ InstEff) Unit) :
     (ITree (SideEff ⊕ ErrUB)) ReturnVals := do
-  let ⟨res, _finalStack⟩ ←
-    C.denote
-    |> interpHoles (fun holeId => do
-        let some (h : Hole n) := Hole.fromId? holeId | raiseError s!"Unknown hole: {holeId}"
-        f h
-    )
-    |> interpInst
-    |> interpLocalStack
-    |>.run {}
-  return res
+  C.denote
+  |> interpHoles (Hole.fromId? · >>= f)
+  |> interpInst
+  |> interpLocalStack
+
+noncomputable
+def ProgramCFG.interp (P : ProgramCFG) : (ITree (SideEff ⊕ ErrUB)) ReturnVals :=
+  ContextCFG.interp P Hole.elim0
+
 
 /-!
 ## TerminatorOp API
@@ -110,6 +120,42 @@ namespace ContextCFG
 variable {C : ContextCFG n}
 
 attribute [simp, grind .] entryId_mem_blocks
+
+/-! ### Plug -/
+section Plug
+
+def plug (C : ContextCFG n) (I : Pattern n) : ProgramCFG :=
+  { C with
+    blocks := C.blocks.map fun _ block => { block with
+      code := block.code.plug I
+    }
+    entryId_mem_blocks := by simp
+  }
+
+-- @[simp, grind =] theorem fromId?_zero : Hole.fromId? (n := 0) x = raiseError _ := by
+--   simp [Hole.fromId?]
+
+theorem interpHoles_program (P : ProgramCFG) {f : HoleId → ITree (ErrUB ⊕ InstEff) Unit} :
+    interpHoles f P.denote = _ := by
+  sorry
+
+theorem interp_plug {C : ContextCFG n} {I : Pattern n} :
+    (C.plug I).interp = C.interp (I[·].denote) := by
+  simp [ProgramCFG.interp, ContextCFG.interp]
+
+  simp only [ContextCFG.interp, ProgramCFG.interp, bind_pure_comp]
+  simp only [fromId?_zero, denote, Pattern.getElem_hole]
+  simp only [plug, Std.HashMap.getElem?_map]
+  congr 4
+  -- TODO: figure out how to do a proof by bisimulation in the ITree library
+  cases C.blocks[x.target]?
+  simp [interpHoles, denote, ITree.interpLeft]
+  simp only [ITree.interp_iter']
+
+  -- simp only [ITree.interp, bind_pure_comp]
+
+
+end Plug
 
 /-! ### BlockRef -/
 section BlockRef
@@ -141,19 +187,6 @@ variable {C : ContextCFG n}
 --   isExit b := b.get.term.isReturn
 
 end WellFormedness
-
-/-! ### Plug -/
-section Plug
-
-def plug (C : ContextCFG n) (I : Pattern n) : ProgramCFG :=
-  { C with
-    blocks := C.blocks.map fun _ block => { block with
-      code := block.code.plug I
-    }
-    entryId_mem_blocks := by simp
-  }
-
-end Plug
 
 
 

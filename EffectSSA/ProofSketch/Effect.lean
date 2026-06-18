@@ -134,7 +134,7 @@ def pushVar [LocalEff -< ε] (var : VarId) (value : Val) : ITree ε Unit :=
 structure LocalStack where
   raw : Std.HashMap VarId Val := { }
 
-def interpLocalStack [ErrUB -< ε] :
+def interpLocalStackM [ErrUB -< ε] :
     (x : ITree (LocalEff ⊕ ε) α) → StateT LocalStack (ITree ε) α :=
   ITree.interpM fun
     | .inr e => liftM <| ITree.vis e .ret
@@ -150,6 +150,10 @@ def interpLocalStack [ErrUB -< ε] :
         -- does not necessarily indicate a mall-formed program. In particular, the
         -- pre-existing value might actually come from the same instruction in
         -- a previous iteration of a loop.
+
+/-- Interpret local stack effects starting from an empty initial stack. -/
+def interpLocalStack [ErrUB -< ε] (x : ITree (LocalEff ⊕ ε) α) : ITree ε α :=
+  (interpLocalStackM x).run' { }
 
 /-!
 ## Instructions
