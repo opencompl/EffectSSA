@@ -55,8 +55,8 @@ namespace InstSeq
 Denote an `InstSeq` into an ITree with `InstEff`s, i.e,
 where each instruction has a unique effect associated with it.
 -/
-def denote : (is : InstSeq) → ITree InstEff Unit
-  | i :: is => .vis i (fun () => denote is)
+public def denote [InstEff -< ε] : (is : InstSeq) → ITree ε Unit
+  | i :: is => InstEff.trigger i *> denote is
   | [] => .ret ()
 
 /-!

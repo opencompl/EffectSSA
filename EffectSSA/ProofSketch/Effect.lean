@@ -4,6 +4,9 @@ public import EffectSSA.ProofSketch.Inst
 
 public import ITree
 
+public import Mathlib.Data.Set.Defs
+public import Mathlib.Data.Set.Basic
+
 /-! ## Upstream -/
 namespace ITree
 @[expose] public section
@@ -32,8 +35,9 @@ instance [i : MonadIter m] [Functor m] : MonadIter (StateT σ m) where
       (fun (ba, s) => ba.map (·, s) (·, s)) <$> (f b).run s
     ) (b, s)
 
-axiom ITree.interpM {ε : Effect} {m} [Monad m] [MonadIter m]
-    (h : (i : ε.I) → m (ε.O i)) : ITree ε α → m α
+def ITree.interpM {ε : Effect} {m} [Monad m] [MonadIter m]
+    (h : (i : ε.I) → m (ε.O i)) : ITree ε α → m α :=
+  sorry
 
 -- Monad Lifting via Subeffects
 
@@ -46,6 +50,37 @@ def ITree.lift [ε -< δ] : ITree ε α → ITree δ α :=
 class's first argument is an `outParam`, so we define `MonadLiftT` directly. -/
 instance [ε -< δ] : MonadLiftT (ITree ε) (ITree δ) where
   monadLift := ITree.lift
+
+-- nodes and leaves
+
+coinductive IsNode : ITree ε α → ε.I → Prop where
+  | vis      {t i} {k : ε.O i → ITree ε α}
+             : t.unfold = .vis i k → IsNode t i
+  | vis_cont {t i i'} {k : ε.O i' → ITree ε α} {o}
+             : t.unfold = .vis i' k → IsNode (k o) i → IsNode t i
+  | tau      {t i t'}
+             : t.unfold = .tau t' → IsNode t' i → IsNode t i
+
+coinductive IsLeaf : ITree ε α → α → Prop where
+  | ret  {t r}
+         : t.unfold = .ret r → IsLeaf t r
+  | tau  {t r t'}
+         : t.unfold = .tau t' → IsLeaf t' r → IsLeaf t r
+  | vis  {t r i} {k : ε.O i → ITree ε α} {o}
+         : t.unfold = .vis i k → IsLeaf (k o) r → IsLeaf t r
+
+def ITree.nodes  (t : ITree ε α) : Set ε.I := {i | IsNode t i}
+def ITree.leaves (t : ITree ε α) : Set α   := {r | IsLeaf t r}
+
+-- iter_iter
+
+theorem ITree.interp_iter' {ε₁ ε₂ : Effect}
+    {f : (i : ε₁.I) → ITree ε₂ (ε₁.O i)}
+    {t₁ : α → ITree ε₁ (α ⊕ β)}
+    {t₂ : α → ITree ε₂ (α ⊕ β)}
+    (ht : ∀ i, interp f (t₁ i) = t₂ i) :
+    ∀ i, ITree.interp f (ITree.iter t₁ i) = ITree.iter t₂ i := by
+  sorry
 
 end
 end ITree
@@ -174,7 +209,7 @@ implements a pure `interp`.
 -/
 
 noncomputable -- TODO: remove once interpM is implemented
-def interpLocalStack [ErrUB -< ε] :
+def interpLocalStackM [ErrUB -< ε] :
     (x : ITree (LocalEff ⊕ₑ ε) α) → StateT LocalStack (ITree ε) α :=
   ITree.interpM fun
     | .inr e => liftM <| ITree.vis e .ret
@@ -190,6 +225,11 @@ def interpLocalStack [ErrUB -< ε] :
         -- does not necessarily indicate a mall-formed program. In particular, the
         -- pre-existing value might actually come from the same instruction in
         -- a previous iteration of a loop.
+
+/-- Interpret local stack effects starting from an empty initial stack. -/
+noncomputable
+def interpLocalStack [ErrUB -< ε] (x : ITree (LocalEff ⊕ₑ ε) α) : ITree ε α :=
+  (interpLocalStackM x).run' { }
 
 /-!
 ## Instructions
