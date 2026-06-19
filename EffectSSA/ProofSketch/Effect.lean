@@ -1,6 +1,7 @@
 module
 
 public import EffectSSA.ProofSketch.Inst
+public import EffectSSA.ProofSketch.ITree.InterpM
 
 public import ITree
 
@@ -23,21 +24,6 @@ def ITree.interpFirst
     (f : (e : ε.I) → ITree δ (ε.O e)) :
     ITree (ε ⊕ₑ δ) α → ITree δ α :=
   ITree.interpSum f δ.trigger
-
--- MonadIter / monadic interp
-
-class MonadIter (m : Type → Type) where
-  iter : ∀ {α β}, (β → m (β ⊕ α)) → β → m α
-
-instance : MonadIter (ITree ε) where iter := ITree.iter
-instance [i : MonadIter m] [Functor m] : MonadIter (StateT σ m) where
-  iter f b s := i.iter (fun (b, s) =>
-      (fun (ba, s) => ba.map (·, s) (·, s)) <$> (f b).run s
-    ) (b, s)
-
-def ITree.interpM {ε : Effect} {m} [Monad m] [MonadIter m]
-    (h : (i : ε.I) → m (ε.O i)) : ITree ε α → m α :=
-  sorry
 
 -- Monad Lifting via Subeffects
 
@@ -201,14 +187,6 @@ def pushVar [LocalEff -< ε] (var : VarId) (value : Val) : ITree ε Unit :=
 structure LocalStack where
   raw : Std.HashMap VarId Val := { }
 
-/-
-TODO: Port MonadIter [1] from Rocq; The lean `ITree` library currently only
-implements a pure `interp`.
-
-[1] https://deepspec.github.io/InteractionTrees/master/ITree.Basics.Basics.html#MonadIter
--/
-
-noncomputable -- TODO: remove once interpM is implemented
 def interpLocalStackM [ErrUB -< ε] :
     (x : ITree (LocalEff ⊕ₑ ε) α) → StateT LocalStack (ITree ε) α :=
   ITree.interpM fun
@@ -227,7 +205,6 @@ def interpLocalStackM [ErrUB -< ε] :
         -- a previous iteration of a loop.
 
 /-- Interpret local stack effects starting from an empty initial stack. -/
-noncomputable
 def interpLocalStack [ErrUB -< ε] (x : ITree (LocalEff ⊕ₑ ε) α) : ITree ε α :=
   (interpLocalStackM x).run' { }
 
