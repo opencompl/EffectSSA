@@ -14,10 +14,10 @@ The main result is `ITree.eq_of_bisim`: bisimilarity implies equality.
 
 @[expose] public section
 namespace ITree
-namespace ITree
 
 variable {E : Effect.{u}} {R : Type u}
 
+namespace ITree
 section Upstream
 attribute [grind =] unfold_fold tau_approx_1 vis_approx_1
 variable {t : ITree E R}
@@ -48,24 +48,20 @@ Strong bisimilarity for ITrees.
 Both trees must unfold to the same constructor, and continuations must again be bisimilar.
 -/
 coinductive Bisim : ITree E R → ITree E R → Prop where
-  | ret {t1 t2 : ITree E R} {r : R} :
-      t1 = .ret r → t2 = .ret r → Bisim t1 t2
-  | tau {t1 t2 s1 s2 : ITree E R} :
-      t1 = .tau s1 → t2 = .tau s2 → Bisim s1 s2 → Bisim t1 t2
-  | vis {t1 t2 : ITree E R} {i : E.I} {k1 k2 : E.O i → ITree E R} :
-      t1 = .vis i k1 → t2 = .vis i k2 →
-      (∀ o : E.O i, Bisim (k1 o) (k2 o)) → Bisim t1 t2
-
-/-- Bisimilar ITrees are equal. -/
-theorem eq_of_bisim {t1 t2 : ITree E R} (h : Bisim t1 t2) : t1 = t2 := by
-  have key : ∀ n (a b : ITree E R), Bisim a b → a.approx n = b.approx n := by
-    intro n
-    induction n
-    · intros; rfl
-    · intro a b hab
-      cases hab
-      <;> grind
-  ext n
-  exact key n t1 t2 h
+  | ret : Bisim (.ret r) (.ret r)
+  | tau : Bisim s₁ s₂ → Bisim (.tau s₁) (.tau s₂)
+  | vis : (∀ o : E.O i, Bisim (k₁ o) (k₂ o)) → Bisim (.vis i k₁) (.vis i k₂)
 
 end ITree
+
+-- Scope `≅` notation to top-level ITree namespace, rather than inner `ITree.ITree`
+scoped infixl:arg " ≅ " => ITree.Bisim
+
+namespace ITree
+
+/-- Bisimilar ITrees are equal. -/
+theorem eq_of_bisim {t₁ t₂ : ITree E R} (h : t₁.Bisim t₂) : t₁ = t₂ := by
+  ext n
+  induction n generalizing t₁ t₂
+  · rfl
+  · cases h <;> grind
