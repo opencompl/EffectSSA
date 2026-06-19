@@ -15,38 +15,38 @@ namespace ITree.ITree
 
 -- interpSum
 
-def ITree.interpSum {ε δ ζ : Effect} {α}
+def interpSum {ε δ ζ : Effect} {α}
     (f : (e : ε.I) → ITree ζ (ε.O e))
     (g : (e : δ.I) → ITree ζ (δ.O e)) :
     ITree (ε ⊕ₑ δ) α → ITree ζ α :=
-  ITree.interp (Sum.casesOn · f g)
+  interp (Sum.casesOn · f g)
 
-def ITree.interpFirst
+def interpFirst
     (f : (e : ε.I) → ITree δ (ε.O e)) :
     ITree (ε ⊕ₑ δ) α → ITree δ α :=
-  ITree.interpSum f δ.trigger
+  interpSum f δ.trigger
 
 -- Monad Lifting via Subeffects
 
-def ITree.lift [ε -< δ] : ITree ε α → ITree δ α :=
-  ITree.interp fun i =>
+def lift [ε -< δ] : ITree ε α → ITree δ α :=
+  interp fun i =>
     let ⟨j, k⟩ := Subeffect.map i
     .vis j (.ret ∘ k)
 
 /-- NOTE: the following instance cannot be defined on `MonadLift`, given that
 class's first argument is an `outParam`, so we define `MonadLiftT` directly. -/
 instance [ε -< δ] : MonadLiftT (ITree ε) (ITree δ) where
-  monadLift := ITree.lift
+  monadLift := lift
 
 -- iter_iter
 
-theorem ITree.interp_iter' {ε₁ ε₂ : Effect}
-    {f : (i : ε₁.I) → ITree ε₂ (ε₁.O i)}
-    {t₁ : α → ITree ε₁ (α ⊕ β)}
-    {t₂ : α → ITree ε₂ (α ⊕ β)}
-    (ht : ∀ i, interp f (t₁ i) = t₂ i) :
-    ∀ i, ITree.interp f (ITree.iter t₁ i) = ITree.iter t₂ i := by
-  sorry
+-- theorem interp_iter' {ε₁ ε₂ : Effect}
+--     {f : (i : ε₁.I) → ITree ε₂ (ε₁.O i)}
+--     {t₁ : α → ITree ε₁ (α ⊕ β)}
+--     {t₂ : α → ITree ε₂ (α ⊕ β)}
+--     (ht : ∀ i, interp f (t₁ i) = t₂ i) :
+--     ∀ i, ITree.interp f (ITree.iter t₁ i) = ITree.iter t₂ i := by
+--   sorry
 
 end
 end ITree
