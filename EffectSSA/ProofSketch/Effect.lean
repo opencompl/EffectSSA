@@ -49,7 +49,7 @@ instance [ε -< δ] : MonadLiftT (ITree ε) (ITree δ) where
 --   sorry
 
 end
-end ITree
+end ITree.ITree
 
 /-!
 # Effects
