@@ -2,6 +2,7 @@ module
 
 public import EffectSSA.ProofSketch.Inst
 public import EffectSSA.ProofSketch.ITree.InterpM
+public import EffectSSA.ProofSketch.ITree.HasEffect
 
 public import ITree
 
@@ -9,7 +10,7 @@ public import Mathlib.Data.Set.Defs
 public import Mathlib.Data.Set.Basic
 
 /-! ## Upstream -/
-namespace ITree
+namespace ITree.ITree
 @[expose] public section
 
 -- interpSum
@@ -36,27 +37,6 @@ def ITree.lift [ε -< δ] : ITree ε α → ITree δ α :=
 class's first argument is an `outParam`, so we define `MonadLiftT` directly. -/
 instance [ε -< δ] : MonadLiftT (ITree ε) (ITree δ) where
   monadLift := ITree.lift
-
--- nodes and leaves
-
-coinductive IsNode : ITree ε α → ε.I → Prop where
-  | vis      {t i} {k : ε.O i → ITree ε α}
-             : t.unfold = .vis i k → IsNode t i
-  | vis_cont {t i i'} {k : ε.O i' → ITree ε α} {o}
-             : t.unfold = .vis i' k → IsNode (k o) i → IsNode t i
-  | tau      {t i t'}
-             : t.unfold = .tau t' → IsNode t' i → IsNode t i
-
-coinductive IsLeaf : ITree ε α → α → Prop where
-  | ret  {t r}
-         : t.unfold = .ret r → IsLeaf t r
-  | tau  {t r t'}
-         : t.unfold = .tau t' → IsLeaf t' r → IsLeaf t r
-  | vis  {t r i} {k : ε.O i → ITree ε α} {o}
-         : t.unfold = .vis i k → IsLeaf (k o) r → IsLeaf t r
-
-def ITree.nodes  (t : ITree ε α) : Set ε.I := {i | IsNode t i}
-def ITree.leaves (t : ITree ε α) : Set α   := {r | IsLeaf t r}
 
 -- iter_iter
 
