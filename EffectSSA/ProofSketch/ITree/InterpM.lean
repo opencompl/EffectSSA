@@ -1,6 +1,6 @@
 module
 
-public import ITree
+public import ITree.Definition
 
 /-!
 # Monadic Interpretation of ITrees (`interpM`)
@@ -11,15 +11,15 @@ operator (`MonadIter`).
 This generalises `ITree.interp` (which targets only another ITree) to arbitrary monads,
 matching the `interp` function from the Rocq library.
 
-Key differences from `ITree.interp`:
-* `interp` wraps tau-steps in an extra tau node; `interpM` passes through taus transparently.
-* `interp` requires `m = ITree F`; `interpM` works for any monad with `MonadIter`.
-
 ## Main declarations
 
-* `MonadIter`: typeclass for monads with a loop/iteration operator
-* `LawfulMonadIter`: the iter unfolding equation, enabling proof of the simp lemmas
-* `ITree.interpM`: interpret an `ITree E R` into a `MonadIter`-monad
+* `MonadIter`: typeclass for monads with a loop/iteration combinator
+* `LawfulMonadIter`: a lawful iter combinator can be unfolded
+* `ITree.interpM`: interpret an `ITree E R` into any `MonadIter`-monad
+
+Additionally, instances of (`Lawful`)`MonadIter` are provided for:
+* `ITree E`, and
+* `StateT σ m`, assuming that `m` has a (`Lawful`)`MonadIter` instance,
 
 ## References
 
@@ -105,6 +105,10 @@ namespace ITree
 /--
 Map an `ITree E R` into a generic monad `m` equiped with a `MonadIter` instance,
 using handler `h` to interpret effects.
+
+See also `ITree.interp` for a specialization where the target monad is an `ITree`,
+do note that `interp` and `interpM (m := ITree _)` differ slightly in how they
+handle `tau`s in the given `ITree`.
 -/
 def interpM (h : (i : E.I) → m (E.O i)) : ITree E R → m R :=
   MonadIter.iter fun t =>
@@ -119,6 +123,10 @@ variable [LawfulMonad m] [LawfulMonadIter m] (h : (i : E.I) → m (E.O i))
 @[simp, grind =] theorem interpM_ret (r : R) :
     interpM h (ret r) = return r := by
   rw [interpM, LawfulMonadIter.iter_eq]; simp
+
+@[simp, grind =] theorem interpM_pure (r : R) :
+    interpM h (pure r) = return r :=
+  interpM_ret ..
 
 @[simp, grind =] theorem interpM_tau (t : ITree E R) :
     interpM h (tau t) = interpM h t := by
