@@ -47,10 +47,10 @@ end Upstream
 Strong bisimilarity for ITrees.
 Both trees must unfold to the same constructor, and continuations must again be bisimilar.
 -/
-coinductive Bisim : ITree E R → ITree E R → Prop where
+coinductive Bisim {ε α} : ITree ε α → ITree ε α → Prop where
   | ret : Bisim (.ret r) (.ret r)
   | tau : Bisim s₁ s₂ → Bisim (.tau s₁) (.tau s₂)
-  | vis : (∀ o : E.O i, Bisim (k₁ o) (k₂ o)) → Bisim (.vis i k₁) (.vis i k₂)
+  | vis : (∀ o : ε.O i, Bisim (k₁ o) (k₂ o)) → Bisim (.vis i k₁) (.vis i k₂)
 
 end ITree
 
@@ -65,3 +65,21 @@ theorem eq_of_bisim {t₁ t₂ : ITree E R} (h : t₁.Bisim t₂) : t₁ = t₂ 
   induction n generalizing t₁ t₂
   · rfl
   · cases h <;> grind
+
+section Equiv
+
+@[simp, grind .]
+theorem pure_eq_ret (x : α) : pure x = ret (E:=ε) x := by rfl
+
+@[refl, simp, grind .]
+theorem bisim_refl (x : ITree ε α) : x ≅ x := by
+  apply Bisim.coinduct (· = ·)
+  · rintro x _ rfl
+    cases x
+    case ret => left; simp; grind
+    case tau => right; left; simp; grind
+    case vis i k =>
+      right; right
+      refine ⟨i, k, k, ?_⟩
+      simp
+  · rfl
