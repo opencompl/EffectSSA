@@ -4,6 +4,9 @@ public import EffectSSA.ProofSketch.MultiContext
 public import EffectSSA.ProofSketch.Dominance
 public import EffectSSA.ProofSketch.Effect
 
+public import EffectSSA.ProofSketch.ITree.Coe
+public import EffectSSA.ProofSketch.ITree.Stub
+
 public import Std.Data.HashMap
 
 /-!

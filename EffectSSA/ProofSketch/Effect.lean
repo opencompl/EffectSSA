@@ -3,6 +3,7 @@ module
 public import EffectSSA.ProofSketch.Inst
 public import EffectSSA.ProofSketch.ITree.InterpM
 public import EffectSSA.ProofSketch.ITree.HasEffect
+public import EffectSSA.ProofSketch.ITree.Stub
 
 public import ITree
 
@@ -15,28 +16,11 @@ namespace ITree.ITree
 
 -- interpSum
 
-def interpSum {ε δ ζ : Effect} {α}
-    (f : (e : ε.I) → ITree ζ (ε.O e))
-    (g : (e : δ.I) → ITree ζ (δ.O e)) :
-    ITree (ε ⊕ₑ δ) α → ITree ζ α :=
-  interp (Sum.casesOn · f g)
-
 def interpFirst
     (f : (e : ε.I) → ITree δ (ε.O e)) :
     ITree (ε ⊕ₑ δ) α → ITree δ α :=
-  interpSum f δ.trigger
+  interp (Sum.casesOn · f δ.trigger)
 
--- Monad Lifting via Subeffects
-
-def lift [ε -< δ] : ITree ε α → ITree δ α :=
-  interp fun i =>
-    let ⟨j, k⟩ := Subeffect.map i
-    .vis j (.ret ∘ k)
-
-/-- NOTE: the following instance cannot be defined on `MonadLift`, given that
-class's first argument is an `outParam`, so we define `MonadLiftT` directly. -/
-instance [ε -< δ] : MonadLiftT (ITree ε) (ITree δ) where
-  monadLift := lift
 
 -- iter_iter
 
@@ -130,6 +114,16 @@ def jumpToHole (h : HoleId) : ITree HoleEff Unit :=
 def interpHoles [ε -< δ] (f : HoleId → ITree ε Unit) :
     (x : ITree (HoleEff ⊕ₑ δ) α) → ITree δ α :=
   ITree.interpFirst (f · |>.lift)
+
+/--
+`interpHoles'` is an alias of `interpHoles` for the special case where `ε = δ`.
+
+It can be used to avoid having to specify `ε` when Lean fails to infer it.
+-/
+@[simp, grind]
+abbrev interpHoles'  : (f : HoleId → ITree δ Unit) →
+    (x : ITree (HoleEff ⊕ₑ δ) α) → ITree δ α :=
+  interpHoles
 
 /-!
 ## Local Stack Effects

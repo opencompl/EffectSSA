@@ -1,6 +1,8 @@
 module
 
 public import ITree.Definition
+public import EffectSSA.ProofSketch.ITree.Bisim
+public import EffectSSA.ProofSketch.ITree.HasEffect
 
 /-!
 # Monadic Interpretation of ITrees (`interpM`)
@@ -63,6 +65,9 @@ class LawfulMonadIter (m : Type u → Type u) [Monad m] [MonadIter m] : Prop whe
 variable {E : Effect.{u}} {R : Type u}
 variable {m : Type u → Type u} [Monad m] [MonadIter m]
 
+abbrev Effect.Transform (ε : Effect) (m : Type _ → Type _) := (i : ε.I) → m (ε.O i)
+scoped infixl:50 " ⤳ " => Effect.Transform
+
 section Instances
 
 /-! ### ITree -/
@@ -120,6 +125,8 @@ def interpM (h : (i : E.I) → m (E.O i)) : ITree E R → m R :=
 section Lemmas
 variable [LawfulMonad m] [LawfulMonadIter m] (h : (i : E.I) → m (E.O i))
 
+/- ### Basic Lemmas -/
+
 @[simp, grind =] theorem interpM_ret (r : R) :
     interpM h (ret r) = return r := by
   rw [interpM, LawfulMonadIter.iter_eq]; simp
@@ -135,6 +142,31 @@ variable [LawfulMonad m] [LawfulMonadIter m] (h : (i : E.I) → m (E.O i))
 @[simp, grind =] theorem interpM_vis (i : E.I) (k : E.O i → ITree E R) :
     interpM h (vis i k) = h i >>= fun o => interpM h (k o) := by
   rw [interpM, LawfulMonadIter.iter_eq]; simp
+
+
+/- ### Basic Lemmas for interp -/
+section Interp
+variable (h : ε ⤳ ITree δ)
+
+@[simp, grind =] theorem interp_ret (r : R) :
+    interp h (ret r) = return r :=
+  interp_pure ..
+
+end Interp
+/-! ### Compositions of `interpM` -/
+
+/-!
+axiom statements are translated from proven theorems in the rocq itrees library
+-/
+
+axiom interpM_interpM (f : ε ⤳ ITree δ) (g : δ ⤳ ITree ζ) (t : ITree ε α) :
+    interpM g (interpM f t) = interpM (interpM g <| f ·) t
+
+axiom interpM_iter' {E F} (f : E ⤳ ITree F) {I A}
+    (t : I → ITree E (I ⊕ A))
+    (t' : I → ITree F (I ⊕ A))
+    (EQ_t : ∀ i, interpM f (t i) = t' i) :
+    ∀ i, interpM f (ITree.iter t i) = ITree.iter t' i
 
 end Lemmas
 end ITree
