@@ -37,7 +37,7 @@ axiom interp_vis_with_tau {F} (f : (i : E.I) â†’ ITree F (E.O i)) i (k : E.O i â
 
 @[simp, grind =] theorem bind_ret : ret r >>= f = f r := by
   show pure r >>= f = _
-  simp
+  simp [-pure_eq_ret]
 
 attribute [grind =] tau_bind LawfulMonad.bind_assoc interp_pure interp_ret interp_tau
 attribute [-simp] interp_vis
