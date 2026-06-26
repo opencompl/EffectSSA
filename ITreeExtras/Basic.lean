@@ -28,19 +28,51 @@ theorem fold_unfold (t : ITreeF ε α _) :
     (fold t).unfold = t := by
   simp [ITree.fold, ITree.unfold]
 
-@[grind =] theorem of_unfold_eq_ret :
+@[grind =] theorem unfold_eq_ret_iff :
     t.unfold = .ret x ↔ t = .ret x := by
   grind [ret]
 
-@[grind =] theorem of_unfold_eq_tau :
+@[grind =] theorem unfold_eq_tau_iff :
     t.unfold = .tau t' ↔ t = .tau t' := by
   grind [tau]
 
-@[grind =] theorem of_unfold_eq_vis :
+@[grind =] theorem unfold_eq_vis_iff :
     t.unfold = .vis e k ↔ t = .vis e k := by
   grind [vis]
 
 end Fold
+
+/-! ### "No Confusion" lemmas -/
+section NoConfusion
+
+@[simp, grind .] theorem tau_neq_ret {t : ITree ε α} {x : α} : tau t ≠ ret x := by
+  intro h; have := congrArg unfold h; simp at this
+
+@[simp, grind .] theorem tau_neq_vis {t : ITree ε α} {i : ε.I}
+    {k : ε.O i → ITree ε α} : tau t ≠ vis i k := by
+  intro h; have := congrArg unfold h; simp at this
+
+@[simp, grind .] theorem ret_neq_vis {x : α} {i : ε.I}
+    {k : ε.O i → ITree ε α} : ret x ≠ vis i k := by
+  intro h; have := congrArg unfold h; simp at this
+
+end NoConfusion
+
+/-! ### Injectivity lemmas -/
+section Inj
+
+@[grind .] theorem vis_inj {i₁ i₂ : ε.I}
+    {k₁ : ε.O i₁ → ITree ε α} {k₂ : ε.O i₂ → ITree ε α}
+    (h : vis i₁ k₁ = vis i₂ k₂) :
+    i₁ = i₂ ∧ k₁ ≍ k₂ := by
+  have hu := congrArg unfold h
+  simpa only [unfold_vis, ITreeF.vis.injEq] using hu
+
+@[grind .] theorem ret_inj {x y : α} (h : @ret ε α x = ret y) : x = y := by
+  have hu := congrArg unfold h
+  simpa only [unfold_ret, ITreeF.ret.injEq] using hu
+
+end Inj
 
 /-! ### `pure` (a.k.a. `ret`)-/
 section Pure

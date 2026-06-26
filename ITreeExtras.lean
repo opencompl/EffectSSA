@@ -1,8 +1,5 @@
 module
 
-public import ITreeExtras.Effect
-public import ITreeExtras.Definition
-public import ITreeExtras.InterpM
 public import ITreeExtras.Basic
 public import ITreeExtras.Bisim
 public import ITreeExtras.HasEffect

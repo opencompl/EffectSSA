@@ -4,7 +4,7 @@ public import EffectSSA.ProofSketch.MultiContext
 public import EffectSSA.ProofSketch.Dominance
 public import EffectSSA.ProofSketch.Effect
 
-public import EffectSSA.ProofSketch.ITree.Coe
+public import ITreeExtras
 public import EffectSSA.ProofSketch.ITree.Stub
 
 public import Std.Data.HashMap
@@ -83,7 +83,6 @@ def ContextCFG.denote (C : ContextCFG n) :
   ITree.iter (fun (⟨bId, args⟩ : Branch) => do
     let some b := C.blocks[bId]? | raiseError s!"Missing Block: {bId}"
     b.denote bId args
-  ) ⟨C.entryId, []⟩
 
 def Hole.fromId? {n} [ErrUB -< ε] (h : HoleId) : ITree ε (Hole n) :=
   if hr : h.toNat < n then
@@ -144,7 +143,23 @@ theorem interpHoles_program (P : ProgramCFG) {f : HoleId → ITree (ErrUB ⊕ In
 
 theorem interp_plug {C : ContextCFG n} {I : Pattern n} :
     (C.plug I).interp = C.interp (I[·].denote) := by
-  simp [ProgramCFG.interp, ContextCFG.interp]
+  simp only [ProgramCFG.interp, interp, Pattern.getElem_hole]
+  congr 2
+  rw [denote]
+
+  stop
+
+  generalize ht : denote (C.plug I) = t
+
+
+  simp only [interpHoles, ITree.interpFirst, denote]
+  rw [ITree.interpM_iter', ITree.interpM_iter']
+  · sorry
+  · sorry
+  · intro b
+
+
+  stop
 
   simp only [ContextCFG.interp, ProgramCFG.interp, bind_pure_comp]
   simp only [fromId?_zero, denote, Pattern.getElem_hole]
