@@ -78,10 +78,11 @@ def Block.denote (b : Block n) (bId : BlockId) (args : List Val) :
 noncomputable
 def ContextCFG.denote (C : ContextCFG n) :
     ITree (HoleEff ⊕ₑ InstEff ⊕ₑ LocalEff ⊕ₑ SideEff ⊕ₑ ErrUB) ReturnVals :=
-  ITree.iter (fun (⟨bId, args⟩ : Branch) => do
+  ITree.iter step ⟨C.entryId, []⟩
+where
+  step := fun (⟨bId, args⟩ : Branch) => do
     let some b := C.blocks[bId]? | raiseError s!"Missing Block: {bId}"
     b.denote bId args
-  ) ⟨C.entryId, []⟩
 
 def Hole.fromId? {n} [ErrUB -< ε] (h : HoleId) : ITree ε (Hole n) :=
   if hr : h.toNat < n then
@@ -136,13 +137,72 @@ def plug (C : ContextCFG n) (I : Pattern n) : ProgramCFG :=
 -- @[simp, grind =] theorem fromId?_zero : Hole.fromId? (n := 0) x = raiseError _ := by
 --   simp [Hole.fromId?]
 
-theorem interpHoles_program (P : ProgramCFG) {f : HoleId → ITree (ErrUB ⊕ₑ InstEff) Unit} :
-    interpHoles f P.denote = _ := by
-  sorry
+#check denote
+#check ITree.Bisim.coinduct
+
+open ITree.ITree (Bisim)
+
+theorem interpHoles_program (P : ProgramCFG) : ∀ {f g : HoleId → ITree (ErrUB ⊕ₑ InstEff) Unit},
+    interpHoles f P.denote = interpHoles g P.denote := by
+  let ε := ErrUB ⊕ₑ InstEff
+  suffices ∀ f,
+      interpHoles (ε:=ε) f P.denote = interpHoles (ε:=ε) (fun _ => .forever) P.denote by
+    grind
+  intro f
+  have h : ∀ h : HoleEff.I, ¬P.denote.HasEffect h := by
+    intro hole hcontra
+    simp [denote] at hcontra
+    obtain ⟨b, hb⟩ : ∃ b : Branch, (denote.step P b).HasEffect hole := by grind
+    generalize ht : denote.step P b = t at *
+    generalize he : (hole : (HoleEff ⊕ₑ InstEff ⊕ₑ LocalEff ⊕ₑ SideEff ⊕ₑ ErrUB).I) = e at *
+    induction hb
+    case vis_self t i k ht' =>
+      obtain rfl : t = .vis i k := by grind
+      clear ht'
+      subst he
+
+      simp [denote.step] at ht
+      split at ht
+      next block hb =>
+        simp [Block.denote]
+        sorry
+      next =>
+        exfalso
+        sorry
+    case vis_cont =>
+      grind
+    case tau =>
+      grind
+
+  simp only [interpHoles, ITree.interpFirst]
+  rw [ITree.interp_congr]
+  intro e he
+  cases e with
+  | inr e => rfl
+  | inl e =>
+    specialize h e
+    contradiction
+
 
 theorem interp_plug {C : ContextCFG n} {I : Pattern n} :
     (C.plug I).interp = C.interp (I[·].denote) := by
-  simp [ProgramCFG.interp, ContextCFG.interp]
+  simp only [ProgramCFG.interp, interp, Pattern.getElem_hole]
+  congr 2
+  rw [denote]
+
+  stop
+
+  generalize ht : denote (C.plug I) = t
+
+
+  simp only [interpHoles, ITree.interpFirst, denote]
+  rw [ITree.interpM_iter', ITree.interpM_iter']
+  · sorry
+  · sorry
+  · intro b
+
+
+  stop
 
   simp only [ContextCFG.interp, ProgramCFG.interp, bind_pure_comp]
   simp only [fromId?_zero, denote, Pattern.getElem_hole]

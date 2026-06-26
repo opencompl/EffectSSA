@@ -69,7 +69,7 @@ theorem eq_of_bisim {t₁ t₂ : ITree E R} (h : t₁.Bisim t₂) : t₁ = t₂ 
 section Equiv
 
 @[simp, grind .]
-theorem pure_eq_ret (x : α) : pure x = ret (E:=ε) x := by rfl
+private theorem pure_eq_ret (x : α) : pure x = ret (E:=ε) x := by rfl
 
 @[refl, simp, grind .]
 theorem bisim_refl (x : ITree ε α) : x ≅ x := by
