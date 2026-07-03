@@ -117,14 +117,18 @@ def merge (es₁ : Trace τ) (es₂ : Trace τ) : Trace τ :=
     let events := mergeEvents events₁ (dedup events₁ events₂)
     { clock, events, isUB := false,
       compat := by
-        have h₁ := es₁.compat (by grind)
-        have h₂ := es₂.compat (by grind)
+        have hp₁ := es₁.compat (by grind)
+        have hp₂ := es₂.compat (by grind)
         rintro -
         apply compat_mergeEvents
-        · intros e₁ h₁ e₂ h₂
-          apply compat_of_mem_dedup h₂ h₁
-          grind
-        · grind
-        · grind
+        · intros e₁ he₁ e₂ he₂
+          refine compat_of_mem_dedup he₂ he₁ ?_
+          show (es₁.events.map _).Pairwise _
+          simpa using hp₁
+        · show (es₁.events.map _).Pairwise _
+          simpa using hp₁
+        · apply compat_dedup
+          show (es₂.events.map _).Pairwise _
+          simpa using hp₂
     }
 where

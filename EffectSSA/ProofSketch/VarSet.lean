@@ -75,6 +75,9 @@ variable {A B C : VarSet}
 
 /-! ### ext -/
 
+@[grind =] private theorem mem_def (x : Var) (A : VarSet) :
+    x ∈ A ↔ x ∈ A.toSet := by rfl
+
 @[simp, grind =] private theorem mem_toSet (x : Var) (A : VarSet) :
     x ∈ A.toSet ↔ x ∈ A := by rfl
 @[simp, grind =] private theorem mem_ofSet (x : Var) (A : Set Var) :
@@ -88,7 +91,10 @@ theorem ext (h : ∀ x, x ∈ A ↔ x ∈ B) : A = B := by
 
 /-! ### empty -/
 
-@[simp, grind .] theorem not_mem_empty : v ∉ (∅ : VarSet) := by grind
+@[simp, grind =] private theorem toSet_empty : toSet ∅ = ∅ := by rfl
+
+@[simp, grind .] theorem not_mem_empty : v ∉ (∅ : VarSet) := by
+  grind
 
 theorem eq_empty_iff : A = ∅ ↔ (∀ v, v ∉ A) := by
   constructor
@@ -96,6 +102,8 @@ theorem eq_empty_iff : A = ∅ ↔ (∀ v, v ∉ A) := by
   · intro h; ext; grind
 
 /-! ### union -/
+
+@[simp, grind =] private theorem union_def : A ∪ B = ofSet (A.toSet ∪ B.toSet) := by rfl
 
 @[simp, grind =] theorem mem_union : v ∈ A ∪ B ↔ v ∈ A ∨ v ∈ B := by grind
 
@@ -110,6 +118,8 @@ theorem eq_empty_iff : A = ∅ ↔ (∀ v, v ∉ A) := by
   simp [eq_empty_iff]; grind
 
 /-! ### inter -/
+
+@[simp, grind =] private theorem inter_def : A ∩ B = ofSet (A.toSet ∩ B.toSet) := by rfl
 
 @[simp, grind =] theorem mem_inter : v ∈ A ∩ B ↔ v ∈ A ∧ v ∈ B := by grind
 
@@ -158,12 +168,10 @@ attribute [local grind] Disjoint
 @[simp, grind =] theorem disjoint_self : A.Disjoint A ↔ A = ∅ := by grind
 
 @[simp, grind =] theorem union_disjoint :
-    Disjoint (A ∪ B) C ↔ Disjoint A C ∧ Disjoint B C := by
-  simp [Disjoint, union_inter]
+    Disjoint (A ∪ B) C ↔ Disjoint A C ∧ Disjoint B C := by grind
 
 @[simp, grind =] theorem disjoint_union :
-    Disjoint A (B ∪ C) ↔ Disjoint A B ∧ Disjoint A C := by
-  simp [Disjoint, inter_union]
+    Disjoint A (B ∪ C) ↔ Disjoint A B ∧ Disjoint A C := by grind
 
 @[grind =] theorem disjoint_symm : A.Disjoint B ↔ B.Disjoint A := by grind
 

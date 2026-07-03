@@ -117,9 +117,11 @@ end ToVector
 /-! ext -/
 
 @[ext]
-theorem ext {v w : Pattern n} (h : ∀ i (hi : i < n), v[i] = w[i]) : v = w := by
+theorem ext {v w : Pattern n} : (h : ∀ i (hi : i < n), v[i] = w[i]) → v = w := by
+  show
+    (∀ i (hi : i < n), v.toVector[i] = w.toVector[i])
+    → v.toVector = w.toVector
   apply Vector.ext
-  grind [get, Vector.get_eq_getElem]
 
 /-! get -/
 section Get
@@ -185,7 +187,11 @@ theorem cons_eq_append : (cons x xs) = ((ofVector #v[x]) ++ xs).cast (by grind) 
 /-! head / tail -/
 
 @[simp, grind =] theorem head_cons : (cons i is).head = i := by grind
-@[simp, grind =] theorem tail_cons : (cons i is).tail = is := by ext; grind
+@[simp, grind =] theorem tail_cons : (cons i is).tail = is := by
+  apply eq_of_toVector_eq
+  rw [toVector_tail]
+  ext
+  simp
 
 /-! #### Cases -/
 section Cases
@@ -351,7 +357,13 @@ section CollapseLemmas
 /-! injectivity -/
 
 @[simp, grind =] theorem get_collapse {p : I.PC} : p.collapse.get = p.get := by
-  fun_induction collapse <;> grind
+  fun_induction collapse
+  next => grind
+  next n m hn I pc pc₁ pc₂ ih =>
+    subst pc₁ pc₂
+    rw [InstSeq.PC.get_cast, InstSeq.get_ofAppendRight]
+    simp only [Pattern.PC.get] at ih ⊢
+    exact ih.trans (InstSeq.PC.get_cast _ pc)
 
 @[simp, grind =] theorem get_ofCollapse {p : I.collapse.PC} : (ofCollapse p).get = p.get := by
   induction n
