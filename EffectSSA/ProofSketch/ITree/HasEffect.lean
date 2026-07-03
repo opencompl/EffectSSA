@@ -95,12 +95,18 @@ axiom unfold_eq_vis_iff (t : ITree ε α) (i) (k) :
 @[simp, grind =_]
 theorem pure_eq_ret : (pure x : ITree ε α) = ret x := by rfl
 
-/-- `vis` constructor injection (HEq form). -/
-theorem vis_inj {i₁ i₂ : ε.I}
+-- grind_pattern pure_eq_ret => (pure x : ITree ε α)
+
+@[simp, grind .] theorem vis_inj {i₁ i₂ : ε.I}
     {k₁ : ε.O i₁ → ITree ε α} {k₂ : ε.O i₂ → ITree ε α}
-    (h : vis i₁ k₁ = vis i₂ k₂) : i₁ = i₂ ∧ HEq k₁ k₂ := by
+    (h : vis i₁ k₁ = vis i₂ k₂) :
+    i₁ = i₂ ∧ k₁ ≍ k₂ := by
   have hu := congrArg unfold h
-  simpa [unfold_vis, ITreeF.vis.injEq] using hu
+  simpa only [unfold_vis, ITreeF.vis.injEq] using hu
+
+@[simp, grind .] theorem ret_inj {x y : α} (h : @ret ε α x = ret y) : x = y := by
+  have hu := congrArg unfold h
+  simpa only [unfold_ret, ITreeF.ret.injEq] using hu
 
 @[grind =]
 theorem bind_eq_vis_iff (t : ITree ε α) (f : α → ITree ε β) (i) (k) :
@@ -111,10 +117,11 @@ theorem bind_eq_vis_iff (t : ITree ε α) (f : α → ITree ε β) (i) (k) :
   | ret r =>
     rw [pure_bind]
     refine ⟨fun h => .inl ⟨r, rfl, h⟩, ?_⟩
-    rintro (⟨w, hw, hf⟩ | ⟨_, h, _⟩)
-    · obtain rfl : r = w := by have := congrArg unfold hw; simpa using this
+    rintro (⟨w, hw, hf⟩ | ⟨w, h, _⟩)
+    · obtain rfl : r = w := by simp_all; grind
       exact hf
-    · exact absurd (show ret r = vis i _ from h) ret_neq_vis
+    · have : ret r = vis i w := by grind
+      grind
   | tau t' => rw [tau_bind]; grind
   | vis i' k' =>
     rw [vis_bind]
@@ -122,7 +129,7 @@ theorem bind_eq_vis_iff (t : ITree ε α) (f : α → ITree ε β) (i) (k) :
     · obtain ⟨rfl, hk⟩ := vis_inj h
       exact .inr ⟨k', rfl, (eq_of_heq hk).symm⟩
     · rintro (⟨_, h, _⟩ | ⟨k'', h, hk⟩)
-      · exact absurd h.symm ret_neq_vis
+      · grind
       · obtain ⟨rfl, hk'⟩ := vis_inj h
         rw [hk, eq_of_heq hk']
 

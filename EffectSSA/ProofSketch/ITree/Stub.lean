@@ -84,7 +84,10 @@ theorem interp_congr {f g : ε ⤳ ITree δ} {t : ITree ε α}
       · rfl
       · rfl
     case ret a =>
-      simp
+
+      simp [- pure_eq_ret, -vis_inj]
+
+      stop
       cases hk : k a
       case vis i k =>
         have : t.HasEffect i := by grind

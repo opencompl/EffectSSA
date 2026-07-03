@@ -142,6 +142,16 @@ def plug (C : ContextCFG n) (I : Pattern n) : ProgramCFG :=
 
 open ITree.ITree (Bisim)
 
+-- theorem Block.denote_eq_vis_hole_iff (b : Block n) (bid) (args) :
+--   b.denote bid args = vis (.inl h) k ↔
+
+@[simp, grind .]
+axiom hasEffect_raiseError [ErrUB -< ε] (e : ε.I) :
+    (raiseError reason : ITree ε α).HasEffect e ↔ e = (Subeffect.map (E₁:=ErrUB) <| .error reason).1
+
+theorem hasEffect_denote_step :
+    (denote.step P b).HasEffect (Sum.inl hole)
+
 theorem interpHoles_program (P : ProgramCFG) : ∀ {f g : HoleId → ITree (ErrUB ⊕ₑ InstEff) Unit},
     interpHoles f P.denote = interpHoles g P.denote := by
   let ε := ErrUB ⊕ₑ InstEff
@@ -149,22 +159,29 @@ theorem interpHoles_program (P : ProgramCFG) : ∀ {f g : HoleId → ITree (ErrU
       interpHoles (ε:=ε) f P.denote = interpHoles (ε:=ε) (fun _ => .forever) P.denote by
     grind
   intro f
-  have h : ∀ h : HoleEff.I, ¬P.denote.HasEffect h := by
-    intro hole hcontra
-    simp [denote] at hcontra
-    obtain ⟨b, hb⟩ : ∃ b : Branch, (denote.step P b).HasEffect hole := by grind
+  simp only [interpHoles, ITree.interpFirst]
+  rw [ITree.interp_congr]
+  intro e he
+  cases e with
+  | inr e => rfl
+  | inl hole =>
+    exfalso
+    simp [denote] at he
+    obtain ⟨b, hb⟩ : ∃ b : Branch, (denote.step P b).HasEffect (.inl hole) := by grind
+    simp [denote.step] at hb
+
     generalize ht : denote.step P b = t at *
-    generalize he : (hole : (HoleEff ⊕ₑ InstEff ⊕ₑ LocalEff ⊕ₑ SideEff ⊕ₑ ErrUB).I) = e at *
+    generalize heff : Sum.inl hole = eff at *
     induction hb
     case vis_self t i k ht' =>
       obtain rfl : t = .vis i k := by grind
       clear ht'
-      subst he
-
+      subst heff
       simp [denote.step] at ht
       split at ht
       next block hb =>
         simp [Block.denote]
+
         sorry
       next =>
         exfalso
@@ -173,15 +190,6 @@ theorem interpHoles_program (P : ProgramCFG) : ∀ {f g : HoleId → ITree (ErrU
       grind
     case tau =>
       grind
-
-  simp only [interpHoles, ITree.interpFirst]
-  rw [ITree.interp_congr]
-  intro e he
-  cases e with
-  | inr e => rfl
-  | inl e =>
-    specialize h e
-    contradiction
 
 
 theorem interp_plug {C : ContextCFG n} {I : Pattern n} :
