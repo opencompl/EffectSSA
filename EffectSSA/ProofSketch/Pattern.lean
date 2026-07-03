@@ -145,7 +145,7 @@ variable (i : Nat)
 
 @[simp, grind =] theorem getElem_cons {x : InstSeq} {i : Nat} (hi : i < n + 1) :
     (cons x xs)[i] = if h : i = 0 then x else xs[i - 1] := by
-  simp; grind
+  simp [cons, Vector.getElem_append]
 
 @[simp, grind =] theorem getElem_junk {k : Nat} {i : Nat} (hi : i < k) :
     (junk k)[i] = [] := by

@@ -147,7 +147,7 @@ theorem subset_intro : (∀ x, x ∈ A → x ∈ B) → A ⊆ B := by grind
 
 /-! ### sdiff -/
 
-@[simp, grind =] theorem mem_sdiff : v ∈ A - B ↔ v ∈ A ∧ v ∉ B := Set.mem_diff v
+@[simp, grind =] theorem mem_sdiff : v ∈ A - B ↔ v ∈ A ∧ v ∉ B := Set.mem_sdiff v
 
 @[simp, grind =] theorem empty_sdiff : (∅ : VarSet) - A = ∅ := by ext; simp
 @[simp, grind =] theorem sdiff_empty : A - (∅ : VarSet) = A := by ext; simp
