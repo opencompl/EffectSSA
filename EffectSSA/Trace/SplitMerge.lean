@@ -119,9 +119,10 @@ def merge (es₁ : Trace τ) (es₂ : Trace τ) : Trace τ :=
       compat := by
         have hp₁ := es₁.compat (by grind)
         have hp₂ := es₂.compat (by grind)
-        have map_pairwise {c c' : ITC.Clock} (h : c ≤ c') {es : List (ClockedEvent τ c)} :
-            es.Pairwise (· ⌣ ·) → (es.map (ClockedEvent.cast_le h)).Pairwise (· ⌣ ·) :=
-          fun hp => List.pairwise_map.mpr <| hp.imp (by grind)
+        have map_pairwise {c c' : ITC.Clock} (h : c ≤ c') {es : List (ClockedEvent τ c)}
+            (hp : es.Pairwise (· ⌣ ·)) :
+            (es.map (ClockedEvent.cast_le h)).Pairwise (· ⌣ ·) :=
+          List.pairwise_map.mpr <| hp.imp fun hab => by grind
         rintro -
         apply compat_mergeEvents
         · intros e₁ he₁ e₂ he₂
