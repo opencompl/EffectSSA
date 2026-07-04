@@ -1,11 +1,19 @@
 name = "EffectSSA"
 version = "0.1.0"
-defaultTargets = ["EffectSSA"]
+defaultTargets = ["EffectSSA", "ITreeExtras"]
 
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
 rev = "v4.31.0"
+
+[[require]]
+name = "ITree"
+git = "https://github.com/ISTA-PLV/coinductive"
+rev = "main"
+
+[[lean_lib]]
+name = "ITreeExtras"
 
 [[lean_lib]]
 name = "EffectSSA"
