@@ -35,10 +35,6 @@ axiom interp_vis_with_tau {F} (f : (i : E.I) → ITree F (E.O i)) i (k : E.O i �
     let o ← f i
     (ITree.interp f (k o)).tau
 
-@[simp, grind =] theorem bind_ret : ret r >>= f = f r := by
-  show pure r >>= f = _
-  simp [-pure_eq_ret]
-
 attribute [grind =] tau_bind LawfulMonad.bind_assoc interp_pure interp_ret interp_tau
 attribute [-simp] interp_vis
 attribute [simp, grind .] interp_vis_with_tau
@@ -84,54 +80,10 @@ theorem interp_congr {f g : ε ⤳ ITree δ} {t : ITree ε α}
       · rfl
       · rfl
     case ret a =>
-
-      simp [- pure_eq_ret, -vis_inj]
-
-      stop
-      cases hk : k a
-      case vis i k =>
-        have : t.HasEffect i := by grind
-        have hfg : f i = g i := by grind
-        simp only [interp_vis_with_tau, hfg]
-        cases hg : g i
-        case ret r =>
-          right; left --tau
-          refine ⟨interp f (k r), interp g (k r), ?_⟩
-          and_intros
-          · refine ⟨_, .ret r, k, ?_⟩
-            grind
-          · simp
-          · simp
-        case tau u =>
-          right; left --tau
-          simp only [tau_bind]
-          refine ⟨u >>= fun o => tau (interp f <| k o),
-                  u >>= fun o => tau (interp g <| k o),
-                  ?_, rfl, rfl⟩
-          refine ⟨_, u >>= (tau <| ret ·), k, ?_⟩;
-          grind
-        case vis i' k' =>
-          right; right --vis
-          simp only [vis_bind]
-          refine ⟨i',
-            fun o => do
-              let o ← k' o
-              (interp f (k o)).tau,
-            fun o => do
-              let o ← k' o
-              (interp g (k o)).tau, ?_⟩
-          and_intros
-          · intro o
-            refine ⟨_, k' o >>= (tau <| ret ·), k, ?_⟩
-            grind
-          · rfl
-          · rfl
-      case tau t =>
-        right; left --tau
-        simp only [interp_tau]
-        refine ⟨interp f t, interp g t, ?_, rfl, rfl⟩
-        refine ⟨PUnit, .ret ⟨⟩, fun _ => t, ?_⟩
-        grind
-      case ret r => simp; grind
+      -- WIP: the ret case for interp_congr is still unproven; the incomplete
+      -- attempt used to sit here but leaned on simp lemmas that, after the
+      -- rebase onto ITreeExtras, loop. See ITreeExtras.InterpCongr for the
+      -- interp'-based version that _is_ proven.
+      sorry
   · refine ⟨PUnit, .ret ⟨⟩, fun _ => t, ?_⟩
     simp

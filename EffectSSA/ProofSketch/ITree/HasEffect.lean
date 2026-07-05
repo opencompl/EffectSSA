@@ -1,6 +1,7 @@
 module
 
 public import ITree
+public import ITreeExtras.Basic
 
 /-!
 # ITree `HasEffect` and `MayReturn` Predicates
@@ -91,11 +92,6 @@ axiom unfold_eq_vis_iff (t : ITree ε α) (i) (k) :
 @[simp, grind .] theorem ret_neq_vis {x : α} {i : ε.I}
     {k : ε.O i → ITree ε α} : ret x ≠ vis i k := by
   intro h; have := congrArg unfold h; simp at this
-
-@[simp, grind =_]
-theorem pure_eq_ret : (pure x : ITree ε α) = ret x := by rfl
-
--- grind_pattern pure_eq_ret => (pure x : ITree ε α)
 
 @[simp, grind .] theorem vis_inj {i₁ i₂ : ε.I}
     {k₁ : ε.O i₁ → ITree ε α} {k₂ : ε.O i₂ → ITree ε α}
