@@ -95,8 +95,8 @@ variable (xs : Pattern n) (ys : Pattern m)
 
 /-! toVector -/
 section ToVector
-
-theorem eq_of_toVector_eq (h : v.toVector = w.toVector) : v = w := by
+@[grind →]
+theorem eq_of_toVector_eq {v w : Pattern n} (h : v.toVector = w.toVector) : v = w := by
   exact h
 
 @[simp, grind =] theorem toVector_ofVector (v : Vector _ n) : toVector (ofVector v) = v := rfl
@@ -118,8 +118,9 @@ end ToVector
 
 @[ext]
 theorem ext {v w : Pattern n} (h : ∀ i (hi : i < n), v[i] = w[i]) : v = w := by
-  apply Vector.ext
-  grind [get, Vector.get_eq_getElem]
+  have : ∀ i (hi : i < n), v.toVector[i] = w.toVector[i] := h
+  suffices v.toVector = w.toVector by grind
+  apply Vector.ext h
 
 /-! get -/
 section Get
@@ -143,7 +144,7 @@ variable (i : Nat)
 
 @[simp, grind =] theorem getElem_cons {x : InstSeq} {i : Nat} (hi : i < n + 1) :
     (cons x xs)[i] = if h : i = 0 then x else xs[i - 1] := by
-  simp; grind
+  simp [cons, Vector.getElem_append]
 
 @[simp, grind =] theorem getElem_junk {k : Nat} {i : Nat} (hi : i < k) :
     (junk k)[i] = [] := by
@@ -185,7 +186,11 @@ theorem cons_eq_append : (cons x xs) = ((ofVector #v[x]) ++ xs).cast (by grind) 
 /-! head / tail -/
 
 @[simp, grind =] theorem head_cons : (cons i is).head = i := by grind
-@[simp, grind =] theorem tail_cons : (cons i is).tail = is := by ext; grind
+@[simp, grind =] theorem tail_cons {i} {is : Pattern n} :
+    (cons i is).tail = is := by
+  suffices ∀ j (hj : j < n), (cons i is).tail[j] = is[j] by
+    apply ext this
+  grind
 
 /-! #### Cases -/
 section Cases
@@ -351,7 +356,13 @@ section CollapseLemmas
 /-! injectivity -/
 
 @[simp, grind =] theorem get_collapse {p : I.PC} : p.collapse.get = p.get := by
-  fun_induction collapse <;> grind
+  fun_induction collapse
+  next => grind
+  next n m hn I pc pc₁ pc₂ ih =>
+    subst pc₁ pc₂
+    rw [InstSeq.PC.get_cast, InstSeq.get_ofAppendRight]
+    simp only [Pattern.PC.get] at ih ⊢
+    exact ih.trans (InstSeq.PC.get_cast _ pc)
 
 @[simp, grind =] theorem get_ofCollapse {p : I.collapse.PC} : (ofCollapse p).get = p.get := by
   induction n
