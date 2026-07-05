@@ -87,6 +87,9 @@ theorem ext (h : ∀ x, x ∈ A ↔ x ∈ B) : A = B := by
   simpa using h x
 
 /-! ### empty -/
+section Empty
+
+@[local grind =] private theorem empty_def : (∅ : VarSet) = ofSet ∅ := by rfl
 
 @[simp, grind .] theorem not_mem_empty : v ∉ (∅ : VarSet) := by grind
 
@@ -95,7 +98,12 @@ theorem eq_empty_iff : A = ∅ ↔ (∀ v, v ∉ A) := by
   · rintro rfl; grind
   · intro h; ext; grind
 
+end Empty
+
 /-! ### union -/
+section Union
+
+@[local grind =] private theorem union_def : A ∪ B = ofSet (A.toSet ∪ B.toSet) := by rfl
 
 @[simp, grind =] theorem mem_union : v ∈ A ∪ B ↔ v ∈ A ∨ v ∈ B := by grind
 
@@ -109,7 +117,12 @@ theorem eq_empty_iff : A = ∅ ↔ (∀ v, v ∉ A) := by
 @[simp] theorem union_eq_empty_iff : A ∪ B = ∅ ↔ A = ∅ ∧ B = ∅ := by
   simp [eq_empty_iff]; grind
 
+end Union
+
 /-! ### inter -/
+section Inter
+
+@[local grind =] private theorem inter_def : A ∩ B = ofSet (A.toSet ∩ B.toSet) := by rfl
 
 @[simp, grind =] theorem mem_inter : v ∈ A ∩ B ↔ v ∈ A ∧ v ∈ B := by grind
 
@@ -122,6 +135,8 @@ theorem eq_empty_iff : A = ∅ ↔ (∀ v, v ∉ A) := by
 
 @[grind =] theorem union_inter : (A ∪ B) ∩ C = (A ∩ C) ∪ (B ∩ C) := by ext; grind
 @[grind =] theorem inter_union : A ∩ (B ∪ C) = (A ∩ B) ∪ (A ∩ C) := by ext; grind
+
+end Inter
 
 /-! ### subset -/
 
@@ -137,7 +152,7 @@ theorem subset_intro : (∀ x, x ∈ A → x ∈ B) → A ⊆ B := by grind
 
 /-! ### sdiff -/
 
-@[simp, grind =] theorem mem_sdiff : v ∈ A - B ↔ v ∈ A ∧ v ∉ B := Set.mem_diff v
+@[simp, grind =] theorem mem_sdiff : v ∈ A - B ↔ v ∈ A ∧ v ∉ B := Set.mem_sdiff v
 
 @[simp, grind =] theorem empty_sdiff : (∅ : VarSet) - A = ∅ := by ext; simp
 @[simp, grind =] theorem sdiff_empty : A - (∅ : VarSet) = A := by ext; simp
@@ -159,11 +174,11 @@ attribute [local grind] Disjoint
 
 @[simp, grind =] theorem union_disjoint :
     Disjoint (A ∪ B) C ↔ Disjoint A C ∧ Disjoint B C := by
-  simp [Disjoint, union_inter]
+  grind
 
 @[simp, grind =] theorem disjoint_union :
     Disjoint A (B ∪ C) ↔ Disjoint A B ∧ Disjoint A C := by
-  simp [Disjoint, inter_union]
+  grind
 
 @[grind =] theorem disjoint_symm : A.Disjoint B ↔ B.Disjoint A := by grind
 

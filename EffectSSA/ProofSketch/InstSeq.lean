@@ -9,7 +9,7 @@ public import EffectSSA.ProofSketch.VarSet
 namespace EffectSSA.ProofSketch
 open VarSet
 
-@[expose] public abbrev InstSeq := List Inst
+public abbrev InstSeq := List Inst
 
 
 /-!
@@ -20,7 +20,7 @@ We then also include custom induction & cases principle for the same purpose.
 -/
 section Cons
 
-@[grind, match_pattern, expose] public abbrev InstSeq.cons : Inst → InstSeq → InstSeq :=
+@[grind, match_pattern] public abbrev InstSeq.cons : Inst → InstSeq → InstSeq :=
   (· :: ·)
 
 scoped infixl:67 " ;> " => InstSeq.cons
