@@ -11,7 +11,16 @@ Given an inclusion of effects `[ε -< δ]`, we can lift a computation from
 -/
 
 @[expose] public section
-namespace ITree.ITree
+namespace ITree
+
+namespace Effect
+
+instance instCoeTOfSubeffect {ε δ} [ε -< δ] {e} : CoeT ε.I e δ.I where
+  coe := (Subeffect.map e).1
+
+end Effect
+
+namespace ITree
 
 /--
 Translate an ITree along a subeffect inclusion `[ε -< δ]`.
