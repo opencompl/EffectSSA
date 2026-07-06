@@ -72,7 +72,5 @@ Given an ITree with events in `ε ⊕ₑ δ`,
 interpret only events in `ε` using the handler `f`,
 leaving events in `δ` as-is.
 -/
-def interpLeft
-    (f : (e : ε.I) → ITree δ (ε.O e)) :
-    ITree (ε ⊕ₑ δ) α → ITree δ α :=
+def interpLeft (f : ε ⤳ ITree δ) : ITree (ε ⊕ₑ δ) α → ITree δ α :=
   interp' (Sum.casesOn · f δ.trigger)

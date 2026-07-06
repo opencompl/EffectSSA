@@ -5,6 +5,7 @@ public import ITreeExtras.Basic
 public import ITreeExtras.Bisim
 public import ITreeExtras.HasEffect
 public import ITreeExtras.Interp
+public import ITreeExtras.Lift
 
 /-!
 # Congruence of `ITree.interp`
@@ -102,3 +103,17 @@ theorem interp'_congr {f g : ε ⤳ ITree δ} {t : ITree ε α}
       case ret r => simp; grind
   · refine ⟨PUnit, .ret ⟨⟩, fun _ => t, ?_⟩
     simp
+
+/-- Corrolary of `interp'_congr`, specialized to `interpLeft`. -/
+theorem interpLeft_congr {f g : ε ⤳ ITree δ} {t : ITree (ε ⊕ₑ δ) α}
+    (h : ∀ e : ε.I, t.HasEffect e → f e = g e) :
+    t.interpLeft f = t.interpLeft g := by
+  apply interp'_congr
+  intro e he
+  cases e
+  case inl e =>
+    suffices f e = g e by simpa
+    exact h _ he
+  case inr e =>
+    show δ.trigger e = δ.trigger e
+    rfl
