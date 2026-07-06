@@ -2,6 +2,7 @@ module
 
 public import EffectSSA.ProofSketch.Inst
 public import EffectSSA.ProofSketch.Pattern
+public import EffectSSA.ProofSketch.Effect
 
 @[expose] public section
 /-!
@@ -11,6 +12,7 @@ We define a notion of a context with multiple holes, also called a multi-context
 by naming each hole.
 -/
 namespace EffectSSA.ProofSketch
+open ITree
 
 /--
 A `MultiContext n` is a sequence of instructions, interspersed by (named) holes, such that:
@@ -19,6 +21,23 @@ A `MultiContext n` is a sequence of instructions, interspersed by (named) holes,
 * There are at most `n` distinct holes
 -/
 abbrev MultiContext (n : Nat) := List (Inst ⊕ Hole n)
+
+/--
+Erase the intrinsic upper bound on a `Hole` index,
+returning the raw underlying `HoleId`.
+-/
+def Hole.id (h : Hole n) : HoleId where
+  toNat := h.val
+
+/--
+`C.denote` returns an `ITree` in which each instruction of the context
+is represented as an `InstEff`, and each hole as a `HoleEff`.
+-/
+@[grind]
+def MultiContext.denote [HoleEff -< ε] [InstEff -< ε] : MultiContext n → ITree ε Unit
+  | .inl i :: is => InstEff.trigger i    *> denote is
+  | .inr h :: is => HoleEff.trigger h.id *> denote is
+  | [] => .ret ()
 
 /--
 A `HoleEnv n` associates each hole variable `h : Hole n` with an instruction sequence.
@@ -165,3 +184,17 @@ def noShadowing_pattern_of_plug_noShadowing {n} {C : MultiContext n} {I : Patter
 
 end Lemmas
 end Plug
+
+/-!
+## Conversion from `InstSeq`
+-/
+section Conv
+
+/--
+`ofSeq is` interprets an instruction sequence `is` as a context,
+which happens to not have any holes.
+-/
+def ofSeq : InstSeq → MultiContext n :=
+  List.map Sum.inl
+
+end Conv
