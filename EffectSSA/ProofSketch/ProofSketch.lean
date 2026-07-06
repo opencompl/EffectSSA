@@ -7,6 +7,8 @@ public import EffectSSA.ProofSketch.Inst
 public import EffectSSA.ProofSketch.InstSeq
 public import EffectSSA.ProofSketch.Pattern
 public import EffectSSA.ProofSketch.MultiContext
+public import EffectSSA.ProofSketch.Effect
+public import EffectSSA.ProofSketch.CFG
 
 /-!
 # Contextual Equivalence Proof Sketch
@@ -25,9 +27,6 @@ namespace EffectSSA.ProofSketch
 section Semantics
 
 /-! ### Definition -/
-
-/-- `Val` is the type of runtime values -/
-axiom Val : Type
 
 /-- `State` is the type of global runtime state (e.g, memory) -/
 axiom State : Type

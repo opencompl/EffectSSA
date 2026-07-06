@@ -64,3 +64,15 @@ variable (f : E ⤳ ITree F)
   simp
 
 end InterpLemmas
+
+/-! ### Interpreting Sum Effects -/
+
+/--
+Given an ITree with events in `ε ⊕ₑ δ`,
+interpret only events in `ε` using the handler `f`,
+leaving events in `δ` as-is.
+-/
+def interpLeft
+    (f : (e : ε.I) → ITree δ (ε.O e)) :
+    ITree (ε ⊕ₑ δ) α → ITree δ α :=
+  interp' (Sum.casesOn · f δ.trigger)
