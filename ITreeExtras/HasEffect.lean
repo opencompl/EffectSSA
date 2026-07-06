@@ -11,9 +11,10 @@ namespace ITree.ITree
 variable {ε : Effect} {α : Type _}
 
 /--
-`t.HasEffect e` holds when the effect `e : ε.I` is used to label any node in tree `t`.
+`t.HasEffect e` holds when the effect `e : ε.I` is used to label a node in tree
+`t`, which is reachable in finitely many steps.
 -/
-coinductive HasEffect : ITree ε α → ε.I → Prop where
+inductive HasEffect : ITree ε α → ε.I → Prop where
   | vis_self {t i} {k : ε.O i → ITree ε α} :
       t.unfold = .vis i k → HasEffect t i
   | vis_cont {t i i'} {k : ε.O i' → ITree ε α} {o} :
@@ -22,9 +23,10 @@ coinductive HasEffect : ITree ε α → ε.I → Prop where
       t.unfold = .tau t' → HasEffect t' i → HasEffect t i
 
 /--
-`t.MayReturn x` holds when there is a leaf `ret x` anywhere in tree `t`.
+`t.MayReturn x` holds when there is a leaf `ret x` in tree `t`,
+which is reachable in finitely many steps.
 -/
-coinductive MayReturn : ITree ε α → α → Prop where
+inductive MayReturn : ITree ε α → α → Prop where
   | ret : t.unfold = .ret r → MayReturn t r
   | tau {t r t'} : t.unfold = .tau t' → MayReturn t' r → MayReturn t r
   | vis {r i} {k : ε.O i → ITree ε α} {o : ε.O i} :
