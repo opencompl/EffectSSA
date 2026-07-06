@@ -13,8 +13,6 @@ extra `tau` after handling each visible effect.
 @[expose] public section
 namespace ITree
 
--- #print «term_→_»
-
 /-- Notation for effect handlers targeting a monad `m`. -/
 abbrev Effect.Transform (ε : Effect) (m : Type _ → Type _) :=
   (i : ε.I) → m (ε.O i)
