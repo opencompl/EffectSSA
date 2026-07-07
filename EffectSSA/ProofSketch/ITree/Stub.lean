@@ -2,7 +2,6 @@ module
 
 public import ITreeExtras
 public import EffectSSA.ProofSketch.ITree.InterpM
-public import EffectSSA.ProofSketch.ITree.HasEffect
 
 /-!
 # ITree Axioms

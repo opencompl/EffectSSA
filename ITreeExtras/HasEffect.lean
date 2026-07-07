@@ -96,5 +96,52 @@ attribute [grind =] unfold_ret unfold_vis unfold_tau
   · rintro ⟨o, ho⟩
     exact MayReturn.vis (unfold_vis i k) ho
 
+/-! ### HasEffect of `iter'` -/
+
+@[grind →]
+theorem hasEffect_iter' {α β : Type u} {f : α → ITree ε (α ⊕ β)} {a : α} :
+    (iter' f a).HasEffect e → ∃ b, (f b).HasEffect e := by
+  suffices
+    ∀ (x : ITree ε β) (t' : ITree ε (α ⊕ β)),
+      x = (t' >>= iter'.recurse f) →
+      x.HasEffect e →
+        t'.HasEffect e
+        ∨ ∃ b, (f b).HasEffect e
+  by
+    specialize this (iter' f a) (f a) <| by rw [iter']
+    grind
+  intro x t' hx h
+  induction h generalizing t'
+  case vis_self i k hu =>
+    subst hx
+    cases t' with
+    | vis => grind
+    | tau => grind
+    | ret r => cases r <;> simp_all
+  case tau t i t'' ht hi  ih =>
+    replace ht : t = tau t'' := by grind
+    subst ht
+    cases t' with
+    | vis => grind
+    | tau => grind
+    | ret r =>
+      cases r with
+      | inr => simp_all
+      | inl a' =>
+        replace hx : t'' = iter' f a' := by simp_all
+        subst hx
+        specialize ih (f a') <| by rw [iter']
+        cases ih <;> grind
+  case vis_cont t i i' k e ht hk ih =>
+    replace ht : t = vis i' k := by grind
+    subst ht
+    cases t'
+    case tau => grind
+    case vis i'' k' => grind
+    case ret r =>
+      cases r with
+      | inl => grind
+      | inr => simp only [pure_eq_ret, bind_ret, iter'.recurse_inr] at hx; grind
+
 end Lemmas
 end ITree.ITree
