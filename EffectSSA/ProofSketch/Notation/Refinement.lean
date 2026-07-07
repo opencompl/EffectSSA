@@ -13,7 +13,7 @@ class Refinement α where
   antisymm : ∀ {x y}, IsRefinedBy x y → IsRefinedBy y x → x = y := by grind
 export Refinement (IsRefinedBy)
 
-infixl:50 " ⊑ " => IsRefinedBy
+infixl:50 " ⊒ " => IsRefinedBy
 
 /-! ## Grind Annotations -/
 section Grind
@@ -28,7 +28,7 @@ end Grind
 section Trans
 
 instance [Refinement α] :
-    Trans (· ⊑ · : α → α → _) (· ⊑ · : α → α → _) (· ⊑ · : α → α → _) where
+    Trans (· ⊒ · : α → α → _) (· ⊒ · : α → α → _) (· ⊒ · : α → α → _) where
   trans := Refinement.trans
 
 end Trans
@@ -43,7 +43,7 @@ instance [Refinement α] : Refinement (Option α) where
   IsRefinedBy
     | none, _ => True
     | some _, none => False
-    | some x, some y => x ⊑ y
+    | some x, some y => x ⊒ y
   refl := by grind
   trans := by grind
   antisymm := by grind
