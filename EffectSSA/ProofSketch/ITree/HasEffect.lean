@@ -30,6 +30,7 @@ theorem hasEffect_bind (t : ITree ε α) (f : α → ITree ε β) :
 axiom unfold_eq_vis_iff (t : ITree ε α) (i : ε) (k : κ i → ITree ε α) :
     t.unfold = .vis i k ↔ t = .vis i k
 
+
 @[simp, grind .] theorem tau_neq_ret {t : ITree ε α} {x : α} : tau t ≠ ret x := by
   intro h; have := congrArg unfold h; simp at this
 
