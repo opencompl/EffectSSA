@@ -109,6 +109,19 @@ theorem hasEffect_bind_of_hasEffect_right {t : ITree ε α} {f : α → ITree ε
     (t >>= f).HasEffect i := by
   induction hy <;> grind
 
+/--
+`t >>= f` has effect `i` iff either `t` does or `t` may return a value `x` such that `f x` does.
+-/
+@[simp, grind =] theorem hasEffect_bind {t : ITree ε α} {f : α → ITree ε β} {i : ε} :
+    (t >>= f).HasEffect i ↔ t.HasEffect i ∨ ∃ x, t.MayReturn x ∧ (f x).HasEffect i := by
+  constructor
+  · generalize hx : t >>= f = x
+    intro h
+    induction h generalizing t <;> grind
+  · rintro (h | ⟨y, hy, hf⟩)
+    · exact hasEffect_bind_of_hasEffect_left f h
+    · exact hasEffect_bind_of_hasEffect_right hy hf
+
 /-! ### HasEffect of `iter'` -/
 
 @[grind →]

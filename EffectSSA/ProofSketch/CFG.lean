@@ -79,7 +79,9 @@ def Block.denote (b : Block n) (bId : BlockId) (args : List Val) :
 
 noncomputable
 def ContextCFG.denote (C : ContextCFG n) : ITree OpaqueCtxEff ReturnVals :=
-  ITree.iter (fun (⟨bId, args⟩ : Branch) => do
+  ITree.iter' step ⟨C.entryId, []⟩
+where
+  step := fun (⟨bId, args⟩ : Branch) => do
     let some b := C.blocks[bId]? | raiseError s!"Missing Block: {bId}"
     b.denote bId args
 
