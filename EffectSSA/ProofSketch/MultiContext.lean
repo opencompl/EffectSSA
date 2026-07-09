@@ -42,6 +42,23 @@ def MultiContext.denote [HoleEff -< ε] [InstEff -< ε] : MultiContext n → ITr
   | .inr h :: is => trigger HoleEff h.id *> denote is
   | [] => .ret ()
 
+open ITree.ITree
+
+section DenoteLemmas
+
+@[simp, grind =]
+theorem MultiContext.denote_nil : MultiContext.denote (n := n) [] = ITree.ret () := rfl
+
+@[simp, grind =]
+theorem MultiContext.denote_cons_inst (i : Inst) (C : MultiContext n) :
+    MultiContext.denote (Sum.inl i :: C) = InstEff.trigger i *> MultiContext.denote C := rfl
+
+@[simp, grind =]
+theorem MultiContext.denote_cons_hole (h : Hole n) (C : MultiContext n) :
+    MultiContext.denote (Sum.inr h :: C) = HoleEff.trigger h.id *> MultiContext.denote C := rfl
+
+end DenoteLemmas
+
 /--
 A `HoleEnv n` associates each hole variable `h : Hole n` with an instruction sequence.
 -/
