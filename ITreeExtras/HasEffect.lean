@@ -146,7 +146,18 @@ theorem hasEffect_bind_of_hasEffect_right {t : ITree ε α} {f : α → ITree ε
     · exact hasEffect_bind_of_hasEffect_left f h
     · exact hasEffect_bind_of_hasEffect_right hy hf
 
-/-! ### HasEffect of `iter'` -/
+/-! #### `trigger` -/
+
+@[simp, grind =]
+theorem hasEffect_trigger {E₁ E₂ : Effect} [E₁ -< E₂] (i : E₁.I) (e : E₂.I) :
+    (Effect.trigger E₁ i : ITree E₂ _).HasEffect e ↔ (Subeffect.map (E₂ := E₂) i).fst = e := by
+  simp [Effect.trigger]
+
+@[simp, grind =]
+theorem mayReturn_trigger {E₁ E₂ : Effect} [E₁ -< E₂] (i : E₁.I) (y : E₁.O i) :
+    (Effect.trigger E₁ i : ITree E₂ _).MayReturn y
+    ↔ ∃ o, y = (Subeffect.map (E₂ := E₂) i).snd o := by
+  simp [Effect.trigger]
 
 @[grind →]
 theorem hasEffect_iter' {α β : Type u} {f : α → ITree ε (α ⊕ β)} {a : α} :
