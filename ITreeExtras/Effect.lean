@@ -14,41 +14,34 @@ Kept verbatim to minimise the maintenance burden of re-syncing with upstream.
 
 namespace ITree
 
-structure Effect : Type (u + 1) where
-  I : Type u
-  O : I → Type u
+class Effect (ε : Type u) (κ : outParam (ε → Type u)) where
+  -- class deliberately empty
 
-def SumE (E₁ : Effect.{u}) (E₂ : Effect.{u}) : Effect.{u} where
-  I := E₁.I ⊕ E₂.I
-  O
-  | .inl i => E₁.O i
-  | .inr i => E₂.O i
+instance {ε₁ ε₂ : Type u} {κ₁ : ε₁ → Type u} {κ₂ : ε₂ → Type u}
+    [Effect ε₁ κ₁] [Effect ε₂ κ₂] : Effect (ε₁ ⊕ ε₂) (Sum.rec κ₁ κ₂) :=
+  ⟨⟩
 
-infixr:30 " ⊕ₑ " => SumE
-
--- we cannot make `SumE` reducible since we want to key on it in TC search,
--- but we also need to make sure that SumE.O reduces at reducible transparency
--- thus we add the following unification hints
-unif_hint (E₁ E₂ : Effect.{u}) (T : Type u) (e : E₁.I)  where
-  E₁.O e ≟ T |- (E₁ ⊕ₑ E₂).O (Sum.inl e) ≟ T
-unif_hint (E₁ E₂ : Effect.{u}) (T : Type u) (e : E₂.I)  where
-  E₂.O e ≟ T |- (E₁ ⊕ₑ E₂).O (Sum.inr e) ≟ T
-
-class Subeffect (E₁ : Effect.{u}) (E₂ : Effect.{v}) where
-  map : (i₁ : E₁.I) → ((i₂ : E₂.I) × (E₂.O i₂ → E₁.O i₁))
+class Subeffect (ε₁ ε₂) {κ₁ : outParam _} {κ₂ : outParam _}
+    [Effect.{u} ε₁ κ₁] [Effect.{v} ε₂ κ₂] where
+  map : (i₁ : ε₁) → ((i₂ : ε₂) × (κ₂ i₂ → κ₁ i₁))
 
 infix:20 " -< " => Subeffect
 
-instance {E : Effect} : E -< E where
+instance [Effect ε κ] : ε -< ε where
   map i := ⟨i, λ x => x⟩
 
-instance {E₁ : Effect} {E₂ : Effect} {E' : Effect} [subl : E₁ -< E'] [subr : E₂ -< E'] : (E₁ ⊕ₑ E₂) -< E' where
+instance {ε₁ ε₂ ε' κ₁ κ₂ κ'} [Effect ε₁ κ₁] [Effect ε₂ κ₂] [Effect ε' κ']
+    [subl : ε₁ -< ε'] [subr : ε₂ -< ε'] : (ε₁ ⊕ ε₂) -< ε' where
   map
   | .inl x => subl.map x
   | .inr x => subr.map x
 
-instance (priority:=mid) instSubSumL {E₁ : Effect} {E₂ : Effect} {E' : Effect} [sub : E₁ -< E₂] : E₁ -< (E₂ ⊕ₑ E') where
+instance (priority:=mid) instSubSumL {ε₁ ε₂ ε' κ₁ κ₂ κ'}
+    [Effect ε₁ κ₁] [Effect ε₂ κ₂] [Effect ε' κ']
+    [sub : ε₁ -< ε₂] : ε₁ -< (ε₂ ⊕ ε') where
   map t := let ⟨i, f⟩ := (sub.map t); ⟨.inl i, f⟩
 
-instance (priority:=low) instSubSumR {E₁ : Effect} {E₂ : Effect} {E' : Effect} [sub : E₁ -< E₂] : E₁ -< E' ⊕ₑ E₂ where
+instance (priority:=low) instSubSumR {ε₁ ε₂ ε' κ₁ κ₂ κ'}
+    [Effect ε₁ κ₁] [Effect ε₂ κ₂] [Effect ε' κ']
+    [sub : ε₁ -< ε₂] : ε₁ -< ε' ⊕ ε₂ where
   map t := let ⟨i, f⟩ := (sub.map t); ⟨.inr i, f⟩

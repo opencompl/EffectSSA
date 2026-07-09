@@ -8,16 +8,16 @@ public import ITreeExtras.Definition
 
 @[expose] public section
 namespace ITree.ITree
-variable {ε : Effect} {α : Type _}
+variable {ε} {κ} [Effect.{u} ε κ] {α : Type _}
 
 /--
-`t.HasEffect e` holds when the effect `e : ε.I` is used to label a node in tree
+`t.HasEffect e` holds when the effect `e : ε` is used to label a node in tree
 `t`, which is reachable in finitely many steps.
 -/
-inductive HasEffect : ITree ε α → ε.I → Prop where
-  | vis_self {t i} {k : ε.O i → ITree ε α} :
+inductive HasEffect : ITree ε α → ε → Prop where
+  | vis_self {t i} {k : κ i → ITree ε α} :
       t.unfold = .vis i k → HasEffect t i
-  | vis_cont {t i i'} {k : ε.O i' → ITree ε α} {o} :
+  | vis_cont {t i i'} {k : κ i' → ITree ε α} {o} :
       t.unfold = .vis i' k → HasEffect (k o) i → HasEffect t i
   | tau {t i t'} :
       t.unfold = .tau t' → HasEffect t' i → HasEffect t i
@@ -29,7 +29,7 @@ which is reachable in finitely many steps.
 inductive MayReturn : ITree ε α → α → Prop where
   | ret : t.unfold = .ret r → MayReturn t r
   | tau {t r t'} : t.unfold = .tau t' → MayReturn t' r → MayReturn t r
-  | vis {r i} {k : ε.O i → ITree ε α} {o : ε.O i} :
+  | vis {r i} {k : κ i → ITree ε α} {o : κ i} :
       t.unfold = .vis i k → MayReturn (k o) r → MayReturn t r
 
 
@@ -40,18 +40,18 @@ attribute [grind =] unfold_ret unfold_vis unfold_tau
 /-! ### HasEffect -/
 
 /-- `HasEffect` is transparent under `tau`. -/
-@[simp, grind =] theorem hasEffect_tau {t : ITree ε α} {i : ε.I} :
+@[simp, grind =] theorem hasEffect_tau {t : ITree ε α} {i : ε} :
     HasEffect (ITree.tau t) i ↔ HasEffect t i := by
   constructor
   · intro h; cases h <;> simp_all
   · exact HasEffect.tau (unfold_tau _)
 
 /-- `ret _` carries no effects. -/
-@[simp, grind .] theorem not_hasEffect_ret {r : α} {i : ε.I} :
-    ¬HasEffect (ITree.ret r) i := by
+@[simp, grind .] theorem not_hasEffect_ret {r : α} {i : ε} :
+    ¬HasEffect (ITree.ret (ε:=ε) r) i := by
   intro h; cases h <;> simp_all
 
-@[simp, grind =] theorem hasEffect_vis {i j : ε.I} {k : ε.O i → ITree ε α} :
+@[simp, grind =] theorem hasEffect_vis {i j : ε} {k : κ i → ITree ε α} :
     (ITree.vis i k).HasEffect j ↔ i = j ∨ (∃ o, (k o).HasEffect j) := by
   constructor
   · intro h
@@ -83,7 +83,7 @@ attribute [grind =] unfold_ret unfold_vis unfold_tau
   · intro h; cases h <;> simp_all
   · exact MayReturn.tau (unfold_tau t)
 
-@[simp, grind =] theorem mayReturn_vis {i : ε.I} {k : ε.O i → ITree ε α} {x : α} :
+@[simp, grind =] theorem mayReturn_vis {i : ε} {k : κ i → ITree ε α} {x : α} :
     MayReturn (ITree.vis i k) x ↔ ∃ o, MayReturn (k o) x := by
   constructor
   · intro h

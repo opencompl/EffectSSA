@@ -15,6 +15,8 @@ making it a multi-context.
 namespace EffectSSA.ProofSketch
 open ITree
 
+variable {ε : Type} {κε : ε → Type} [Effect ε κε]
+
 /-!
 ## CFG Types
 -/
@@ -61,7 +63,7 @@ axiom Term.denote [ErrUB -< ε] [SideEff -< ε] [LocalEff -< ε] :
 
 noncomputable
 def Block.denote (b : Block n) (bId : BlockId) (args : List Val) :
-    ITree (HoleEff ⊕ₑ InstEff ⊕ₑ LocalEff ⊕ₑ SideEff ⊕ₑ ErrUB) (Branch ⊕ ReturnVals) := do
+    ITree (HoleEff ⊕ InstEff ⊕ LocalEff ⊕ SideEff ⊕ ErrUB) (Branch ⊕ ReturnVals) := do
   unless b.args.length = args.length do
     raiseError s!"Block {bId} expected {b.args.length} arguments, but got {args.length}"
   (b.args.zip args).forM pushVar.uncurry
@@ -71,7 +73,7 @@ def Block.denote (b : Block n) (bId : BlockId) (args : List Val) :
 
 noncomputable
 def ContextCFG.denote (C : ContextCFG n) :
-    ITree (HoleEff ⊕ₑ InstEff ⊕ₑ LocalEff ⊕ₑ SideEff ⊕ₑ ErrUB) ReturnVals :=
+    ITree (HoleEff ⊕ InstEff ⊕ LocalEff ⊕ SideEff ⊕ ErrUB) ReturnVals :=
   ITree.iter step ⟨C.entryId, []⟩
 where
   step := fun (⟨bId, args⟩ : Branch) => do
@@ -87,15 +89,15 @@ def Hole.fromId? {n} [ErrUB -< ε] (h : HoleId) : ITree ε (Hole n) :=
 abbrev Hole.elim0 : Hole 0 → α := Fin.elim0
 
 noncomputable
-def ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ₑ InstEff) Unit) :
-    (ITree (SideEff ⊕ₑ ErrUB)) ReturnVals := do
+def ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ InstEff) Unit) :
+    (ITree (SideEff ⊕ ErrUB)) ReturnVals := do
   C.denote
   |> interpHoles (Hole.fromId? · >>= f)
   |> interpInst
   |> interpLocalStack
 
 noncomputable
-def ProgramCFG.interp (P : ProgramCFG) : (ITree (SideEff ⊕ₑ ErrUB)) ReturnVals :=
+def ProgramCFG.interp (P : ProgramCFG) : (ITree (SideEff ⊕ ErrUB)) ReturnVals :=
   ContextCFG.interp P Hole.elim0
 
 /-!

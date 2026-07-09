@@ -16,19 +16,20 @@ The main result is `ITree.eq_of_bisim`: bisimilarity implies equality.
 @[expose] public section
 namespace ITree
 
-variable {E : Effect.{u}} {R : Type u}
+variable {ε} {κ} [Effect.{u} ε κ] {α}
 
 namespace ITree
-variable {t : ITree E R}
+variable {t : ITree ε α}
 
 /--
 Strong bisimilarity for ITrees.
 Both trees must unfold to the same constructor, and continuations must again be bisimilar.
 -/
-coinductive Bisim {ε α} : ITree ε α → ITree ε α → Prop where
+coinductive Bisim {ε} {κ} [Effect.{u} ε κ] {α} :
+    ITree ε α → ITree ε α → Prop where
   | ret : Bisim (.ret r) (.ret r)
   | tau : Bisim s₁ s₂ → Bisim (.tau s₁) (.tau s₂)
-  | vis : (∀ o : ε.O i, Bisim (k₁ o) (k₂ o)) → Bisim (.vis i k₁) (.vis i k₂)
+  | vis : (∀ o : κ i, Bisim (k₁ o) (k₂ o)) → Bisim (.vis i k₁) (.vis i k₂)
 
 end ITree
 
@@ -38,7 +39,7 @@ scoped infixl:arg " ≅ " => ITree.Bisim
 namespace ITree
 
 /-- Bisimilar ITrees are equal. -/
-theorem eq_of_bisim {t₁ t₂ : ITree E R} (h : t₁.Bisim t₂) : t₁ = t₂ := by
+theorem eq_of_bisim {t₁ t₂ : ITree ε α} (h : t₁.Bisim t₂) : t₁ = t₂ := by
   ext n
   induction n generalizing t₁ t₂
   · rfl
@@ -47,7 +48,7 @@ theorem eq_of_bisim {t₁ t₂ : ITree E R} (h : t₁.Bisim t₂) : t₁ = t₂ 
 section Equiv
 
 @[refl, simp, grind .]
-theorem bisim_refl (x : ITree ε α) : x ≅ x := by
+theorem bisim_refl {ε} {κ} [Effect.{u} ε κ] {α} (x : ITree ε α) : x ≅ x := by
   apply Bisim.coinduct (· = ·)
   · rintro x _ rfl
     cases x
