@@ -4,6 +4,8 @@ public import EffectSSA.ProofSketch.Inst
 public import EffectSSA.ProofSketch.Pattern
 public import EffectSSA.ProofSketch.Effect
 
+public import ITreeExtras.HasEffect
+
 @[expose] public section
 /-!
 ## Multi Context
@@ -56,6 +58,14 @@ theorem MultiContext.denote_cons_inst (i : Inst) (C : MultiContext n) :
 @[simp, grind =]
 theorem MultiContext.denote_cons_hole (h : Hole n) (C : MultiContext n) :
     MultiContext.denote (Sum.inr h :: C) = HoleEff.trigger h.id *> MultiContext.denote C := rfl
+
+@[simp, grind =]
+theorem MultiContext.hasEffect_denote_inl_iff (C : MultiContext n) (e : HoleId) :
+    (C.denote (ε := HoleEff ⊕ InstEff)).HasEffect (.inl e) ↔ ∃ h, (.inr ⟨e.toNat, h⟩) ∈ C := by
+  sorry
+
+
+
 
 end DenoteLemmas
 

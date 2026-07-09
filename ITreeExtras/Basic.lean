@@ -49,12 +49,12 @@ section NoConfusion
 @[simp, grind .] theorem tau_neq_ret {t : ITree ε α} {x : α} : tau t ≠ ret x := by
   intro h; have := congrArg unfold h; simp at this
 
-@[simp, grind .] theorem tau_neq_vis {t : ITree ε α} {i : ε.I}
-    {k : ε.O i → ITree ε α} : tau t ≠ vis i k := by
+@[simp, grind .] theorem tau_neq_vis {t : ITree ε α} {i : ε}
+    {k : κ i → ITree ε α} : tau t ≠ vis i k := by
   intro h; have := congrArg unfold h; simp at this
 
-@[simp, grind .] theorem ret_neq_vis {x : α} {i : ε.I}
-    {k : ε.O i → ITree ε α} : ret x ≠ vis i k := by
+@[simp, grind .] theorem ret_neq_vis {x : α} {i : ε}
+    {k : κ i → ITree ε α} : ret x ≠ vis i k := by
   intro h; have := congrArg unfold h; simp at this
 
 end NoConfusion
@@ -62,8 +62,8 @@ end NoConfusion
 /-! ### Injectivity lemmas -/
 section Inj
 
-@[simp, grind =] theorem vis_inj {i₁ i₂ : ε.I}
-    {k₁ : ε.O i₁ → ITree ε α} {k₂ : ε.O i₂ → ITree ε α} :
+@[simp, grind =] theorem vis_inj {i₁ i₂ : ε}
+    {k₁ : κ i₁ → ITree ε α} {k₂ : κ i₂ → ITree ε α} :
     vis i₁ k₁ = vis i₂ k₂ ↔ i₁ = i₂ ∧ k₁ ≍ k₂ := by
   constructor
   · intro h; have hu := congrArg unfold h; simpa only [unfold_vis, ITreeF.vis.injEq] using hu
@@ -142,18 +142,21 @@ namespace Subeffect
 
 /-! ### `Subeffect.map` normalization -/
 
-/-- The `E₁ -< (E₂ ⊕ₑ E')` instance from `E₁ -< E₂` maps to `Sum.inl`. -/
-@[simp, grind =] theorem map_eq_inl {E₁ E₂ E' : Effect} [E' -< E₁] (e : E'.I) :
-    map (E₂ := E₁ ⊕ₑ E₂) e = ⟨.inl (map e).fst, (map (E₂:=E₁) e).snd⟩ := rfl
+variable {ε₁ ε₂ ε'} {κ₁ : ε₁ → Type _} {κ₂ : ε₂ → Type _} {κ' : ε' → Type _}
+variable [Effect ε₁ κ₁] [Effect ε₂ κ₂] [Effect ε' κ']
 
-@[simp, grind =] theorem map_eq_inr {E₁ E₂ E' : Effect} [E' -< E₂] (e : E'.I) :
-    map (E₂ := E₁ ⊕ₑ E₂) e = ⟨.inr (map e).fst, (map (E₂:=E₂) e).snd⟩ := rfl
+/-- The `ε' -< (ε₁ ⊕ ε₂)` instance from `ε' -< ε₁` maps to `Sum.inl`. -/
+@[simp, grind =] theorem map_eq_inl [ε' -< ε₁] (e : ε') :
+    map (ε₂ := ε₁ ⊕ ε₂) e = ⟨.inl (map (ε₂:=ε₁) e).fst, (map (ε₂:=ε₁) e).snd⟩ := rfl
 
-/-- The default identity instance `E -< E` maps to the input. -/
-@[simp, grind =] theorem map_eq_self {E : Effect} (i : E.I) :
-    (map (E₁ := E) (E₂ := E) i) = ⟨i, id⟩ := rfl
+@[simp, grind =] theorem map_eq_inr [ε' -< ε₂] (e : ε') :
+    map (ε₂ := ε₁ ⊕ ε₂) e = ⟨.inr (map (ε₂:=ε₂) e).fst, (map (ε₂:=ε₂) e).snd⟩ := rfl
 
-@[simp, grind =] theorem map_inl {E₁ E₂ E'} [E₁ -< E'] [E₂ -< E'] {e : E₁.I} :
-    (map (E₁ := E₁ ⊕ₑ E₂) (E₂:=E') <| .inl e) = map e := by rfl
-@[simp, grind =] theorem map_inr {E₁ E₂ E'} [E₁ -< E'] [E₂ -< E'] {e : E₂.I} :
-    (map (E₁ := E₁ ⊕ₑ E₂) (E₂:=E') <| .inr e) = map e := by rfl
+/-- The default identity instance `ε -< ε` maps to the input. -/
+@[simp, grind =] theorem map_eq_self (i : ε₁) :
+    (map (ε₁ := ε₁) (ε₂ := ε₁) i) = ⟨i, id⟩ := rfl
+
+@[simp, grind =] theorem map_inl {ε₃} {κ₃} [Effect ε₃ κ₃] [ε₁ -< ε₃] [ε₂ -< ε₃] {e : ε₁} :
+    (map (ε₁ := ε₁ ⊕ ε₂) (ε₂:=ε₃) <| .inl e) = map (ε₂:=ε₃) e := rfl
+@[simp, grind =] theorem map_inr {ε₃} {κ₃} [Effect ε₃ κ₃] [ε₁ -< ε₃] [ε₂ -< ε₃] {e : ε₂} :
+    (map (ε₁ := ε₁ ⊕ ε₂) (ε₂:=ε₃) <| .inr e) = map (ε₂:=ε₃) e := rfl

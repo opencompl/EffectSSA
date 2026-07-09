@@ -160,7 +160,7 @@ theorem hasEffect_seqRight {t : ITree ε α} {u : ITree ε β} :
 has effect `e`, and for all preceding elements `y`, `f y` terminates.
 -/
 @[simp, grind =]
-theorem hasEffect_forM {xs : List α} {f : α → ITree ε PUnit} {e : ε.I} :
+theorem hasEffect_forM {xs : List α} {f : α → ITree ε PUnit} {e : ε} :
     (forM xs f).HasEffect e ↔
       ∃ i, ∃ hi : i < xs.length,
         (∀ j (hj : j < i), (f xs[j]).MayReturn ⟨⟩)
@@ -188,14 +188,20 @@ theorem mayReturn_forM {xs : List α} {f : α → ITree ε PUnit} :
 /-! #### `trigger` -/
 
 @[simp, grind =]
-theorem hasEffect_trigger {E₁ E₂ : Effect} [E₁ -< E₂] (i : E₁.I) (e : E₂.I) :
-    (Effect.trigger E₁ i : ITree E₂ _).HasEffect e ↔ (Subeffect.map (E₂ := E₂) i).fst = e := by
+theorem hasEffect_trigger
+    {ε₁ ε₂} {κ₁ : ε₁ → Type _} {κ₂ : ε₂ → Type _}
+    [Effect ε₁ κ₁] [Effect ε₂ κ₂] [ε₁ -< ε₂]
+    (i : ε₁) (e : ε₂) :
+    (Effect.trigger ε₁ i : ITree ε₂ _).HasEffect e ↔ (Subeffect.map i).fst = e := by
   simp [Effect.trigger]
 
 @[simp, grind =]
-theorem mayReturn_trigger {E₁ E₂ : Effect} [E₁ -< E₂] (i : E₁.I) (y : E₁.O i) :
-    (Effect.trigger E₁ i : ITree E₂ _).MayReturn y
-    ↔ ∃ o, y = (Subeffect.map (E₂ := E₂) i).snd o := by
+theorem mayReturn_trigger
+    {ε₁ ε₂} {κ₁ : ε₁ → Type _} {κ₂ : ε₂ → Type _}
+    [Effect ε₁ κ₁] [Effect ε₂ κ₂] [ε₁ -< ε₂]
+    (i : ε₁) (y : κ₁ i) :
+    (Effect.trigger ε₁ i : ITree ε₂ _).MayReturn y
+    ↔ ∃ o, y = (Subeffect.map i).snd o := by
   simp [Effect.trigger]
 
 /-! #### `iter'` -/

@@ -137,9 +137,40 @@ def plug (C : ContextCFG n) (I : Pattern n) : ProgramCFG :=
 -- @[simp, grind =] theorem fromId?_zero : Hole.fromId? (n := 0) x = raiseError _ := by
 --   simp [Hole.fromId?]
 
-theorem interpHoles_program (P : ProgramCFG) {f : HoleId → ITree (ErrUB ⊕ InstEff) Unit} :
-    interpHoles f P.denote = _ := by
+@[simp, grind .]
+axiom hasEffect_raiseError [ErrUB -< ε] (e : ε) :
+    (raiseError reason : ITree ε α).HasEffect e ↔
+      (Subeffect.map (.error reason : ErrUB)).fst = e
+
+/-!
+For now, I've specialized the pushVar lemmas to `OpaqueCtxEff`, since I'm not
+100% certain how to prove the following, deceptively simple looking, lemmas in
+full generality.
+-/
+section PushVarLemmas
+
+@[simp, grind .]
+theorem mayReturn_pushVar {u : PUnit} :
+    (pushVar (ε:=OpaqueCtxEff) var value).MayReturn u := by
   sorry
+
+end PushVarLemmas
+
+@[simp, grind =]
+theorem Block.denote_hasEffect_hole_iff (b : Block n) (bId : BlockId) (args : List Val) (h : HoleId) :
+    (b.denote bId args).HasEffect (.inl h : OpaqueCtxEff) ↔
+      b.args.length = args.length ∧ (b.code.denote).HasEffect (.inl h : OpaqueCtxEff) := by
+  sorry
+
+theorem interpHoles_program (P : ProgramCFG) {f g : HoleId → ITree (ErrUB ⊕ InstEff) Unit} :
+    interpHoles f P.denote = interpHoles g P.denote := by
+  simp only [interpHoles]
+  apply ITree.interpLeft_congr
+  intro e he
+  exfalso -- there cannot actually be any hole effects in P.denote!
+  simp only [denote] at he
+  obtain ⟨⟨bId, args⟩, hb⟩ := ITree.hasEffect_iter' he
+  grind [denote.step]
 
 theorem interp_plug {C : ContextCFG n} {I : Pattern n} :
     (C.plug I).interp = C.interp (I[·].denote) := by

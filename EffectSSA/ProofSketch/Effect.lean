@@ -150,9 +150,9 @@ variable [LocalEff -< ε]
 open Subeffect (map)
 
 @[simp, grind =]
-theorem hasEffect_pushVar {e : ε.I} :
-    (pushVar (ε:=ε) var value).HasEffect e ↔ e = (map (E₁:=LocalEff) <| .push var value).1 := by
-  sorry
+theorem hasEffect_pushVar {e : ε} :
+    (pushVar (ε:=ε) var value).HasEffect e ↔ (Subeffect.map (.push var value : LocalEff)).fst = e := by
+  simp [pushVar, Effect.trigger]
 
 end Lemmas
 
