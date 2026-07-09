@@ -105,7 +105,7 @@ theorem hasEffect_bind_of_hasEffect_left {t : ITree ε α} (f : α → ITree ε 
 
 /-- If `t` may return `y` and `f y` has effect `i`, then so does `t >>= f`. -/
 theorem hasEffect_bind_of_hasEffect_right {t : ITree ε α} {f : α → ITree ε β} {y : α}
-    {i : ε.I} (hy : t.MayReturn y) (hf : (f y).HasEffect i) :
+    {i : ε} (hy : t.MayReturn y) (hf : (f y).HasEffect i) :
     (t >>= f).HasEffect i := by
   induction hy <;> grind
 

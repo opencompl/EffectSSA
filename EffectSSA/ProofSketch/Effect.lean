@@ -198,3 +198,37 @@ noncomputable
 def interpInst [ErrUB -< ε] [SideEff -< ε] [LocalEff -< ε] :
     ITree (InstEff ⊕ ε) α → ITree ε α :=
   ITree.interpLeft handleInst
+
+/-!
+## Effect Aliasses
+--------------------------------------------------------------------------------
+-/
+
+/--
+`InterpEff` gives the effects into which instructions and terminators are
+interpreted.
+-/
+noncomputable
+abbrev InterpEff := LocalEff ⊕ SideEff ⊕ ErrUB
+
+/--
+`OpaqueEff` is the totality of effects resulting from unrolling a (closed) CFG
+(which includes interpreting terminators),
+*before* interpreting individual instructions.
+
+That is, each instruction is still an "opaque" effect.
+-/
+noncomputable
+abbrev OpaqueEff := InstEff ⊕ InterpEff
+
+/--
+`OpaqueCtxEff` is the totality of effects resulting from unrolling a CFG with
+holes (which includes interpreting terminators),
+*before* interpreting individual instructions.
+
+That is, each instruction is still an "opaque" effect.
+
+See also `OpaqueEff`, which omits the holes.
+-/
+noncomputable
+abbrev OpaqueCtxEff := HoleEff ⊕ OpaqueEff
