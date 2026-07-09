@@ -143,15 +143,15 @@ namespace Subeffect
 /-! ### `Subeffect.map` normalization -/
 
 /-- The `E₁ -< (E₂ ⊕ₑ E')` instance from `E₁ -< E₂` maps to `Sum.inl`. -/
-@[simp, grind =] theorem map_fst_eq_inl {E₁ E₂ E' : Effect} [E' -< E₁] (e : E'.I) :
-    (map (E₂ := E₁ ⊕ₑ E₂) e).fst = Sum.inl (map e).fst := rfl
+@[simp, grind =] theorem map_eq_inl {E₁ E₂ E' : Effect} [E' -< E₁] (e : E'.I) :
+    map (E₂ := E₁ ⊕ₑ E₂) e = ⟨.inl (map e).fst, (map (E₂:=E₁) e).snd⟩ := rfl
 
-@[simp, grind =] theorem map_fst_eq_inr {E₁ E₂ E' : Effect} [E' -< E₂] (e : E'.I) :
-    (map (E₂ := E₁ ⊕ₑ E₂) e).fst = Sum.inr (map e).fst := rfl
+@[simp, grind =] theorem map_eq_inr {E₁ E₂ E' : Effect} [E' -< E₂] (e : E'.I) :
+    map (E₂ := E₁ ⊕ₑ E₂) e = ⟨.inr (map e).fst, (map (E₂:=E₂) e).snd⟩ := rfl
 
 /-- The default identity instance `E -< E` maps to the input. -/
-@[simp, grind =] theorem map_fst_eq_self {E : Effect} (i : E.I) :
-    (map (E₁ := E) (E₂ := E) i).fst = i := rfl
+@[simp, grind =] theorem map_eq_self {E : Effect} (i : E.I) :
+    (map (E₁ := E) (E₂ := E) i) = ⟨i, id⟩ := rfl
 
 @[simp, grind =] theorem map_inl {E₁ E₂ E'} [E₁ -< E'] [E₂ -< E'] {e : E₁.I} :
     (map (E₁ := E₁ ⊕ₑ E₂) (E₂:=E') <| .inl e) = map e := by rfl
