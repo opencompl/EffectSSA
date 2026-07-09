@@ -96,6 +96,19 @@ attribute [grind =] unfold_ret unfold_vis unfold_tau
   · rintro ⟨o, ho⟩
     exact MayReturn.vis (unfold_vis i k) ho
 
+/-! ### HasEffect of `bind` -/
+
+/-- If `t` has effect `i`, so does `t >>= f` (regardless of `f`). -/
+theorem hasEffect_bind_of_hasEffect_left {t : ITree ε α} (f : α → ITree ε β)
+    (h : t.HasEffect i) : (t >>= f).HasEffect i := by
+  induction h <;> grind
+
+/-- If `t` may return `y` and `f y` has effect `i`, then so does `t >>= f`. -/
+theorem hasEffect_bind_of_hasEffect_right {t : ITree ε α} {f : α → ITree ε β} {y : α}
+    {i : ε.I} (hy : t.MayReturn y) (hf : (f y).HasEffect i) :
+    (t >>= f).HasEffect i := by
+  induction hy <;> grind
+
 /-! ### HasEffect of `iter'` -/
 
 @[grind →]
