@@ -140,7 +140,6 @@ end ITree
 
 namespace Subeffect
 
-
 /-! ### `Subeffect.map` normalization -/
 
 /-- The `E₁ -< (E₂ ⊕ₑ E')` instance from `E₁ -< E₂` maps to `Sum.inl`. -/
@@ -153,3 +152,8 @@ namespace Subeffect
 /-- The default identity instance `E -< E` maps to the input. -/
 @[simp, grind =] theorem map_fst_eq_self {E : Effect} (i : E.I) :
     (map (E₁ := E) (E₂ := E) i).fst = i := rfl
+
+@[simp, grind =] theorem map_inl {E₁ E₂ E'} [E₁ -< E'] [E₂ -< E'] {e : E₁.I} :
+    (map (E₁ := E₁ ⊕ₑ E₂) (E₂:=E') <| .inl e) = map e := by rfl
+@[simp, grind =] theorem map_inr {E₁ E₂ E'} [E₁ -< E'] [E₂ -< E'] {e : E₂.I} :
+    (map (E₁ := E₁ ⊕ₑ E₂) (E₂:=E') <| .inr e) = map e := by rfl
