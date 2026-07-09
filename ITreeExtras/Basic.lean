@@ -149,3 +149,7 @@ namespace Subeffect
 
 @[simp, grind =] theorem map_fst_eq_inr {E₁ E₂ E' : Effect} [E' -< E₂] (e : E'.I) :
     (map (E₂ := E₁ ⊕ₑ E₂) e).fst = Sum.inr (map e).fst := rfl
+
+/-- The default identity instance `E -< E` maps to the input. -/
+@[simp, grind =] theorem map_fst_eq_self {E : Effect} (i : E.I) :
+    (map (E₁ := E) (E₂ := E) i).fst = i := rfl
