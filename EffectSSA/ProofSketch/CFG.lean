@@ -64,8 +64,7 @@ structure Branch where
 structure ReturnVals where
   toList : List Val
 
-axiom Term.denote [ErrUB -< ε] [SideEff -< ε] [LocalEff -< ε] :
-    Term → ITree ε (Branch ⊕ ReturnVals)
+axiom Term.denote : Term → ITree InterpEff (Branch ⊕ ReturnVals)
 
 noncomputable
 def Block.denote (b : Block n) (bId : BlockId) (args : List Val) :
@@ -74,8 +73,8 @@ def Block.denote (b : Block n) (bId : BlockId) (args : List Val) :
     raiseError s!"Block {bId} expected {b.args.length} arguments, but got {args.length}"
   (b.args.zip args).forM pushVar.uncurry
                 -- ^^ push block arguments to the local stack
-  b.code.denote -- denote the instructions that make up the block
-  b.term.denote -- denote the block terminator
+  liftM <| b.code.denote -- denote the instructions that make up the block
+  liftM <| b.term.denote -- denote the block terminator
 
 noncomputable
 def ContextCFG.denote (C : ContextCFG n) : ITree OpaqueCtxEff ReturnVals :=
