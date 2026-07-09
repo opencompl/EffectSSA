@@ -135,3 +135,17 @@ theorem bind_eq_vis_iff (t : ITree ε α) (f : α → ITree ε β) (i) (k) :
         grind
 
 end Bind
+
+end ITree
+
+namespace Subeffect
+
+
+/-! ### `Subeffect.map` normalization -/
+
+/-- The `E₁ -< (E₂ ⊕ₑ E')` instance from `E₁ -< E₂` maps to `Sum.inl`. -/
+@[simp, grind =] theorem map_fst_eq_inl {E₁ E₂ E' : Effect} [E' -< E₁] (e : E'.I) :
+    (map (E₂ := E₁ ⊕ₑ E₂) e).fst = Sum.inl (map e).fst := rfl
+
+@[simp, grind =] theorem map_fst_eq_inr {E₁ E₂ E' : Effect} [E' -< E₂] (e : E'.I) :
+    (map (E₂ := E₁ ⊕ₑ E₂) e).fst = Sum.inr (map e).fst := rfl
