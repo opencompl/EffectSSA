@@ -174,7 +174,7 @@ theorem hasEffect_forM {xs : List α} {f : α → ITree ε PUnit} {e : ε.I} :
 /-- `xs.forM f` may return iff each `f x` for `x ∈ xs` may return. -/
 @[simp, grind =]
 theorem mayReturn_forM {xs : List α} {f : α → ITree ε PUnit} :
-    (forM xs f).MayReturn ⟨⟩ ↔ ∀ x ∈ xs, (f x).MayReturn ⟨⟩ := by
+    (forM xs f).MayReturn u ↔ ∀ x ∈ xs, (f x).MayReturn ⟨⟩ := by
   induction xs
   · simp
   · grind
