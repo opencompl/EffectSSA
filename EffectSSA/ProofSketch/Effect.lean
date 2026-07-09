@@ -42,6 +42,22 @@ def raiseUB [ErrUB -< ε] (reason := "") : ITree ε α :=
 def raiseError [ErrUB -< ε] (reason := "") : ITree ε α :=
   trigger ErrUB (.error reason) >>= Empty.elim
 
+section Lemmas
+
+@[simp, grind =]
+theorem bind_raiseUB [ErrUB -< ε] {α β} (reason : String) (f : α → ITree ε β) :
+    raiseUB reason >>= f = raiseUB reason := by
+  rw [raiseUB, bind_assoc]
+  exact congrArg _ <| funext (·.elim)
+
+@[simp, grind =]
+theorem bind_raiseError [ErrUB -< ε] {α β} (reason : String) (f : α → ITree ε β) :
+    raiseError reason >>= f = raiseError reason := by
+  rw [raiseError, bind_assoc]
+  exact congrArg _ <| funext (·.elim)
+
+end Lemmas
+
 /-!
 ## Opaque Side Effects
 --------------------------------------------------------------------------------
