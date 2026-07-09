@@ -7,7 +7,7 @@ public import ITreeExtras.Definition
 -/
 @[expose] public section
 namespace ITree.ITree
-variable {t : ITree E R}
+variable {ε} {κ} [Effect.{u} ε κ] {α} {t : ITree ε α}
 
 /-! Tag existing lemmas with grind -/
 attribute [grind =] unfold_fold
@@ -24,7 +24,7 @@ section Fold
 -- TODO: this lemma ought to be called `unfold_fold`, but that lemma already exists
 --       (and was misnamed; it ought to be called `fold_unfold`).
 @[simp, grind =]
-theorem fold_unfold (t : ITreeF E R _) :
+theorem fold_unfold (t : ITreeF ε α _) :
     (fold t).unfold = t := by
   simp [ITree.fold, ITree.unfold]
 
@@ -47,14 +47,14 @@ section Pure
 
 @[simp, grind .]
 theorem pure_eq_ret (x : α) :
-  pure x = ret (E:=ε) x := by rfl
+  pure x = ret (ε:=ε) x := by rfl
 
 end Pure
 
 /-! ### `bind` -/
 section Bind
 
-@[simp, grind =] theorem bind_ret : ret r >>= f = f r := by
+@[simp, grind =] theorem bind_ret : ret (ε:=ε) r >>= f = f r := by
   show pure r >>= f = _
   simp [-pure_eq_ret]
 

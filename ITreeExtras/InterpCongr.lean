@@ -17,6 +17,10 @@ handlers `f` and `g` agree on every effect reachable from `t`.
 @[expose] public section
 namespace ITree.ITree
 
+variable {ε} {κε} [Effect.{u} ε κε]
+         {δ} {κδ} [Effect.{u} δ κδ]
+         {α}
+
 theorem interp'_congr {f g : ε ⤳ ITree δ} {t : ITree ε α}
     (hR₂ : ∀ e, t.HasEffect e → f e = g e) :
     interp' f t = interp' g t := by
@@ -105,8 +109,8 @@ theorem interp'_congr {f g : ε ⤳ ITree δ} {t : ITree ε α}
     simp
 
 /-- Corrolary of `interp'_congr`, specialized to `interpLeft`. -/
-theorem interpLeft_congr {f g : ε ⤳ ITree δ} {t : ITree (ε ⊕ₑ δ) α}
-    (h : ∀ e : ε.I, t.HasEffect e → f e = g e) :
+theorem interpLeft_congr {f g : ε ⤳ ITree δ} {t : ITree (ε ⊕ δ) α}
+    (h : ∀ e : ε, t.HasEffect e → f e = g e) :
     t.interpLeft f = t.interpLeft g := by
   apply interp'_congr
   intro e he
@@ -115,5 +119,5 @@ theorem interpLeft_congr {f g : ε ⤳ ITree δ} {t : ITree (ε ⊕ₑ δ) α}
     suffices f e = g e by simpa
     exact h _ he
   case inr e =>
-    show δ.trigger e = δ.trigger e
+    show Effect.trigger δ e = Effect.trigger δ e
     rfl

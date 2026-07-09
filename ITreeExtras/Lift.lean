@@ -13,10 +13,11 @@ Given an inclusion of effects `[ε -< δ]`, we can lift a computation from
 
 @[expose] public section
 namespace ITree
+variable {ε} {κε} [Effect.{u} ε κε] {δ} {κδ} [Effect.{u} δ κδ] {α}
 
 namespace Effect
 
-instance instCoeTOfSubeffect {ε δ} [ε -< δ] {e} : CoeT ε.I e δ.I where
+instance instCoeTOfSubeffect [ε -< δ] {e} : CoeT ε e δ where
   coe := (Subeffect.map e).1
 
 end Effect

@@ -14,13 +14,15 @@ extra `tau` after handling each visible effect.
 namespace ITree
 
 /-- Notation for effect handlers targeting a monad `m`. -/
-abbrev Effect.Transform (ε : Effect) (m : Type _ → Type _) :=
-  (i : ε.I) → m (ε.O i)
+abbrev Effect.Transform (ε) {κ} [Effect ε κ] (m : Type u → Type u) :=
+  (i : ε) → m (κ i)
 @[inherit_doc] scoped infixr:25 unicode(" ⤳ ", " ~> ") => ITree.Effect.Transform
 
 namespace ITree
 
-variable {E F : Effect.{u}} {R : Type u}
+variable {ε} {κε} [Effect.{u} ε κε]
+         {δ} {κδ} [Effect.{u} δ κδ]
+         {α}
 
 /--
 `interp'` is a variant of `ITree.interp` that inserts a `tau` after handling
@@ -28,7 +30,7 @@ each visible effect.
 
 Counterintuitively, this extra tau makes it *easier* to prove certain properties.
 -/
-def interp' (f : E ⤳ ITree F) : ITree E R → ITree F R :=
+def interp' (f : ε ⤳ ITree δ) : ITree ε α → ITree δ α :=
   iter fun t =>
     match t.unfold with
     | .ret r   => return (.inr r)
@@ -39,24 +41,24 @@ def interp' (f : E ⤳ ITree F) : ITree E R → ITree F R :=
 
 section InterpLemmas
 
-variable (f : E ⤳ ITree F)
+variable (f : ε ⤳ ITree δ)
 
-@[simp, grind =] theorem interp'_ret (r : R) :
+@[simp, grind =] theorem interp'_ret (r : α) :
     interp' f (ret r) = ret r := by
   unfold interp' iter
   simp
 
-@[simp, grind =] theorem interp'_pure (r : R) :
+@[simp, grind =] theorem interp'_pure (r : α) :
     interp' f (pure r) = pure r := by
   simp
 
-@[simp, grind =] theorem interp'_tau (t : ITree E R) :
+@[simp, grind =] theorem interp'_tau (t : ITree ε α) :
     interp' f (tau t) = tau (interp' f t) := by
   unfold interp'
   rw (occs := [1]) [iter]
   simp
 
-@[simp] theorem interp'_vis (i : E.I) (k : E.O i → ITree E R) :
+@[simp] theorem interp'_vis (i : ε) (k : κε i → ITree ε α) :
     interp' f (vis i k)
     = f i >>= fun o => (tau <| interp' f (k o)) := by
   unfold interp'
@@ -68,9 +70,9 @@ end InterpLemmas
 /-! ### Interpreting Sum Effects -/
 
 /--
-Given an ITree with events in `ε ⊕ₑ δ`,
+Given an ITree with events in `ε ⊕ δ`,
 interpret only events in `ε` using the handler `f`,
 leaving events in `δ` as-is.
 -/
-def interpLeft (f : ε ⤳ ITree δ) : ITree (ε ⊕ₑ δ) α → ITree δ α :=
-  interp' (Sum.casesOn · f δ.trigger)
+def interpLeft (f : ε ⤳ ITree δ) : ITree (ε ⊕ δ) α → ITree δ α :=
+  interp' (Sum.casesOn · f (Effect.trigger δ))
