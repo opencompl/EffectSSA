@@ -67,6 +67,7 @@ attribute [grind =] unfold_ret unfold_vis unfold_tau
     · exact .vis_cont rfl h.choose_spec
 
 /-! ### MayReturn -/
+section MayReturnLemmas
 
 /-- `ret x` returns only `x`. -/
 @[simp, grind =] theorem mayReturn_ret {r x : α} :
@@ -95,6 +96,29 @@ attribute [grind =] unfold_ret unfold_vis unfold_tau
         exact ⟨o₁, hh⟩
   · rintro ⟨o, ho⟩
     exact MayReturn.vis (unfold_vis i k) ho
+
+
+/-! #### `bind` -/
+
+/-- If `t` may return `x` and `f x` may return `y`, then `t >>= f` may return `y`. -/
+theorem mayReturn_bind_of_mayReturn {t : ITree ε α} {f : α → ITree ε β}
+    {x : α} {y : β} (hx : t.MayReturn x) (hy : (f x).MayReturn y) :
+    (t >>= f).MayReturn y := by
+  induction hx <;> grind
+
+/--
+`t >>= f` may return `y` iff `t` returns some `x` and `f x` returns `y`.
+-/
+@[simp, grind =] theorem mayReturn_bind {t : ITree ε α} {f : α → ITree ε β} {y : β} :
+    (t >>= f).MayReturn y ↔ ∃ x, t.MayReturn x ∧ (f x).MayReturn y := by
+  constructor
+  · generalize hx : t >>= f = x
+    intro h
+    induction h generalizing t <;> grind
+  · rintro ⟨x, hx, hy⟩
+    exact mayReturn_bind_of_mayReturn hx hy
+
+end MayReturnLemmas
 
 /-! ### HasEffect of `bind` -/
 
