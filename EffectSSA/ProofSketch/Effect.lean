@@ -145,6 +145,17 @@ def readVar [LocalEff -< ε] (var : VarId) : ITree ε Val :=
 def pushVar [LocalEff -< ε] (var : VarId) (value : Val) : ITree ε Unit :=
   trigger LocalEff <| .push var value
 
+section Lemmas
+variable [LocalEff -< ε]
+open Subeffect (map)
+
+@[simp, grind =]
+theorem hasEffect_pushVar {e : ε.I} :
+    (pushVar (ε:=ε) var value).HasEffect e ↔ e = (map (E₁:=LocalEff) <| .push var value).1 := by
+  sorry
+
+end Lemmas
+
 /-! ### Interpretation -/
 
 structure LocalStack where
