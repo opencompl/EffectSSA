@@ -1,6 +1,6 @@
 module
 
-public import ITree.Definition
+public import ITreeExtras.Definition
 public import ITreeExtras.Basic
 
 /-!

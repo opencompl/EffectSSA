@@ -6,7 +6,7 @@
    "subDir": null,
    "scope": "",
    "rev": "d1aeffe87ec7bd4bd13ed92fdc00ef6c5d58f800",
-   "name": "ITree",
+   "name": "Coinductive",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
    "inherited": false,

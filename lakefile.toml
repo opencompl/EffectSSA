@@ -8,7 +8,7 @@ scope = "leanprover-community"
 rev = "v4.31.0"
 
 [[require]]
-name = "ITree"
+name = "Coinductive"
 git = "https://github.com/ISTA-PLV/coinductive"
 rev = "main"
 
