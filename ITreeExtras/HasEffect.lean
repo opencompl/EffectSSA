@@ -146,6 +146,39 @@ theorem hasEffect_bind_of_hasEffect_right {t : ITree ε α} {f : α → ITree ε
     · exact hasEffect_bind_of_hasEffect_left f h
     · exact hasEffect_bind_of_hasEffect_right hy hf
 
+
+/-! ### `forM` -/
+
+/--
+`xs.forM f` has effect `e`, iff there is an element `x ∈ xs`, such that `f x`
+has effect `e`, and for all preceding elements `y`, `f y` terminates.
+-/
+@[simp, grind =]
+theorem hasEffect_forM {xs : List α} {f : α → ITree ε PUnit} {e : ε.I} :
+    (forM xs f).HasEffect e ↔
+      ∃ i, ∃ hi : i < xs.length,
+        (∀ j (hj : j < i), (f xs[j]).MayReturn ⟨⟩)
+        ∧ (f xs[i]).HasEffect e := by
+  induction xs with
+  | nil => simp
+  | cons x xs ih =>
+    simp only [List.forM_cons, hasEffect_bind, ih]
+    constructor
+    · rintro (hf | ⟨⟨⟩, hu, i, hi, hprev, hei⟩)
+      · exact ⟨0, by grind⟩
+      · refine ⟨i + 1, ?_⟩; grind
+    · rintro ⟨i, hi, hprev, hei⟩
+      have := hprev 0
+      cases i <;> grind
+
+/-- `xs.forM f` may return iff each `f x` for `x ∈ xs` may return. -/
+@[simp, grind =]
+theorem mayReturn_forM {xs : List α} {f : α → ITree ε PUnit} :
+    (forM xs f).MayReturn ⟨⟩ ↔ ∀ x ∈ xs, (f x).MayReturn ⟨⟩ := by
+  induction xs
+  · simp
+  · grind
+
 /-! #### `trigger` -/
 
 @[simp, grind =]
@@ -158,6 +191,8 @@ theorem mayReturn_trigger {E₁ E₂ : Effect} [E₁ -< E₂] (i : E₁.I) (y : 
     (Effect.trigger E₁ i : ITree E₂ _).MayReturn y
     ↔ ∃ o, y = (Subeffect.map (E₂ := E₂) i).snd o := by
   simp [Effect.trigger]
+
+/-! #### `iter'` -/
 
 @[grind →]
 theorem hasEffect_iter' {α β : Type u} {f : α → ITree ε (α ⊕ β)} {a : α} :
