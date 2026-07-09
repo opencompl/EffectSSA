@@ -146,6 +146,12 @@ theorem hasEffect_bind_of_hasEffect_right {t : ITree ε α} {f : α → ITree ε
     · exact hasEffect_bind_of_hasEffect_left f h
     · exact hasEffect_bind_of_hasEffect_right hy hf
 
+/-! #### `seq` corollaries -/
+
+@[simp, grind .]
+theorem hasEffect_seqRight {t : ITree ε α} {u : ITree ε β} :
+    (t *> u).HasEffect e ↔ t.HasEffect e ∨ (∃ x, t.MayReturn x) ∧ u.HasEffect e := by
+  rw [seqRight_eq_bind, hasEffect_bind]; grind
 
 /-! ### `forM` -/
 
