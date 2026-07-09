@@ -1,6 +1,6 @@
 module
 
-public import ITree.Definition
+public import ITreeExtras.Definition
 
 /-!
 # Basic (Missing) Definitions & Lemmas on ITrees

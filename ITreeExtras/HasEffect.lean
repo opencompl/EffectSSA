@@ -1,6 +1,6 @@
 module
 
-public import ITree
+public import ITreeExtras.Definition
 
 /-!
 # ITree `HasEffect` and `MayReturn` Predicates

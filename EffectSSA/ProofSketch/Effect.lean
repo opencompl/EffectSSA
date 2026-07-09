@@ -2,8 +2,9 @@ module
 
 public import EffectSSA.ProofSketch.Inst
 
-public import ITree
 public import ITreeExtras
+
+public import Std.Data.HashMap
 
 /-!
 # Effects

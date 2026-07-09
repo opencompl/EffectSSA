@@ -1,6 +1,6 @@
 module
 
-public import ITree
+public import ITreeExtras.Definition
 public import ITreeExtras.Basic
 public import ITreeExtras.Bisim
 public import ITreeExtras.HasEffect
