@@ -10,10 +10,6 @@ public import EffectSSA.ProofSketch.MultiContext
 public import EffectSSA.ProofSketch.Effect
 public import EffectSSA.ProofSketch.CFG
 
-public import Std.Data.HashMap
-
-public import ITreeExtras
-
 /-!
 # Contextual Equivalence Proof Sketch
 
@@ -24,8 +20,6 @@ implies contextual equivalence, in an SSA-based rewriting setting.
 
 @[expose] public noncomputable section
 namespace EffectSSA.ProofSketch
-
-open ITree (ITree)
 
 /-!
 ## Semantics
@@ -535,16 +529,8 @@ private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Res
 end Residual
 end Residual
 
-
-
 /-!
-# Control Flow
--/
-
-
-
-/-!
-## Main Result
+## Main Result for straight-line programs
 -/
 attribute [grind =] id_eq
 

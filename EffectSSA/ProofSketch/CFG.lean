@@ -3,8 +3,6 @@ module
 public import EffectSSA.ProofSketch.MultiContext
 public import EffectSSA.ProofSketch.Effect
 
-public import ITreeExtras
-
 public import Std.Data.HashMap
 
 /-!
@@ -28,8 +26,6 @@ structure BlockId where
   toString : String
 deriving Hashable, DecidableEq
 instance : ToString BlockId where toString := BlockId.toString
-
-def BlockContext := List BlockId
 
 /-- A terminator -/
 axiom Term : Type
@@ -101,17 +97,6 @@ def ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ InstEf
 noncomputable
 def ProgramCFG.interp (P : ProgramCFG) : (ITree (SideEff ⊕ ErrUB)) ReturnVals :=
   ContextCFG.interp P Hole.elim0
-
-
-/-!
-## TerminatorOp API
--/
-namespace TerminatorOp
-
-axiom canJumpTo : TerminatorOp → BlockId → Bool
-axiom isReturn : TerminatorOp → Bool
-
-end TerminatorOp
 
 /-!
 ## ContextCFG API
