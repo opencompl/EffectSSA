@@ -1,7 +1,6 @@
 module
 
 public import EffectSSA.ProofSketch.MultiContext
-public import EffectSSA.ProofSketch.Dominance
 public import EffectSSA.ProofSketch.Effect
 
 public import ITreeExtras
@@ -224,18 +223,5 @@ def Complete (C : ContextCFG n) : Prop :=
   ∀ h : Hole n, ∃ b ∈ C.blocks.values, .inr h ∈ b.code
 
 end Completeness
-
-/-! ### WellFormedness -/
-section WellFormedness
-variable {C : ContextCFG n}
-
--- instance : HasDominance (C.BlockRef) where
---   entry := C.entry
---   cfg a b := a.get.term.canJumpTo b.val
---   isExit b := b.get.term.isReturn
-
-end WellFormedness
-
-
 
 end ContextCFG
