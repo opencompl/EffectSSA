@@ -52,8 +52,8 @@ theorem bisim_refl {ε} {κ} [Effect.{u} ε κ] {α} (x : ITree ε α) : x ≅ x
   apply Bisim.coinduct (· = ·)
   · rintro x _ rfl
     cases x
-    case ret => left; simp; grind
-    case tau => right; left; simp; grind
+    case ret => simp
+    case tau => simp
     case vis i k =>
       right; right
       refine ⟨i, k, k, ?_⟩

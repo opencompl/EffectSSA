@@ -81,6 +81,7 @@ theorem interp'_congr {f g : ε ⤳ ITree δ} {t : ITree ε α}
                   u >>= fun o => tau (interp' g <| k o),
                   ?_, rfl, rfl⟩
           refine ⟨_, u >>= (tau <| ret ·), k, ?_⟩;
+          simp only [bind_assoc, tau_bind, bind_ret, true_and]
           grind
         case vis i' k' =>
           right; right --vis
@@ -95,6 +96,7 @@ theorem interp'_congr {f g : ε ⤳ ITree δ} {t : ITree ε α}
           and_intros
           · intro o
             refine ⟨_, k' o >>= (tau <| ret ·), k, ?_⟩
+            simp only [bind_assoc, tau_bind, bind_ret, true_and]
             grind
           · rfl
           · rfl
@@ -104,7 +106,7 @@ theorem interp'_congr {f g : ε ⤳ ITree δ} {t : ITree ε α}
         refine ⟨interp' f t, interp' g t, ?_, rfl, rfl⟩
         refine ⟨PUnit, .ret ⟨⟩, fun _ => t, ?_⟩
         grind
-      case ret r => simp; grind
+      case ret r => simp
   · refine ⟨PUnit, .ret ⟨⟩, fun _ => t, ?_⟩
     simp
 
