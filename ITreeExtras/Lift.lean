@@ -44,13 +44,19 @@ section Lemmas
 /-! #### `liftM` -/
 
 @[simp, grind =]
-theorem hasEffect_liftM [ε₁ -< ε₂] (t : ITree ε₁ α) :
+theorem hasEffect_liftM
+    {ε₁ ε₂} {κ₁ : ε₁ → Type _} {κ₂ : ε₂ → Type _}
+    [Effect ε₁ κ₁] [Effect ε₂ κ₂] [ε₁ -< ε₂]
+    (t : ITree ε₁ α) {e : ε₂} :
     (liftM (n:=ITree ε₂) t).HasEffect e ↔
       ∃ e', t.HasEffect e' ∧ (Subeffect.map e').fst = e := by
   sorry
 
 @[simp, grind =]
-theorem mayReturn_liftM [ε₁ -< ε₂] (t : ITree ε₁ α) :
+theorem mayReturn_liftM
+    {ε₁ ε₂} {κ₁ : ε₁ → Type _} {κ₂ : ε₂ → Type _}
+    [Effect ε₁ κ₁] [Effect ε₂ κ₂] [ε₁ -< ε₂]
+    (t : ITree ε₁ α) :
     (liftM (n:=ITree ε₂) t).MayReturn x ↔ t.MayReturn x := by
   sorry
 

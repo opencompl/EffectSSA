@@ -1,6 +1,8 @@
 module
 
 public import ITreeExtras.Definition
+public import ITreeExtras.Basic
+public import ITreeExtras.Iter
 
 /-!
 # ITree `HasEffect` and `MayReturn` Predicates
@@ -201,7 +203,7 @@ theorem mayReturn_trigger
     [Effect ε₁ κ₁] [Effect ε₂ κ₂] [ε₁ -< ε₂]
     (i : ε₁) (y : κ₁ i) :
     (Effect.trigger ε₁ i : ITree ε₂ _).MayReturn y
-    ↔ ∃ o, y = (Subeffect.map i).snd o := by
+    ↔ ∃ o, y = (Subeffect.map (ε₂:=ε₂) i).snd o := by
   simp [Effect.trigger]
 
 /-! #### `iter'` -/

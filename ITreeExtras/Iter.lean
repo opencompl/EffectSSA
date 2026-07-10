@@ -22,10 +22,10 @@ where @[grind] recurse (t : α → ITree ε (α ⊕ β)) : α ⊕ β → ITree �
   | .inr b => return b
   partial_fixpoint
 
-@[simp, grind =] theorem iter'.recurse_inl :
+@[simp, grind =] theorem iter'.recurse_inl {t : α → ITree ε (α ⊕ β)} {a : α} :
     recurse t (.inl a) = (tau <| .iter' t a) := by
   rw [recurse]
 
-@[simp, grind =] theorem iter'.recurse_inr :
+@[simp, grind =] theorem iter'.recurse_inr {t : α → ITree ε (α ⊕ β)} {b : β} :
     recurse t (.inr b) = return b := by
   rw [recurse]

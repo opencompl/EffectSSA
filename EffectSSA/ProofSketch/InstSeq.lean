@@ -47,6 +47,8 @@ end Cons
 
 namespace InstSeq
 
+variable {ε : Type} {κ : ε → Type} [Effect ε κ]
+
 /-!
 ## Denotation
 -/
@@ -56,7 +58,7 @@ Denote an `InstSeq` into an ITree with `InstEff`s, i.e,
 where each instruction has a unique effect associated with it.
 -/
 public def denote [InstEff -< ε] : (is : InstSeq) → ITree ε Unit
-  | i :: is => InstEff.trigger i *> denote is
+  | i :: is => Effect.trigger InstEff i *> denote is
   | [] => .ret ()
 
 /-!

@@ -74,7 +74,7 @@ section Inj
   · intro h; have hu := congrArg unfold h; simpa only [unfold_tau, ITreeF.tau.injEq] using hu
   · rintro rfl; rfl
 
-@[simp, grind =] theorem ret_inj {x y : α} : @ret ε α x = ret y ↔ x = y := by
+@[simp, grind =] theorem ret_inj {x y : α} : ret (ε:=ε) x = ret y ↔ x = y := by
   constructor
   · intro h; have hu := congrArg unfold h; simpa only [unfold_ret, ITreeF.ret.injEq] using hu
   · rintro rfl; rfl
