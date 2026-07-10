@@ -340,48 +340,4 @@ def Effect.trigger (ε₁) {κ₁} [Effect.{u} ε₁ κ₁]
   let ⟨i₂, f⟩ := (Subeffect.map i);
   ITree.vis i₂ (λ x => return (f x))
 
-def ITree.iter {γ β} (t : γ → ITree ε (γ ⊕ β)) : γ → ITree ε β :=
-  λ a => do
-    match ← (t a) with
-    | .inl a => .iter t a
-    | .inr b => return b
-partial_fixpoint
-
-/--
-Interpret an `ITree ε α` into an `ITree` with a different type of effects `δ`.
-
-See also `ITree.interpM` for an alternative which interpretes effects into a
-generic monad `m`.
--/
-def ITree.interp {δ} {κδ} [Effect.{u} δ κδ]
-    (f : (i : ε) → ITree δ (κ i)) : ITree ε α → ITree δ α :=
-  ITree.iter λ t =>
-    match t.unfold with
-    | .ret r => return (.inr r)
-    | .tau t => ITree.tau (return (.inl t))
-    | .vis i k => f i >>= λ o => return (.inl (k o))
-
-@[simp]
-theorem interp_pure {δ} {κδ} [Effect.{u} δ κδ]
-    (f : (i : ε) → ITree δ (κ i)) (r : α) :
-  ITree.interp f (pure r) = pure r := by
-    unfold ITree.interp ITree.iter
-    simp
-
-@[simp]
-theorem interp_tau {δ} {κδ} [Effect.{u} δ κδ]
-    (f : (i : ε) → ITree δ (κ i)) (t : ITree ε α) :
-  ITree.interp f (t.tau) = (ITree.interp f t).tau := by
-    unfold ITree.interp
-    rw (occs := [1]) [ITree.iter]
-    simp
-
-@[simp]
-theorem interp_vis {δ} {κδ} [Effect.{u} δ κδ]
-    (f : (i : ε) → ITree δ (κ i)) i (k : κ i → ITree ε α) :
-  ITree.interp f (ITree.vis i k) = (f i) >>= λ o => (ITree.interp f (k o)) := by
-    unfold ITree.interp
-    rw (occs := [1]) [ITree.iter]
-    simp
-
 end ITree
