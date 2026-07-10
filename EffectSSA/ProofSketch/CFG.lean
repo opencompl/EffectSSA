@@ -166,8 +166,8 @@ theorem interpHoles_program (P : ProgramCFG) {f g : HoleId → ITree (ErrUB ⊕ 
   apply ITree.interpLeft_congr
   intro e he
   exfalso -- there cannot actually be any hole effects in P.denote!
-  simp only [denote] at he
-  obtain ⟨⟨bId, args⟩, hb⟩ := ITree.hasEffect_iter he
+  obtain ⟨⟨bId, args⟩, hb⟩ : ∃ b, (denote.step P b).HasEffect e := by
+    grind [denote]
   grind [denote.step]
 
 theorem interp_plug {C : ContextCFG n} {I : Pattern n} :

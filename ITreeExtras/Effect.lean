@@ -17,15 +17,18 @@ namespace ITree
 class Effect (ε : Type u) (κ : outParam (ε → Type u)) where
   -- class deliberately empty
 
-instance {ε₁ ε₂ : Type u} {κ₁ : ε₁ → Type u} {κ₂ : ε₂ → Type u}
-    [Effect ε₁ κ₁] [Effect ε₂ κ₂] : Effect (ε₁ ⊕ ε₂) (Sum.rec κ₁ κ₂) :=
+instance {ε₁ ε₂} {κ₁ κ₂} [Effect.{u} ε₁ κ₁] [Effect.{u} ε₂ κ₂] :
+    Effect (ε₁ ⊕ ε₂) (Sum.rec κ₁ κ₂) :=
   ⟨⟩
 
 class Subeffect (ε₁ ε₂) {κ₁ : outParam _} {κ₂ : outParam _}
     [Effect.{u} ε₁ κ₁] [Effect.{v} ε₂ κ₂] where
   map : (i₁ : ε₁) → ((i₂ : ε₂) × (κ₂ i₂ → κ₁ i₁))
+  map_surj : ∀ i₁, Function.Surjective (map i₁).snd := by
+    grind [Function.Surjective]
 
 infix:20 " -< " => Subeffect
+attribute [grind! .] Subeffect.map_surj
 
 instance [Effect ε κ] : ε -< ε where
   map i := ⟨i, λ x => x⟩
@@ -35,6 +38,7 @@ instance {ε₁ ε₂ ε' κ₁ κ₂ κ'} [Effect ε₁ κ₁] [Effect ε₂ κ
   map
   | .inl x => subl.map x
   | .inr x => subr.map x
+  map_surj i₁ := by cases i₁ <;> apply Subeffect.map_surj
 
 instance (priority:=mid) instSubSumL {ε₁ ε₂ ε' κ₁ κ₂ κ'}
     [Effect ε₁ κ₁] [Effect ε₂ κ₂] [Effect ε' κ']

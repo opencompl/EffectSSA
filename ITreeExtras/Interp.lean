@@ -67,6 +67,15 @@ variable (f : ε ⤳ ITree δ)
   rw (occs := [1]) [iter]
   simp
 
+@[simp, grind =] theorem interp_eq_ret_iff (t : ITree ε α) (r : α) :
+    interp f t = ret r ↔ t = ret r := by
+  cases t with
+  | ret => simp
+  | tau => simp
+  | vis i k =>
+    suffices interp f (vis i k) ≠ ret r by grind
+    grind
+
 end InterpLemmas
 
 /-! ### Interpreting Sum Effects -/
