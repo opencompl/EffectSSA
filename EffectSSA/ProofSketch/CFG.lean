@@ -158,8 +158,8 @@ end PushVarLemmas
 
 @[simp, grind =]
 theorem Block.denote_hasEffect_hole_iff (b : Block n) (bId : BlockId) (args : List Val) (h : HoleId) :
-    (b.denote bId args).HasEffect (.inl h : OpaqueCtxEff) ↔
-      b.args.length = args.length ∧ (b.code.denote).HasEffect (.inl h : OpaqueCtxEff) := by
+    (b.denote bId args).HasEffect (.inl h) ↔
+      b.args.length = args.length ∧ (b.code.denote).HasEffect (.inl h) := by
   sorry
 
 theorem interpHoles_program (P : ProgramCFG) {f g : HoleId → ITree (ErrUB ⊕ InstEff) Unit} :
