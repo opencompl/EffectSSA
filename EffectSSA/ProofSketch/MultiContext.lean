@@ -39,7 +39,7 @@ def Hole.id (h : Hole n) : HoleId where
 is represented as an `InstEff`, and each hole as a `HoleEff`.
 -/
 @[grind]
-def MultiContext.denote [HoleEff -< ε] [InstEff -< ε] : MultiContext n → ITree ε Unit
+def MultiContext.denote : MultiContext n → ITree (HoleEff ⊕ InstEff) Unit
   | .inl i :: is => trigger InstEff i    *> denote is
   | .inr h :: is => trigger HoleEff h.id *> denote is
   | [] => .ret ()
@@ -47,25 +47,24 @@ def MultiContext.denote [HoleEff -< ε] [InstEff -< ε] : MultiContext n → ITr
 open ITree.ITree
 
 section DenoteLemmas
+variable [HoleEff -< ε] [InstEff -< ε]
 
 @[simp, grind =]
-theorem MultiContext.denote_nil : MultiContext.denote (n := n) [] = ITree.ret () := rfl
+theorem MultiContext.denote_nil :
+  MultiContext.denote (n := n) [] = .ret () := rfl
 
 @[simp, grind =]
 theorem MultiContext.denote_cons_inst (i : Inst) (C : MultiContext n) :
-    MultiContext.denote (Sum.inl i :: C) = InstEff.trigger i *> MultiContext.denote C := rfl
+    MultiContext.denote (Sum.inl i :: C) = trigger InstEff i *> MultiContext.denote C := rfl
 
 @[simp, grind =]
 theorem MultiContext.denote_cons_hole (h : Hole n) (C : MultiContext n) :
-    MultiContext.denote (Sum.inr h :: C) = HoleEff.trigger h.id *> MultiContext.denote C := rfl
+    MultiContext.denote (Sum.inr h :: C) = trigger HoleEff h.id *> MultiContext.denote C := rfl
 
 @[simp, grind =]
 theorem MultiContext.hasEffect_denote_inl_iff (C : MultiContext n) (e : HoleId) :
-    (C.denote (ε := HoleEff ⊕ InstEff)).HasEffect (.inl e) ↔ ∃ h, (.inr ⟨e.toNat, h⟩) ∈ C := by
+    C.denote.HasEffect (.inl e) ↔ ∃ h, (.inr ⟨e.toNat, h⟩) ∈ C := by
   sorry
-
-
-
 
 end DenoteLemmas
 
