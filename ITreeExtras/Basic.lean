@@ -16,8 +16,6 @@ attribute [grind =] unfold_fold
                     tau_bind
                     vis_bind
                     LawfulMonad.bind_assoc
-                    interp_pure
-                    interp_tau
 
 /-! ### `fold` and `unfold` -/
 section Fold

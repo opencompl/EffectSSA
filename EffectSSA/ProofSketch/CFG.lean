@@ -77,7 +77,7 @@ def Block.denote (b : Block n) (bId : BlockId) (args : List Val) :
 
 noncomputable
 def ContextCFG.denote (C : ContextCFG n) : ITree OpaqueCtxEff ReturnVals :=
-  ITree.iter' step ⟨C.entryId, []⟩
+  ITree.iter step ⟨C.entryId, []⟩
 where
   step := fun (⟨bId, args⟩ : Branch) => do
     let some b := C.blocks[bId]? | raiseError s!"Missing Block: {bId}"
@@ -168,11 +168,11 @@ theorem interpHoles_program (P : ProgramCFG) {f g : HoleId → ITree (ErrUB ⊕ 
   intro e he
   exfalso -- there cannot actually be any hole effects in P.denote!
   simp only [denote] at he
-  obtain ⟨⟨bId, args⟩, hb⟩ := ITree.hasEffect_iter' he
+  obtain ⟨⟨bId, args⟩, hb⟩ := ITree.hasEffect_iter he
   grind [denote.step]
 
 theorem interp_plug {C : ContextCFG n} {I : Pattern n} :
-    (C.plug I).interp = C.interp (I[·].denote) := by
+    (C.plug I).interp = C.interp (liftM <| I[·].denote) := by
   simp only [ProgramCFG.interp, interp, Pattern.getElem_hole]
   congr 2
   rw [denote]

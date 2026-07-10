@@ -1,6 +1,7 @@
 module
 
 public import ITreeExtras.Definition
+public import ITreeExtras.Iter
 
 /-!
 # Monadic Interpretation of ITrees (`interpM`)
@@ -59,11 +60,12 @@ open MonadIter (iter)
 A `MonadIter` satisfying the unfolding equation: one step of `iter` peels off
 one call to `f`, then either loops (`.inl`) or returns (`.inr`).
 -/
-class LawfulMonadIter (m : Type u → Type u) [Monad m] [MonadIter m] : Prop where
+class LawfulMonadIter (m : Type u → Type u) [Monad m] [MonadIter m] where
+  tau : ∀ {α}, m α → m α
   iter_eq : ∀ {α β : Type u} (f : α → m (α ⊕ β)) (init : α),
     MonadIter.iter f init =
       f init >>= fun
-        | .inl a => MonadIter.iter f a
+        | .inl a => tau <| MonadIter.iter f a
         | .inr b => return b
 
 variable {ε} {κ} [Effect.{u} ε κ] {α}
@@ -79,7 +81,11 @@ instance : MonadIter (ITree ε) where iter := ITree.iter
 @[simp] theorem ITree.iter_eq : @MonadIter.iter (ITree ε) _ α β = ITree.iter := by rfl
 
 instance : LawfulMonadIter (ITree ε) where
-  iter_eq f a := by simp; grind [ITree.iter]
+  tau := ITree.tau
+  iter_eq f a := by
+    rw [ITree.iter_eq, ITree.iter]
+    congr 1; grind
+
 
 /-! ### StateT -/
 section State
@@ -97,10 +103,15 @@ omit [Monad m] in
     = iter (fun (a, s) => (fun (ba, s) => ba.map (·, s) (·, s)) <$> (f a).run s) (a, s) := by
   rfl
 
+attribute [simp, grind] LawfulMonadIter.tau
 instance {σ : Type u} {m : Type u → Type u} [Monad m] [LawfulMonad m]
-    [MonadIter m] [LawfulMonadIter m] : LawfulMonadIter (StateT σ m) where
+    [MonadIter m] [im : LawfulMonadIter m] : LawfulMonadIter (StateT σ m) where
+  tau x := im.tau ∘ x
   iter_eq f a := by
-    grind [LawfulMonadIter.iter_eq, bind_assoc, =_ bind_pure_comp]
+    ext s
+    rw [StateT.run_iter, StateT.run_bind, im.iter_eq]
+    simp only [bind_map_left]
+    congr 1; funext ⟨ba, s⟩; cases ba <;> rfl
 
 end State
 end Instances
@@ -135,11 +146,13 @@ variable [LawfulMonad m] [LawfulMonadIter m] (h : (i : ε) → m (κ i))
   interpM_ret ..
 
 @[simp, grind =] theorem interpM_tau (t : ITree ε α) :
-    interpM h (tau t) = interpM h t := by
+    interpM h (.tau t) = LawfulMonadIter.tau (interpM h t) := by
   rw [interpM, LawfulMonadIter.iter_eq]; simp
 
 @[simp, grind =] theorem interpM_vis (i : ε) (k : κ i → ITree ε α) :
-    interpM h (vis i k) = h i >>= fun o => interpM h (k o) := by
+    interpM h (vis i k) = (do
+      let o ← h i
+      LawfulMonadIter.tau <| interpM h (k o)) := by
   rw [interpM, LawfulMonadIter.iter_eq]; simp
 
 end Lemmas

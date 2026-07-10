@@ -30,7 +30,7 @@ namespace ITree
 Translate an ITree along a subeffect inclusion `[ε -< δ]`.
 -/
 def lift [ε -< δ] : ITree ε α → ITree δ α :=
-  interp' fun i =>
+  interp fun i =>
     let ⟨j, k⟩ := Subeffect.map i
     .vis j (.ret ∘ k)
 
