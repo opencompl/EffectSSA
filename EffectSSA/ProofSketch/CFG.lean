@@ -5,7 +5,6 @@ public import EffectSSA.ProofSketch.Dominance
 public import EffectSSA.ProofSketch.Effect
 
 public import ITreeExtras
-public import EffectSSA.ProofSketch.ITree.Stub
 
 public import Std.Data.HashMap
 
