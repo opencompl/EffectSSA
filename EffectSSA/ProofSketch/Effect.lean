@@ -87,7 +87,7 @@ placeholder effect in `HoleEff`.
 
 Note that although holes in the AST have an intrinsically typed upper bound,
 `HoleEff` carries only the raw `Nat`-typed id of the hole, to prevent too many
-depedent types showing up in the semantics.
+dependent types showing up in the semantics.
 -/
 abbrev HoleEff := HoleId
 
