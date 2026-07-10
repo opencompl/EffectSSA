@@ -10,7 +10,7 @@ public import ITreeExtras.Lift
 /-!
 # Congruence of `ITree.interp`
 
-`interp'_congr` states that `interp' f t = interp' g t` whenever the two
+`interp_congr` states that `interp f t = interp g t` whenever the two
 handlers `f` and `g` agree on every effect reachable from `t`.
 -/
 
@@ -21,14 +21,14 @@ variable {ε} {κε} [Effect.{u} ε κε]
          {δ} {κδ} [Effect.{u} δ κδ]
          {α}
 
-theorem interp'_congr {f g : ε ⤳ ITree δ} {t : ITree ε α}
+theorem interp_congr {f g : ε ⤳ ITree δ} {t : ITree ε α}
     (hR₂ : ∀ e, t.HasEffect e → f e = g e) :
-    interp' f t = interp' g t := by
+    interp f t = interp g t := by
   apply eq_of_bisim
   apply Bisim.coinduct (fun x y =>
     ∃ α, ∃ t' : ITree δ α, ∃ k : α → ITree _ _,
-        x = t' >>= (interp' f <| k ·)
-      ∧ y = t' >>= (interp' g <| k ·)
+        x = t' >>= (interp f <| k ·)
+      ∧ y = t' >>= (interp g <| k ·)
       ∧ ∀ e o, (k o).HasEffect e → t.HasEffect e
   )
   · intro x y ⟨α, t', k, h⟩
@@ -38,7 +38,7 @@ theorem interp'_congr {f g : ε ⤳ ITree δ} {t : ITree ε α}
     case tau u =>
       right; left -- tau
       simp only [tau_bind]
-      refine ⟨u >>= (interp' f <| k ·), u >>= (interp' g <| k ·), ?_⟩
+      refine ⟨u >>= (interp f <| k ·), u >>= (interp g <| k ·), ?_⟩
       and_intros
       · grind
       · rfl
@@ -49,10 +49,10 @@ theorem interp'_congr {f g : ε ⤳ ITree δ} {t : ITree ε α}
       refine ⟨i,
         fun o => do
           let x ← k' o
-          interp' f (k x),
+          interp f (k x),
         fun o => do
           let x ← k' o
-          interp' g (k x),
+          interp g (k x),
         ?_⟩
       and_intros
       · grind
@@ -64,11 +64,11 @@ theorem interp'_congr {f g : ε ⤳ ITree δ} {t : ITree ε α}
       case vis i k =>
         have : t.HasEffect i := by grind
         have hfg : f i = g i := by grind
-        simp only [interp'_vis, hfg]
+        simp only [interp_vis, hfg]
         cases hg : g i
         case ret r =>
           right; left --tau
-          refine ⟨interp' f (k r), interp' g (k r), ?_⟩
+          refine ⟨interp f (k r), interp g (k r), ?_⟩
           and_intros
           · refine ⟨_, .ret r, k, ?_⟩
             grind
@@ -77,8 +77,8 @@ theorem interp'_congr {f g : ε ⤳ ITree δ} {t : ITree ε α}
         case tau u =>
           right; left --tau
           simp only [tau_bind]
-          refine ⟨u >>= fun o => tau (interp' f <| k o),
-                  u >>= fun o => tau (interp' g <| k o),
+          refine ⟨u >>= fun o => tau (interp f <| k o),
+                  u >>= fun o => tau (interp g <| k o),
                   ?_, rfl, rfl⟩
           refine ⟨_, u >>= (tau <| ret ·), k, ?_⟩;
           simp only [bind_assoc, tau_bind, bind_ret, true_and]
@@ -89,10 +89,10 @@ theorem interp'_congr {f g : ε ⤳ ITree δ} {t : ITree ε α}
           refine ⟨i',
             fun o => do
               let o ← k' o
-              (interp' f (k o)).tau,
+              (interp f (k o)).tau,
             fun o => do
               let o ← k' o
-              (interp' g (k o)).tau, ?_⟩
+              (interp g (k o)).tau, ?_⟩
           and_intros
           · intro o
             refine ⟨_, k' o >>= (tau <| ret ·), k, ?_⟩
@@ -102,19 +102,19 @@ theorem interp'_congr {f g : ε ⤳ ITree δ} {t : ITree ε α}
           · rfl
       case tau t =>
         right; left --tau
-        simp only [interp'_tau]
-        refine ⟨interp' f t, interp' g t, ?_, rfl, rfl⟩
+        simp only [interp_tau]
+        refine ⟨interp f t, interp g t, ?_, rfl, rfl⟩
         refine ⟨PUnit, .ret ⟨⟩, fun _ => t, ?_⟩
         grind
       case ret r => simp
   · refine ⟨PUnit, .ret ⟨⟩, fun _ => t, ?_⟩
     simp
 
-/-- Corrolary of `interp'_congr`, specialized to `interpLeft`. -/
+/-- Corrolary of `interp_congr`, specialized to `interpLeft`. -/
 theorem interpLeft_congr {f g : ε ⤳ ITree δ} {t : ITree (ε ⊕ δ) α}
     (h : ∀ e : ε, t.HasEffect e → f e = g e) :
     t.interpLeft f = t.interpLeft g := by
-  apply interp'_congr
+  apply interp_congr
   intro e he
   cases e
   case inl e =>

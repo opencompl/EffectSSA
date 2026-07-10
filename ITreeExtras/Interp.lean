@@ -2,12 +2,16 @@ module
 
 public import ITreeExtras.Definition
 public import ITreeExtras.Basic
+public import ITreeExtras.Iter
 
 /-!
-# `ITree.interp'`: interpretation with an extra `tau` at each visible step
+# ITree Interpretation
 
-This file defines `ITree.interp'` as a variant of `ITree.interp` that emits an
-extra `tau` after handling each visible effect.
+This file defines `ITree.interp`, the interpretation of the effects of an ITree
+into an ITree with different effects.
+
+This definition differs from the original, in that an extra `tau` is inserted,
+by our use of modified `tau`.
 -/
 
 @[expose] public section
@@ -25,43 +29,41 @@ variable {ε} {κε} [Effect.{u} ε κε]
          {α}
 
 /--
-`interp'` is a variant of `ITree.interp` that inserts a `tau` after handling
-each visible effect.
+Interpret an `ITree ε α` into an `ITree` with a different type of effects `δ`.
 
-Counterintuitively, this extra tau makes it *easier* to prove certain properties.
+See also `ITree.interpM` for an alternative which interprets effects into a
+generic monad `m`.
 -/
-def interp' (f : ε ⤳ ITree δ) : ITree ε α → ITree δ α :=
+def interp (f : ε ⤳ ITree δ) : ITree ε α → ITree δ α :=
   iter fun t =>
     match t.unfold with
-    | .ret r   => return (.inr r)
-    | .tau t   => tau (return (.inl t))
+    | .ret r => return (.inr r)
+    | .tau t => return (.inl t)
     | .vis i k => do
-      let o ← f i
-      tau (return (.inl (k o)))
+        let o ← f i
+        return (.inl (k o))
 
 section InterpLemmas
-
 variable (f : ε ⤳ ITree δ)
 
-@[simp, grind =] theorem interp'_ret (r : α) :
-    interp' f (ret r) = ret r := by
-  unfold interp' iter
+@[simp, grind =] theorem interp_ret (r : α) :
+    interp f (ret r) = ret r := by
+  unfold interp iter
   simp
 
-@[simp, grind =] theorem interp'_pure (r : α) :
-    interp' f (pure r) = pure r := by
+@[simp, grind =] theorem interp_pure (r : α) :
+    interp f (pure r) = pure r := by
   simp
 
-@[simp, grind =] theorem interp'_tau (t : ITree ε α) :
-    interp' f (tau t) = tau (interp' f t) := by
-  unfold interp'
+@[simp, grind =] theorem interp_tau (t : ITree ε α) :
+    interp f (tau t) = tau (interp f t) := by
+  unfold interp
   rw (occs := [1]) [iter]
   simp
 
-@[simp] theorem interp'_vis (i : ε) (k : κε i → ITree ε α) :
-    interp' f (vis i k)
-    = f i >>= fun o => (tau <| interp' f (k o)) := by
-  unfold interp'
+@[simp, grind =] theorem interp_vis (i : ε) (k : κε i → ITree ε α) :
+    interp f (vis i k) = f i >>= fun o => tau (interp f (k o)) := by
+  unfold interp
   rw (occs := [1]) [iter]
   simp
 
@@ -75,4 +77,4 @@ interpret only events in `ε` using the handler `f`,
 leaving events in `δ` as-is.
 -/
 def interpLeft (f : ε ⤳ ITree δ) : ITree (ε ⊕ δ) α → ITree δ α :=
-  interp' (Sum.casesOn · f (Effect.trigger δ))
+  interp (Sum.casesOn · f (Effect.trigger δ))
