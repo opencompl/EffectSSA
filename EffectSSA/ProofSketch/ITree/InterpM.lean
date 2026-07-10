@@ -26,6 +26,9 @@ end Interp
 
 /-!
 axiom statements translated from proven theorems in the Rocq ITrees library
+
+TODO: I'm not sure these are actually needed anymore; but they might become
+useful later
 -/
 
 axiom interpM_interpM {ε δ ζ : Type} {κε : ε → Type} {κδ : δ → Type} {κζ : ζ → Type}

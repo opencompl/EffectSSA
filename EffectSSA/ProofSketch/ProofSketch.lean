@@ -1,7 +1,6 @@
 module
 
 public import EffectSSA.ProofSketch.Notation.Refinement
-public import EffectSSA.ProofSketch.Notation.Reduce
 public import EffectSSA.ProofSketch.Denote
 public import EffectSSA.ProofSketch.VarSet
 public import EffectSSA.ProofSketch.Inst
@@ -13,7 +12,7 @@ public import EffectSSA.ProofSketch.CFG
 
 public import Std.Data.HashMap
 
-public import ITree
+public import ITreeExtras
 
 /-!
 # Contextual Equivalence Proof Sketch
@@ -127,12 +126,12 @@ theorem denote_eq : ⟦C⟧ = fun η => C.foldl (fun ρ i =>
                                       | .inr (h : Hole n) => ⟦η h⟧ ρ) := rfl
 
 @[simp, grind =]
-theorem denote_nil : ⟦([] : MultiContext n)⟧ η = id := rfl
+theorem denote_nil' : ⟦([] : MultiContext n)⟧ η = id := rfl
 
-@[simp, grind =] theorem denote_cons_inst (i : Inst) :
+@[simp, grind =] theorem denote_cons_inst' (i : Inst) :
     ⟦.inl i :: C⟧ = fun η ρ => ⟦C⟧ η (⟦i⟧ ρ) := by rfl
 
-@[simp, grind =] theorem denote_cons_hole (h : Hole n) :
+@[simp, grind =] theorem denote_cons_hole' (h : Hole n) :
     ⟦.inr h :: C⟧ = fun η ρ => ⟦C⟧ η (⟦η h⟧ ρ) := by rfl
 
 @[simp, grind =]
@@ -542,39 +541,6 @@ end Residual
 # Control Flow
 -/
 
-
-end Semantics
-
-/-!
-## Contextual Refinement & Equivalence
--/
-section Contextual
-
-/--
-A pattern `I` is contextually refined by pattern `J`,
-when for any complete context `C` such that `C[I]` and `C[J]` are both
-wellformed, `C[I]` is (denotationally) refined by `C[J]`.
--/
-def Pattern.CtxRefine (I J : Pattern n) : Prop :=
-  ∀ (C : ContextCFG n), C.Complete →
-    let CI := C.plug I;
-    let CJ := C.plug J;
-    CI.WellFormed ∅ → CJ.WellFormed ∅ →
-      ⟦CI⟧ {} ⊑ ⟦CJ⟧ {}
-
-/--
-Two patterns `I` and `J` are contextually equivalent,
-when for any complete context `C` such that `C[I]` and `C[J]` are both
-wellformed, `C[I]` is (denotationally) equivalent to `C[J]`.
--/
-def Pattern.CtxEquiv (I J : Pattern n) : Prop :=
-  ∀ (C : MultiContext n), C.Complete →
-    let CI := C.plug I;
-    let CJ := C.plug J;
-    CI.WellFormed ∅ → CJ.WellFormed ∅ →
-      ⟦CI⟧ {} = ⟦CJ⟧ {}
-
-end Contextual
 
 
 /-!
