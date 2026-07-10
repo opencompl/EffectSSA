@@ -120,12 +120,12 @@ theorem denote_eq : ⟦C⟧ = fun η => C.foldl (fun ρ i =>
                                       | .inr (h : Hole n) => ⟦η h⟧ ρ) := rfl
 
 @[simp, grind =]
-theorem denote_nil : ⟦([] : MultiContext n)⟧ η = id := rfl
+theorem denote_nil' : ⟦([] : MultiContext n)⟧ η = id := rfl
 
-@[simp, grind =] theorem denote_cons_inst (i : Inst) :
+@[simp, grind =] theorem denote_cons_inst' (i : Inst) :
     ⟦.inl i :: C⟧ = fun η ρ => ⟦C⟧ η (⟦i⟧ ρ) := by rfl
 
-@[simp, grind =] theorem denote_cons_hole (h : Hole n) :
+@[simp, grind =] theorem denote_cons_hole' (h : Hole n) :
     ⟦.inr h :: C⟧ = fun η ρ => ⟦C⟧ η (⟦η h⟧ ρ) := by rfl
 
 @[simp, grind =]

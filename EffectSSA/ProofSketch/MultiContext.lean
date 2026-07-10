@@ -4,6 +4,8 @@ public import EffectSSA.ProofSketch.Inst
 public import EffectSSA.ProofSketch.Pattern
 public import EffectSSA.ProofSketch.Effect
 
+public import ITreeExtras.HasEffect
+
 @[expose] public section
 /-!
 ## Multi Context
@@ -37,10 +39,26 @@ def Hole.id (h : Hole n) : HoleId where
 is represented as an `InstEff`, and each hole as a `HoleEff`.
 -/
 @[grind]
-def MultiContext.denote [HoleEff -< ε] [InstEff -< ε] : MultiContext n → ITree ε Unit
+def MultiContext.denote : MultiContext n → ITree (HoleEff ⊕ InstEff) Unit
   | .inl i :: is => trigger InstEff i    *> denote is
   | .inr h :: is => trigger HoleEff h.id *> denote is
   | [] => .ret ()
+
+section DenoteLemmas
+
+@[simp, grind =]
+theorem MultiContext.denote_nil :
+  MultiContext.denote (n := n) [] = .ret () := rfl
+
+@[simp, grind =]
+theorem MultiContext.denote_cons_inst (i : Inst) (C : MultiContext n) :
+    MultiContext.denote (Sum.inl i :: C) = trigger InstEff i *> MultiContext.denote C := rfl
+
+@[simp, grind =]
+theorem MultiContext.denote_cons_hole (h : Hole n) (C : MultiContext n) :
+    MultiContext.denote (Sum.inr h :: C) = trigger HoleEff h.id *> MultiContext.denote C := rfl
+
+end DenoteLemmas
 
 /--
 A `HoleEnv n` associates each hole variable `h : Hole n` with an instruction sequence.
@@ -49,6 +67,9 @@ def HoleEnv n := Hole n → InstSeq
 
 namespace MultiContext
 variable (C : MultiContext n)
+
+/-! ### Completeness -/
+section Complete
 
 /--
 An `n`-ary context `C` is considered *complete* when each possible named hole `h : Hole n`
@@ -62,6 +83,7 @@ section Lemmas
 @[simp] theorem complete_cons_inst : Complete (.inl i :: C) ↔ Complete C := by grind
 
 end Lemmas
+end Complete
 
 
 /-! ### Plugging -/
@@ -189,15 +211,23 @@ end Lemmas
 end Plug
 
 /-!
-## Conversion from `InstSeq`
+## Conversion to/from `InstSeq`
 -/
 section Conv
 
 /--
+A nullary context is just a sequence of instructions.
+-/
+def toSeq : MultiContext 0 → InstSeq :=
+  List.map (fun | .inl i => i)
+instance : Coe (MultiContext 0) InstSeq where coe := toSeq
+
+/--
 `ofSeq is` interprets an instruction sequence `is` as a context,
-which happens to not have any holes.
+of arbitrary arity `n`, which happens to not have any holes.
 -/
 def ofSeq : InstSeq → MultiContext n :=
   List.map Sum.inl
+instance : Coe InstSeq (MultiContext n) where coe := ofSeq
 
 end Conv
