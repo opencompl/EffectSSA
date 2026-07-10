@@ -25,7 +25,7 @@ variable {ε : Type} {κε : ε → Type} [Effect ε κε]
 -/
 
 /--
-`ErrUB` allows raising errors (which indicate a mallformed program)
+`ErrUB` allows raising errors (which indicate a malformed program)
 as well as Undefined Behaviour.
 -/
 inductive ErrUB

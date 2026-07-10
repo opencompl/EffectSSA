@@ -44,10 +44,7 @@ def MultiContext.denote : MultiContext n → ITree (HoleEff ⊕ InstEff) Unit
   | .inr h :: is => trigger HoleEff h.id *> denote is
   | [] => .ret ()
 
-open ITree.ITree
-
 section DenoteLemmas
-variable [HoleEff -< ε] [InstEff -< ε]
 
 @[simp, grind =]
 theorem MultiContext.denote_nil :
@@ -219,14 +216,21 @@ end Lemmas
 end Plug
 
 /-!
-## Conversion to `InstSeq`
+## Conversion to/from `InstSeq`
 -/
 section Conv
 
+/--
+A nullary context is just a sequence of instructions.
+-/
 def toSeq : MultiContext 0 → InstSeq :=
   List.map (fun | .inl i => i)
 instance : Coe (MultiContext 0) InstSeq where coe := toSeq
 
+/--
+`ofSeq is` interprets an instruction sequence `is` as a context,
+of arbitrary arity `n`, which happens to not have any holes.
+-/
 def ofSeq : InstSeq → MultiContext n :=
   List.map Sum.inl
 instance : Coe InstSeq (MultiContext n) where coe := ofSeq
