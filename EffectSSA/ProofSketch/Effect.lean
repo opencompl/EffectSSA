@@ -42,6 +42,22 @@ def raiseUB [ErrUB -< ε] (reason := "") : ITree ε α :=
 def raiseError [ErrUB -< ε] (reason := "") : ITree ε α :=
   trigger ErrUB (.error reason) >>= Empty.elim
 
+section Lemmas
+
+@[simp, grind =]
+theorem bind_raiseUB [ErrUB -< ε] {α β} (reason : String) (f : α → ITree ε β) :
+    raiseUB reason >>= f = raiseUB reason := by
+  rw [raiseUB, bind_assoc]
+  exact congrArg _ <| funext (·.elim)
+
+@[simp, grind =]
+theorem bind_raiseError [ErrUB -< ε] {α β} (reason : String) (f : α → ITree ε β) :
+    raiseError reason >>= f = raiseError reason := by
+  rw [raiseError, bind_assoc]
+  exact congrArg _ <| funext (·.elim)
+
+end Lemmas
+
 /-!
 ## Opaque Side Effects
 --------------------------------------------------------------------------------
@@ -129,6 +145,17 @@ def readVar [LocalEff -< ε] (var : VarId) : ITree ε Val :=
 def pushVar [LocalEff -< ε] (var : VarId) (value : Val) : ITree ε Unit :=
   trigger LocalEff <| .push var value
 
+section Lemmas
+variable [LocalEff -< ε]
+open Subeffect (map)
+
+@[simp, grind =]
+theorem hasEffect_pushVar {e : ε} :
+    (pushVar (ε:=ε) var value).HasEffect e ↔ (Subeffect.map (.push var value : LocalEff)).fst = e := by
+  simp [pushVar, Effect.trigger]
+
+end Lemmas
+
 /-! ### Interpretation -/
 
 structure LocalStack where
@@ -182,3 +209,37 @@ noncomputable
 def interpInst [ErrUB -< ε] [SideEff -< ε] [LocalEff -< ε] :
     ITree (InstEff ⊕ ε) α → ITree ε α :=
   ITree.interpLeft handleInst
+
+/-!
+## Effect Aliasses
+--------------------------------------------------------------------------------
+-/
+
+/--
+`InterpEff` gives the effects into which instructions and terminators are
+interpreted.
+-/
+noncomputable
+abbrev InterpEff := LocalEff ⊕ SideEff ⊕ ErrUB
+
+/--
+`OpaqueEff` is the totality of effects resulting from unrolling a (closed) CFG
+(which includes interpreting terminators),
+*before* interpreting individual instructions.
+
+That is, each instruction is still an "opaque" effect.
+-/
+noncomputable
+abbrev OpaqueEff := InstEff ⊕ InterpEff
+
+/--
+`OpaqueCtxEff` is the totality of effects resulting from unrolling a CFG with
+holes (which includes interpreting terminators),
+*before* interpreting individual instructions.
+
+That is, each instruction is still an "opaque" effect.
+
+See also `OpaqueEff`, which omits the holes.
+-/
+noncomputable
+abbrev OpaqueCtxEff := HoleEff ⊕ OpaqueEff

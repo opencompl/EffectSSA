@@ -63,7 +63,7 @@ axiom Term.denote [ErrUB -< ε] [SideEff -< ε] [LocalEff -< ε] :
 
 noncomputable
 def Block.denote (b : Block n) (bId : BlockId) (args : List Val) :
-    ITree (HoleEff ⊕ InstEff ⊕ LocalEff ⊕ SideEff ⊕ ErrUB) (Branch ⊕ ReturnVals) := do
+    ITree OpaqueCtxEff (Branch ⊕ ReturnVals) := do
   unless b.args.length = args.length do
     raiseError s!"Block {bId} expected {b.args.length} arguments, but got {args.length}"
   (b.args.zip args).forM pushVar.uncurry
@@ -72,8 +72,7 @@ def Block.denote (b : Block n) (bId : BlockId) (args : List Val) :
   b.term.denote -- denote the block terminator
 
 noncomputable
-def ContextCFG.denote (C : ContextCFG n) :
-    ITree (HoleEff ⊕ InstEff ⊕ LocalEff ⊕ SideEff ⊕ ErrUB) ReturnVals :=
+def ContextCFG.denote (C : ContextCFG n) : ITree OpaqueCtxEff ReturnVals :=
   ITree.iter step ⟨C.entryId, []⟩
 where
   step := fun (⟨bId, args⟩ : Branch) => do
