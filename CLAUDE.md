@@ -13,6 +13,14 @@ The project uses Lake (Lean 4 package manager) with Mathlib v4.29.0-rc4 as its p
 
 To check a single file, open it in an editor with the Lean 4 LSP, or use `lake build` which will report errors across the project.
 
+If `lake` is not on `PATH`, invoke it through `nix`:
+
+```bash
+nix shell nixpkgs#elan -c lake build <target>
+```
+
+`elan` reads `lean-toolchain` and fetches the right `lean`/`lake` binaries.
+
 ## Project Overview
 
 **EffectSSA** is a Lean 4 formalization of a type system and semantics for programs with explicit memory effects tracked via *effect traces*. The central idea is that memory operations (load/store/alloc/free) can either hide effects implicitly or expose them explicitly through linear *effect* variables that carry a `Trace`.
