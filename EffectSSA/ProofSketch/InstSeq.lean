@@ -2,12 +2,14 @@ module
 
 public import EffectSSA.ProofSketch.Inst
 public import EffectSSA.ProofSketch.VarSet
+public import EffectSSA.ProofSketch.Effect
 
 /-!
 # Instruction Sequence
 -/
 namespace EffectSSA.ProofSketch
 open VarSet
+open ITree
 
 public abbrev InstSeq := List Inst
 
@@ -44,6 +46,21 @@ end InstSeq
 end Cons
 
 namespace InstSeq
+
+variable {ε : Type} {κ : ε → Type} [Effect ε κ]
+
+/-!
+## Denotation
+-/
+
+/--
+Denote an `InstSeq` into an ITree with `InstEff`s, i.e,
+where each instruction has a unique effect associated with it.
+-/
+public def denote : (is : InstSeq) → ITree InstEff Unit
+  | i :: is => Effect.trigger InstEff i *> denote is
+  | [] => .ret ()
+
 /-!
 ## Variables
 -/
