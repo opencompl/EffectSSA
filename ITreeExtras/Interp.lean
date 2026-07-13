@@ -2,6 +2,7 @@ module
 
 public import ITreeExtras.Definition
 public import ITreeExtras.Basic
+public import ITreeExtras.Bisim
 public import ITreeExtras.Iter
 
 /-!
@@ -76,6 +77,90 @@ variable (f : ε ⤳ ITree δ)
     suffices interp f (vis i k) ≠ ret r by grind
     grind
 
+theorem interp_bind {β} (t : ITree ε α) (k : α → ITree ε β) :
+    interp f (t >>= k) = interp f t >>= (fun a => interp f (k a)) := by
+  apply eq_of_bisim
+  apply Bisim.coinduct (fun (x y : ITree δ β) =>
+    x = y
+    ∨ ∃ (α₀ α₁ : Type u) (u : ITree δ α₀)
+        (v : α₀ → ITree ε α₁) (h : α₁ → ITree ε β),
+        x = u >>= (fun a => interp f (v a >>= h))
+      ∧ y = u >>= (fun a => interp f (v a) >>= fun b => interp f (h b)))
+  · rintro x y (rfl | ⟨α₀, α₁, u, v, h, rfl, rfl⟩)
+    · cases x with
+      | ret r => exact .inl ⟨r, rfl, rfl⟩
+      | tau t' => exact .inr (.inl ⟨t', t', .inl rfl, rfl, rfl⟩)
+      | vis i k'' => exact .inr (.inr ⟨i, k'', k'', fun _ => .inl rfl, rfl, rfl⟩)
+    · cases u with
+      | tau u' =>
+        refine .inr (.inl ⟨u' >>= (fun a => interp f (v a >>= h)),
+                           u' >>= (fun a => interp f (v a) >>= fun b => interp f (h b)),
+                           ?_, ?_, ?_⟩)
+        · exact .inr ⟨α₀, α₁, u', v, h, rfl, rfl⟩
+        · simp
+        · simp
+      | vis i k'' =>
+        refine .inr (.inr ⟨i,
+                           (fun o => k'' o >>= (fun a => interp f (v a >>= h))),
+                           (fun o => k'' o >>= (fun a => interp f (v a) >>= fun b => interp f (h b))),
+                           ?_, ?_, ?_⟩)
+        · intro o
+          exact .inr ⟨α₀, α₁, k'' o, v, h, rfl, rfl⟩
+        · simp
+        · simp
+      | ret a =>
+        cases hva : v a with
+        | ret b =>
+          -- x = y = interp f (h b); case on its top-level structure.
+          cases hz : interp f (h b) with
+          | ret r =>
+            exact .inl ⟨r, by simp [hva, hz], by simp [hva, hz]⟩
+          | tau t' =>
+            refine .inr (.inl ⟨t', t', .inl rfl, ?_, ?_⟩)
+            · simp [hva, hz]
+            · simp [hva, hz]
+          | vis i k'' =>
+            refine .inr (.inr ⟨i, k'', k'', fun _ => .inl rfl, ?_, ?_⟩)
+            · simp [hva, hz]
+            · simp [hva, hz]
+        | tau t' =>
+          refine .inr (.inl ⟨interp f (t' >>= h),
+                             interp f t' >>= (fun b => interp f (h b)),
+                             ?_, ?_, ?_⟩)
+          · exact .inr ⟨PUnit, α₁, ret ⟨⟩, fun _ => t', h, by simp, by simp⟩
+          · simp [hva]
+          · simp [hva]
+        | vis i k' =>
+          -- After simplification:
+          -- x = f i >>= fun o => tau (interp f (k' o >>= h))
+          -- y = f i >>= fun o => tau (interp f (k' o) >>= fun b => interp f (h b))
+          -- We case on f i to determine Bisim step.
+          cases hfi : f i with
+          | ret o =>
+            refine .inr (.inl ⟨interp f (k' o >>= h),
+                               interp f (k' o) >>= (fun b => interp f (h b)),
+                               ?_, ?_, ?_⟩)
+            · exact .inr ⟨PUnit, α₁, ret ⟨⟩, fun _ => k' o, h, by simp, by simp⟩
+            · simp [hva, hfi]
+            · simp [hva, hfi]
+          | tau t' =>
+            refine .inr (.inl ⟨t' >>= (fun o => tau (interp f (k' o >>= h))),
+                               t' >>= (fun o => tau (interp f (k' o) >>= fun b => interp f (h b))),
+                               ?_, ?_, ?_⟩)
+            · exact .inr ⟨_, α₁, t', fun o => tau (k' o), h, by simp, by simp⟩
+            · simp [hva, hfi]
+            · simp [hva, hfi]
+          | vis i' k'' =>
+            refine .inr (.inr ⟨i',
+                               (fun o' => k'' o' >>= (fun o => tau (interp f (k' o >>= h)))),
+                               (fun o' => k'' o' >>= (fun o => tau (interp f (k' o) >>= fun b => interp f (h b)))),
+                               ?_, ?_, ?_⟩)
+            · intro o'
+              exact .inr ⟨_, α₁, k'' o', fun o => tau (k' o), h, by simp, by simp⟩
+            · simp [hva, hfi]
+            · simp [hva, hfi]
+  · exact .inr ⟨PUnit, α, ret ⟨⟩, fun _ => t, k, by simp, by simp⟩
+
 end InterpLemmas
 
 /-! ### Interpreting Sum Effects -/
@@ -87,3 +172,9 @@ leaving events in `δ` as-is.
 -/
 def interpLeft (f : ε ⤳ ITree δ) : ITree (ε ⊕ δ) α → ITree δ α :=
   interp (Sum.casesOn · f (Effect.trigger δ))
+
+/-- `interp_bind` specialized to `interpLeft`. -/
+theorem interpLeft_bind {β} (f : ε ⤳ ITree δ)
+    (t : ITree (ε ⊕ δ) α) (k : α → ITree (ε ⊕ δ) β) :
+    (t >>= k).interpLeft f = t.interpLeft f >>= (fun a => (k a).interpLeft f) :=
+  interp_bind _ t k
