@@ -6,8 +6,12 @@ public import ITreeExtras.Definition
 # Basic (Missing) Definitions & Lemmas on ITrees
 -/
 @[expose] public section
-namespace ITree.ITree
-variable {ε} {κ} [Effect.{u} ε κ] {α} {t : ITree ε α}
+namespace ITree
+variable {ε} {κ} [Effect.{u} ε κ]
+         {ε₁ ε₂ ε'} {κ₁ κ₂ κ'} [Effect.{u} ε₁ κ₁] [Effect.{u} ε₂ κ₂] [Effect ε' κ']
+         {α} {t : ITree ε α}
+
+namespace ITree
 
 /-! Tag existing lemmas with grind -/
 attribute [grind =] unfold_fold
@@ -139,9 +143,6 @@ end ITree
 namespace Subeffect
 
 /-! ### `Subeffect.map` normalization -/
-
-variable {ε₁ ε₂ ε'} {κ₁ : ε₁ → Type _} {κ₂ : ε₂ → Type _} {κ' : ε' → Type _}
-variable [Effect ε₁ κ₁] [Effect ε₂ κ₂] [Effect ε' κ']
 
 /-- The `ε' -< (ε₁ ⊕ ε₂)` instance from `ε' -< ε₁` maps to `Sum.inl`. -/
 @[simp, grind =] theorem map_eq_inl [ε' -< ε₁] (e : ε') :
