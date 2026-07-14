@@ -161,6 +161,13 @@ theorem interp_bind {β} (t : ITree ε α) (k : α → ITree ε β) :
             · simp [hva, hfi]
   · exact .inr ⟨PUnit, α, ret ⟨⟩, fun _ => t, k, by simp, by simp⟩
 
+theorem interp_forM {γ} (xs : List γ) (g : γ → ITree ε PUnit) :
+    interp f (forM xs g) = forM xs (fun a => interp f (g a)) := by
+  induction xs with
+  | nil => simp
+  | cons x xs ih =>
+    simp only [List.forM_cons, interp_bind, ih]
+
 end InterpLemmas
 
 /-! ### Interpreting Sum Effects -/
@@ -178,3 +185,9 @@ theorem interpLeft_bind {β} (f : ε ⤳ ITree δ)
     (t : ITree (ε ⊕ δ) α) (k : α → ITree (ε ⊕ δ) β) :
     (t >>= k).interpLeft f = t.interpLeft f >>= (fun a => (k a).interpLeft f) :=
   interp_bind _ t k
+
+/-- `interp_forM` specialized to `interpLeft`. -/
+theorem interpLeft_forM {γ} (f : ε ⤳ ITree δ)
+    (xs : List γ) (g : γ → ITree (ε ⊕ δ) PUnit) :
+    (forM xs g).interpLeft f = forM xs (fun a => (g a).interpLeft f) :=
+  interp_forM _ xs g
