@@ -78,6 +78,7 @@ variable (f : ε ⤳ ITree δ)
     suffices interp f (vis i k) ≠ ret r by grind
     grind
 
+@[simp, grind =]
 theorem interp_bind {β} (t : ITree ε α) (k : α → ITree ε β) :
     interp f (t >>= k) = interp f t >>= (fun a => interp f (k a)) := by
   apply eq_of_bisim
@@ -162,12 +163,10 @@ theorem interp_bind {β} (t : ITree ε α) (k : α → ITree ε β) :
             · simp [hva, hfi]
   · exact .inr ⟨PUnit, α, ret ⟨⟩, fun _ => t, k, by simp, by simp⟩
 
+@[simp, grind =]
 theorem interp_forM {γ} (xs : List γ) (g : γ → ITree ε PUnit) :
     interp f (forM xs g) = forM xs (fun a => interp f (g a)) := by
-  induction xs with
-  | nil => simp
-  | cons x xs ih =>
-    simp only [List.forM_cons, interp_bind, ih]
+  induction xs <;> simp [*]
 
 end InterpLemmas
 
@@ -193,6 +192,7 @@ theorem interpLeft_bind {β} (t : ITree (ε ⊕ δ) α) (k : α → ITree (ε �
   interp_bind _ t k
 
 /-- `interp_forM` specialized to `interpLeft`. -/
+@[simp, grind =]
 theorem interpLeft_forM {γ} (f : ε ⤳ ITree δ)
     (xs : List γ) (g : γ → ITree (ε ⊕ δ) PUnit) :
     (forM xs g).interpLeft f = forM xs (fun a => (g a).interpLeft f) :=
