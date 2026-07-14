@@ -59,6 +59,14 @@ theorem MultiContext.denote_cons_hole (h : Hole n) (C : MultiContext n) :
     MultiContext.denote (Sum.inr h :: C) = trigger HoleEff h.id *> MultiContext.denote C := rfl
 
 @[simp, grind =]
+theorem MultiContext.denote_append (C₁ C₂ : MultiContext n) :
+    MultiContext.denote (C₁ ++ C₂) = MultiContext.denote C₁ *> MultiContext.denote C₂ := by
+  induction C₁
+  case nil => simp
+  case cons h_or_i _ _ =>
+    cases h_or_i <;> simp [*, seqRight_eq_bind]
+
+@[simp, grind =]
 theorem MultiContext.hasEffect_denote_inl_iff (C : MultiContext n) (e : HoleId) :
     C.denote.HasEffect (.inl e) ↔ ∃ h, (.inr ⟨e.toNat, h⟩) ∈ C := by
   sorry

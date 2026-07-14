@@ -138,6 +138,15 @@ theorem bind_eq_vis_iff (t : ITree ε α) (f : α → ITree ε β) (i) (k) :
 
 end Bind
 
+/-! ### SeqRight-/
+section SeqRight
+
+@[simp] theorem ret_seqRight (x : α) :
+    ret (ε:=ε) x *> t = t := by
+  simp [← pure_eq_ret, seqRight_eq]
+
+end SeqRight
+
 end ITree
 
 namespace Subeffect
