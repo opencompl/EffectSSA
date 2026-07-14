@@ -27,6 +27,7 @@ namespace ITree
 
 variable {ε} {κε} [Effect.{u} ε κε]
          {δ} {κδ} [Effect.{u} δ κδ]
+         {ε'} {κε'} [Effect.{u} ε' κε']
          {α}
 
 /--
@@ -77,6 +78,7 @@ variable (f : ε ⤳ ITree δ)
     suffices interp f (vis i k) ≠ ret r by grind
     grind
 
+@[simp, grind =]
 theorem interp_bind {β} (t : ITree ε α) (k : α → ITree ε β) :
     interp f (t >>= k) = interp f t >>= (fun a => interp f (k a)) := by
   apply eq_of_bisim
@@ -114,21 +116,19 @@ theorem interp_bind {β} (t : ITree ε α) (k : α → ITree ε β) :
           -- x = y = interp f (h b); case on its top-level structure.
           cases hz : interp f (h b) with
           | ret r =>
-            exact .inl ⟨r, by simp [hva, hz], by simp [hva, hz]⟩
+            refine .inl ⟨r, ?_⟩
+            simp [hva, hz]
           | tau t' =>
-            refine .inr (.inl ⟨t', t', .inl rfl, ?_, ?_⟩)
-            · simp [hva, hz]
-            · simp [hva, hz]
+            refine .inr (.inl ⟨t', t', .inl rfl, ?_⟩)
+            simp [hva, hz]
           | vis i k'' =>
-            refine .inr (.inr ⟨i, k'', k'', fun _ => .inl rfl, ?_, ?_⟩)
-            · simp [hva, hz]
-            · simp [hva, hz]
+            refine .inr (.inr ⟨i, k'', k'', fun _ => .inl rfl, ?_⟩)
+            simp [hva, hz]
         | tau t' =>
           refine .inr (.inl ⟨interp f (t' >>= h),
                              interp f t' >>= (fun b => interp f (h b)),
-                             ?_, ?_, ?_⟩)
+                             ?_, ?_⟩)
           · exact .inr ⟨PUnit, α₁, ret ⟨⟩, fun _ => t', h, by simp, by simp⟩
-          · simp [hva]
           · simp [hva]
         | vis i k' =>
           -- After simplification:
@@ -139,34 +139,34 @@ theorem interp_bind {β} (t : ITree ε α) (k : α → ITree ε β) :
           | ret o =>
             refine .inr (.inl ⟨interp f (k' o >>= h),
                                interp f (k' o) >>= (fun b => interp f (h b)),
-                               ?_, ?_, ?_⟩)
+                               ?_, ?_⟩)
             · exact .inr ⟨PUnit, α₁, ret ⟨⟩, fun _ => k' o, h, by simp, by simp⟩
-            · simp [hva, hfi]
             · simp [hva, hfi]
           | tau t' =>
             refine .inr (.inl ⟨t' >>= (fun o => tau (interp f (k' o >>= h))),
                                t' >>= (fun o => tau (interp f (k' o) >>= fun b => interp f (h b))),
-                               ?_, ?_, ?_⟩)
+                               ?_, ?_⟩)
             · exact .inr ⟨_, α₁, t', fun o => tau (k' o), h, by simp, by simp⟩
-            · simp [hva, hfi]
             · simp [hva, hfi]
           | vis i' k'' =>
             refine .inr (.inr ⟨i',
                                (fun o' => k'' o' >>= (fun o => tau (interp f (k' o >>= h)))),
                                (fun o' => k'' o' >>= (fun o => tau (interp f (k' o) >>= fun b => interp f (h b)))),
-                               ?_, ?_, ?_⟩)
+                               ?_, ?_⟩)
             · intro o'
               exact .inr ⟨_, α₁, k'' o', fun o => tau (k' o), h, by simp, by simp⟩
             · simp [hva, hfi]
-            · simp [hva, hfi]
   · exact .inr ⟨PUnit, α, ret ⟨⟩, fun _ => t, k, by simp, by simp⟩
 
+@[simp]
+theorem interp_seqRight {β} (t : ITree ε α) (u : ITree ε β) :
+    interp f (t *> u) = interp f t *> interp f u := by
+  simp [seqRight_eq_bind]
+
+@[simp, grind =]
 theorem interp_forM {γ} (xs : List γ) (g : γ → ITree ε PUnit) :
     interp f (forM xs g) = forM xs (fun a => interp f (g a)) := by
-  induction xs with
-  | nil => simp
-  | cons x xs ih =>
-    simp only [List.forM_cons, interp_bind, ih]
+  induction xs <;> simp [*]
 
 end InterpLemmas
 
@@ -235,14 +235,50 @@ leaving events in `δ` as-is.
 def interpLeft (f : ε ⤳ ITree δ) : ITree (ε ⊕ δ) α → ITree δ α :=
   interp (Sum.casesOn · f (Effect.trigger δ))
 
+section InterpLeftLemmas
+variable (f : ε ⤳ ITree δ)
+
+/-! ### monadic -/
+
 /-- `interp_bind` specialized to `interpLeft`. -/
-theorem interpLeft_bind {β} (f : ε ⤳ ITree δ)
-    (t : ITree (ε ⊕ δ) α) (k : α → ITree (ε ⊕ δ) β) :
+@[simp, grind =]
+theorem interpLeft_bind {β} (t : ITree (ε ⊕ δ) α) (k : α → ITree (ε ⊕ δ) β) :
     (t >>= k).interpLeft f = t.interpLeft f >>= (fun a => (k a).interpLeft f) :=
   interp_bind _ t k
 
+@[simp]
+theorem interpLeft_seqRight {β} (t : ITree (ε ⊕ δ) α) (u : ITree (ε ⊕ δ) β) :
+    interpLeft f (t *> u) = interpLeft f t *> interpLeft f u := by
+  simp [seqRight_eq_bind]
+
 /-- `interp_forM` specialized to `interpLeft`. -/
+@[simp, grind =]
 theorem interpLeft_forM {γ} (f : ε ⤳ ITree δ)
     (xs : List γ) (g : γ → ITree (ε ⊕ δ) PUnit) :
     (forM xs g).interpLeft f = forM xs (fun a => (g a).interpLeft f) :=
   interp_forM _ xs g
+
+/-! ### trigger -/
+
+/--
+When `trigger` targets the left component of `ε ⊕ δ`, `interpLeft` handles
+it via the user-provided handler `f`.
+-/
+@[simp, grind =]
+theorem interpLeft_trigger_inl [ε' -< ε] (i : ε') :
+    interpLeft f (Effect.trigger (ε₂ := ε ⊕ δ) ε' i)
+      = f (Subeffect.map (ε₂ := ε) i).fst
+        >>= fun o => tau (return ((Subeffect.map (ε₂ := ε) i).snd o)) := by
+  simp [interpLeft, Effect.trigger]
+
+/--
+When `trigger` targets the right component of `ε ⊕ δ`, `interpLeft` passes
+it through as a `trigger` in `ITree δ`.
+-/
+@[simp, grind =]
+theorem interpLeft_trigger_inr [ε' -< δ] (i : ε') :
+    interpLeft f (Effect.trigger (ε₂ := ε ⊕ δ) ε' i)
+      = Effect.trigger (ε₂ := δ) ε' i >>= fun o => tau (return o) := by
+  simp [interpLeft, Effect.trigger]
+
+end InterpLeftLemmas
