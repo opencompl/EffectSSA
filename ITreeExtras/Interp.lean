@@ -116,21 +116,19 @@ theorem interp_bind {β} (t : ITree ε α) (k : α → ITree ε β) :
           -- x = y = interp f (h b); case on its top-level structure.
           cases hz : interp f (h b) with
           | ret r =>
-            exact .inl ⟨r, by simp [hva, hz], by simp [hva, hz]⟩
+            refine .inl ⟨r, ?_⟩
+            simp [hva, hz]
           | tau t' =>
-            refine .inr (.inl ⟨t', t', .inl rfl, ?_, ?_⟩)
-            · simp [hva, hz]
-            · simp [hva, hz]
+            refine .inr (.inl ⟨t', t', .inl rfl, ?_⟩)
+            simp [hva, hz]
           | vis i k'' =>
-            refine .inr (.inr ⟨i, k'', k'', fun _ => .inl rfl, ?_, ?_⟩)
-            · simp [hva, hz]
-            · simp [hva, hz]
+            refine .inr (.inr ⟨i, k'', k'', fun _ => .inl rfl, ?_⟩)
+            simp [hva, hz]
         | tau t' =>
           refine .inr (.inl ⟨interp f (t' >>= h),
                              interp f t' >>= (fun b => interp f (h b)),
-                             ?_, ?_, ?_⟩)
+                             ?_, ?_⟩)
           · exact .inr ⟨PUnit, α₁, ret ⟨⟩, fun _ => t', h, by simp, by simp⟩
-          · simp [hva]
           · simp [hva]
         | vis i k' =>
           -- After simplification:
@@ -141,25 +139,22 @@ theorem interp_bind {β} (t : ITree ε α) (k : α → ITree ε β) :
           | ret o =>
             refine .inr (.inl ⟨interp f (k' o >>= h),
                                interp f (k' o) >>= (fun b => interp f (h b)),
-                               ?_, ?_, ?_⟩)
+                               ?_, ?_⟩)
             · exact .inr ⟨PUnit, α₁, ret ⟨⟩, fun _ => k' o, h, by simp, by simp⟩
-            · simp [hva, hfi]
             · simp [hva, hfi]
           | tau t' =>
             refine .inr (.inl ⟨t' >>= (fun o => tau (interp f (k' o >>= h))),
                                t' >>= (fun o => tau (interp f (k' o) >>= fun b => interp f (h b))),
-                               ?_, ?_, ?_⟩)
+                               ?_, ?_⟩)
             · exact .inr ⟨_, α₁, t', fun o => tau (k' o), h, by simp, by simp⟩
-            · simp [hva, hfi]
             · simp [hva, hfi]
           | vis i' k'' =>
             refine .inr (.inr ⟨i',
                                (fun o' => k'' o' >>= (fun o => tau (interp f (k' o >>= h)))),
                                (fun o' => k'' o' >>= (fun o => tau (interp f (k' o) >>= fun b => interp f (h b)))),
-                               ?_, ?_, ?_⟩)
+                               ?_, ?_⟩)
             · intro o'
               exact .inr ⟨_, α₁, k'' o', fun o => tau (k' o), h, by simp, by simp⟩
-            · simp [hva, hfi]
             · simp [hva, hfi]
   · exact .inr ⟨PUnit, α, ret ⟨⟩, fun _ => t, k, by simp, by simp⟩
 
