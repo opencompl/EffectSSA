@@ -242,13 +242,5 @@ end Interp
 
 end Lemmas
 
-/-! ## InterpLeft over lift -/
-section InterpLeftLift
-variable {η₁ κη₁} [Effect.{u} η₁ κη₁] {η₂ κη₂} [Effect.{u} η₂ κη₂]
-         [ε -< η₁ ⊕ η₂]
-
-
-end InterpLeftLift
-
 end ITree
 end ITree
