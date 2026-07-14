@@ -62,6 +62,7 @@ section Basic
           (fun x => tau (lift (k ((Subeffect.map i).2 x)))) := by
   simp only [lift, interp_vis, vis_bind, bind_ret, Function.comp]
 
+@[simp]
 theorem liftM_eq_lift (t : ITree ε α) :
     liftM (n:=ITree δ) t = lift (δ := δ) t := rfl
 
