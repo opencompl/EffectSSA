@@ -179,8 +179,7 @@ variable (f : ε ⤳ ITree δ)
 
 /-- `interp_bind` specialized to `interpLeft`. -/
 @[simp, grind =]
-theorem interpLeft_bind {β} (f : ε ⤳ ITree δ)
-    (t : ITree (ε ⊕ δ) α) (k : α → ITree (ε ⊕ δ) β) :
+theorem interpLeft_bind {β} (t : ITree (ε ⊕ δ) α) (k : α → ITree (ε ⊕ δ) β) :
     (t >>= k).interpLeft f = t.interpLeft f >>= (fun a => (k a).interpLeft f) :=
   interp_bind _ t k
 
