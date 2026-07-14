@@ -78,6 +78,7 @@ variable (f : ε ⤳ ITree δ)
     suffices interp f (vis i k) ≠ ret r by grind
     grind
 
+@[simp, grind =]
 theorem interp_bind {β} (t : ITree ε α) (k : α → ITree ε β) :
     interp f (t >>= k) = interp f t >>= (fun a => interp f (k a)) := by
   apply eq_of_bisim
@@ -162,6 +163,16 @@ theorem interp_bind {β} (t : ITree ε α) (k : α → ITree ε β) :
             · simp [hva, hfi]
   · exact .inr ⟨PUnit, α, ret ⟨⟩, fun _ => t, k, by simp, by simp⟩
 
+@[simp]
+theorem interp_seqRight {β} (t : ITree ε α) (u : ITree ε β) :
+    interp f (t *> u) = interp f t *> interp f u := by
+  simp [seqRight_eq_bind]
+
+@[simp, grind =]
+theorem interp_forM {γ} (xs : List γ) (g : γ → ITree ε PUnit) :
+    interp f (forM xs g) = forM xs (fun a => interp f (g a)) := by
+  induction xs <;> simp [*]
+
 end InterpLemmas
 
 /-! ### Interpreting Sum Effects -/
@@ -177,11 +188,27 @@ def interpLeft (f : ε ⤳ ITree δ) : ITree (ε ⊕ δ) α → ITree δ α :=
 section InterpLeftLemmas
 variable (f : ε ⤳ ITree δ)
 
+/-! ### monadic -/
+
 /-- `interp_bind` specialized to `interpLeft`. -/
 @[simp, grind =]
 theorem interpLeft_bind {β} (t : ITree (ε ⊕ δ) α) (k : α → ITree (ε ⊕ δ) β) :
     (t >>= k).interpLeft f = t.interpLeft f >>= (fun a => (k a).interpLeft f) :=
   interp_bind _ t k
+
+@[simp]
+theorem interpLeft_seqRight {β} (t : ITree (ε ⊕ δ) α) (u : ITree (ε ⊕ δ) β) :
+    interpLeft f (t *> u) = interpLeft f t *> interpLeft f u := by
+  simp [seqRight_eq_bind]
+
+/-- `interp_forM` specialized to `interpLeft`. -/
+@[simp, grind =]
+theorem interpLeft_forM {γ} (f : ε ⤳ ITree δ)
+    (xs : List γ) (g : γ → ITree (ε ⊕ δ) PUnit) :
+    (forM xs g).interpLeft f = forM xs (fun a => (g a).interpLeft f) :=
+  interp_forM _ xs g
+
+/-! ### trigger -/
 
 /--
 When `trigger` targets the left component of `ε ⊕ δ`, `interpLeft` handles
