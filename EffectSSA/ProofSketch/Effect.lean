@@ -43,6 +43,7 @@ def raiseError [ErrUB -< ε] (reason := "") : ITree ε α :=
   trigger ErrUB (.error reason) >>= Empty.elim
 
 section Lemmas
+open Subeffect (map)
 
 @[simp, grind =]
 theorem bind_raiseUB [ErrUB -< ε] {α β} (reason : String) (f : α → ITree ε β) :
@@ -63,6 +64,15 @@ theorem interpLeft_raiseError [ErrUB -< δ] (f : ε ⤳ ITree δ) (reason : Stri
   simp only [raiseError, ITree.interpLeft_bind, tau_bind, ITree.bind_ret,
     ITree.interpLeft_trigger_inr f (ErrUB.error reason), ITree.pure_eq_ret, bind_assoc]
   congr; grind
+
+@[grind =]
+theorem raiseError_eq_vis_iff [ErrUB -< ε] {reason : String} {j : ε}
+    {k : κε j → ITree ε α} :
+    (raiseError reason : ITree ε α) = ITree.vis j k ↔
+    (map (ε₂:=ε) (.error reason : ErrUB)).fst = j ∧
+    (fun x : κε (map (ε₂:=ε) (.error reason : ErrUB)).fst =>
+      (Empty.elim ((map (ε₂:=ε) (.error reason : ErrUB)).snd x) : ITree ε α)) ≍ k := by
+  simp [raiseError, trigger]
 
 end Lemmas
 
