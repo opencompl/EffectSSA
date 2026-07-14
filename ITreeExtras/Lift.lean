@@ -25,14 +25,17 @@ instance instCoeTOfSubeffect [ε -< δ] {e} : CoeT ε e δ where
 end Effect
 
 namespace ITree
+open Subeffect (map mapEff mapCont)
 
 /--
 Translate an ITree along a subeffect inclusion `[ε -< δ]`.
 -/
-def lift [ε -< δ] : ITree ε α → ITree δ α :=
-  interp fun i =>
-    let ⟨j, k⟩ := Subeffect.map i
-    .vis j (.ret ∘ k)
+def lift [ε -< δ] (t : ITree ε α) : ITree δ α :=
+  match t.unfold with
+  | .ret x => .ret x
+  | .tau u => .tau u.lift
+  | .vis i k => .vis (mapEff i) (fun o => k (mapCont i o) |>.lift)
+  partial_fixpoint
 
 /-- NOTE: the following instance cannot be defined on `MonadLift`, given that
 class's first argument is an `outParam`, so we define `MonadLiftT` directly. -/
@@ -54,31 +57,32 @@ section Basic
 
 @[simp, grind =] theorem lift_tau (t : ITree ε α) :
     lift (δ := δ) (tau t) = tau (lift t) := by
-  simp [lift]
+  conv => {lhs; rw [lift]}
+  simp
 
 @[simp, grind =] theorem lift_vis (i : ε) (k : κε i → ITree ε α) :
     lift (δ := δ) (vis i k)
-      = vis (Subeffect.map i).1
-          (fun x => tau (lift (k ((Subeffect.map i).2 x)))) := by
-  simp only [lift, interp_vis, vis_bind, bind_ret, Function.comp]
+    = vis (mapEff i) (fun o => k (mapCont i o) |>.lift) := by
+  conv => {lhs; rw [lift]}
+  simp
 
 theorem liftM_eq_lift (t : ITree ε α) :
     liftM (n:=ITree δ) t = lift (δ := δ) t := rfl
 
 @[simp, grind =] theorem lift_eq_ret_iff (t : ITree ε α) (r : α) :
     t.lift (δ:=δ) = ret r ↔ t = ret r := by
-  simp [lift]
+  rw [lift]; grind
 
 @[simp] theorem lift_eq_tau_iff (t : ITree ε α) :
     t.lift (δ:=δ) = tau t' ↔ ∃ u, t = tau u ∧ t' = u.lift := by
-  cases t <;> (simp; grind)
+  rw [lift]; grind
 
 open Subeffect (map) in
 @[simp] theorem lift_eq_vis_iff (t : ITree ε α) :
     t.lift (δ:=δ) (κδ:=κδ) = vis i k ↔ ∃ j l,
       t = vis j l
       ∧ i = (map j).1
-      ∧ k ≍ (fun x => tau <| (l ((map (ε₂:=δ) j).2 x)).lift (δ:=δ)) := by
+      ∧ k ≍ (fun x => (l ((map (ε₂:=δ) j).2 x)).lift (δ:=δ)) := by
   cases t
   case ret => simp
   case tau => simp
@@ -116,9 +120,9 @@ theorem mayReturn_liftM (t : ITree ε α) :
       obtain ⟨j, l, ⟨rfl, rfl⟩, rfl, rfl⟩ : ∃ j l,
           t = vis j l
           ∧ i = (map j).fst
-          ∧ k ≍ fun x => (l ((map j).snd x)).lift.tau := by
+          ∧ k ≍ fun x => (l ((map j).snd x)).lift := by
         simpa using ht
-      specialize ih (l ((map j).snd o)).tau
+      specialize ih (l ((map j).snd o))
       grind
   · intro h
     induction h
@@ -138,15 +142,14 @@ end MayReturn
 /-! ### HasEffect -/
 section HasEffect
 
-open Subeffect (map) in
 @[simp, grind =]
 theorem hasEffect_liftM (t : ITree ε α) {e : δ} :
     (liftM (n:=ITree δ) t).HasEffect e ↔
-      ∃ e', t.HasEffect e' ∧ (Subeffect.map e').fst = e := by
+      ∃ e', t.HasEffect e' ∧ mapEff e' = e := by
   rw [liftM_eq_lift]
   constructor
   · suffices h : ∀ (t' : ITree δ α) (t : ITree ε α), t' = t.lift → t'.HasEffect e →
-        ∃ e', t.HasEffect e' ∧ (Subeffect.map e').fst = e by
+        ∃ e', t.HasEffect e' ∧ mapEff e' = e by
       grind
     intro t' t ht h_eff
     induction h_eff generalizing t with
@@ -157,8 +160,8 @@ theorem hasEffect_liftM (t : ITree ε α) {e : δ} :
       | ret r => simp_all
       | tau t' => simp_all
       | vis i₀ k₀ =>
-        obtain rfl : (Subeffect.map i₀).fst = i' := by grind
-        specialize ih (tau (k₀ ((Subeffect.map i₀).2 o)))
+        obtain rfl : mapEff i₀ = i' := by grind
+        specialize ih (k₀ (mapCont i₀ o))
         grind
   · rintro ⟨e', he', rfl⟩
     induction he' with
@@ -172,7 +175,33 @@ theorem hasEffect_liftM (t : ITree ε α) {e : δ} :
       grind
 
 end HasEffect
+
+/-! ### Interp -/
+section Interp
+variable {η κη} [Effect.{u} η κη]
+
+open Subeffect (mapEff mapCont)
+
+/-- Interpretation composes with `lift` -/
+theorem interp_lift (f : δ ⤳ ITree η) (t : ITree ε α) :
+    interp f (lift (δ := δ) t)
+      = interp (fun i : ε => do
+          let x ← (f (mapEff i))
+          return mapCont _ x
+          ) t := by
+  sorry
+
+end Interp
+
 end Lemmas
+
+/-! ## InterpLeft over lift -/
+section InterpLeftLift
+variable {η₁ κη₁} [Effect.{u} η₁ κη₁] {η₂ κη₂} [Effect.{u} η₂ κη₂]
+         [ε -< η₁ ⊕ η₂]
+
+
+end InterpLeftLift
 
 end ITree
 end ITree
