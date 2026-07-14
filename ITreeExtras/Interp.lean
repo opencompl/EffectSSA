@@ -170,6 +170,61 @@ theorem interp_forM {γ} (xs : List γ) (g : γ → ITree ε PUnit) :
 
 end InterpLemmas
 
+/--
+Interpretation composes: interpreting `t` through `g` then `h` is the same as
+interpreting `t` through the pointwise composition `interp h ∘ g`.
+-/
+@[simp, grind =]
+theorem interp_interp {η κη} [Effect.{u} η κη]
+    (g : ε ⤳ ITree δ) (h : δ ⤳ ITree η) (t : ITree ε α) :
+    interp h (interp g t) = interp (fun i => interp h (g i)) t := by
+  apply eq_of_bisim
+  apply Bisim.coinduct (fun (x y : ITree η α) =>
+    ∃ (α₀ : Type u) (u : ITree η α₀) (k : α₀ → ITree ε α),
+        x = u >>= (fun a => interp h (interp g (k a)))
+      ∧ y = u >>= (fun a => interp (fun i => interp h (g i)) (k a)))
+  · rintro x y ⟨α₀, u, k, rfl, rfl⟩
+    cases u with
+    | tau u' =>
+      simp only [tau_bind]
+      right; left
+      exact ⟨_, _, ⟨_, u', k, rfl, rfl⟩, rfl, rfl⟩
+    | vis j k'' =>
+      simp only [vis_bind]
+      right; right
+      exact ⟨j, _, _, fun o => ⟨_, k'' o, k, rfl, rfl⟩, rfl, rfl⟩
+    | ret a =>
+      simp only [pure_bind]
+      cases k a with
+      | ret r =>
+        simp only [interp_pure]
+        left
+        exact ⟨r, rfl, rfl⟩
+      | tau t' =>
+        simp only [interp_tau]
+        right; left
+        refine ⟨_, _, ⟨_, ret ⟨⟩, fun _ : PUnit => t', ?_⟩, rfl, rfl⟩
+        simp
+      | vis i k'' =>
+        simp only [interp_vis, interp_bind, interp_tau]
+        cases interp h (g i) with
+        | ret o =>
+          simp only [pure_bind]
+          right; left
+          refine ⟨_, _, ⟨_, ret ⟨⟩, fun _ : PUnit => k'' o, ?_⟩, rfl, rfl⟩
+          simp
+        | tau t' =>
+          simp only [tau_bind]
+          right; left
+          refine ⟨_, _, ⟨_, t', fun o => tau (k'' o), ?_⟩, rfl, rfl⟩
+          simp
+        | vis j' k''' =>
+          simp only [vis_bind]
+          right; right
+          refine ⟨j', _, _, fun o' => ⟨_, k''' o', fun o => tau (k'' o), ?_⟩, rfl, rfl⟩
+          simp
+  · refine ⟨PUnit, ret ⟨⟩, fun _ => t, ?_⟩; simp
+
 /-! ### Interpreting Sum Effects -/
 
 /--
