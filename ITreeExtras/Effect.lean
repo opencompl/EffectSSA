@@ -30,6 +30,20 @@ class Subeffect (ε₁ ε₂) {κ₁ : outParam _} {κ₂ : outParam _}
 infix:20 " -< " => Subeffect
 attribute [grind! .] Subeffect.map_surj
 
+/-! ## Subeffect Definitions -/
+namespace Subeffect
+variable [Effect ε₁ κ₁] [Effect ε₂ κ₂]
+
+@[simp, grind] abbrev mapEff [ε₁ -< ε₂] (i₁ : ε₁) : ε₂ :=
+  (map i₁).1
+
+@[simp, grind] abbrev mapCont [ε₁ -< ε₂] (i₁ : ε₁) : κ₂ (mapEff i₁) → κ₁ i₁ :=
+  (map i₁).2
+
+end Subeffect
+
+/-! ## Instances -/
+
 instance [Effect ε κ] : ε -< ε where
   map i := ⟨i, λ x => x⟩
 
