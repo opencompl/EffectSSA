@@ -101,21 +101,14 @@ def ProgramCFG.interp (P : ProgramCFG) : (ITree (SideEff ⊕ ErrUB)) ReturnVals 
 /-!
 ## ContextCFG API
 -/
-namespace ContextCFG
 variable {C : ContextCFG n}
+attribute [simp, grind .] ContextCFG.entryId_mem_blocks
 
-attribute [simp, grind .] entryId_mem_blocks
+namespace ContextCFG
 
-/-! ### Plug -/
-section Plug
+/-! ### InterpHoles -/
+section InterpHoles
 
-def plug (C : ContextCFG n) (I : Pattern n) : ProgramCFG :=
-  { C with
-    blocks := C.blocks.map fun _ block => { block with
-      code := block.code.plug I
-    }
-    entryId_mem_blocks := by simp
-  }
 
 -- @[simp, grind =] theorem fromId?_zero : Hole.fromId? (n := 0) x = raiseError _ := by
 --   simp [Hole.fromId?]
@@ -146,7 +139,7 @@ theorem Block.denote_hasEffect_hole_iff (b : Block n) (bId : BlockId) (args : Li
   sorry
 
 theorem interpHoles_program (P : ProgramCFG) {f g : HoleId → ITree (ErrUB ⊕ InstEff) Unit} :
-    interpHoles f P.denote = interpHoles g P.denote := by
+    interpHoles (f ·) P.denote = interpHoles g P.denote := by
   simp only [interpHoles]
   apply ITree.interpLeft_congr
   intro e he
@@ -155,14 +148,90 @@ theorem interpHoles_program (P : ProgramCFG) {f g : HoleId → ITree (ErrUB ⊕ 
     grind [denote]
   grind [denote.step]
 
-theorem interp_plug {C : ContextCFG n} {I : Pattern n} :
+end InterpHoles
+end ContextCFG
+
+/-! ### Plug -/
+section Plug
+
+def Block.plug (b : Block n) (I : Pattern n) : Block 0 :=
+  { b with code := b.code.plug I }
+
+def ContextCFG.plug (C : ContextCFG n) (I : Pattern n) : ProgramCFG :=
+  { C with
+    blocks := C.blocks.map fun _ block => block.plug I
+    entryId_mem_blocks := by simp
+  }
+
+@[simp, grind =] theorem ContextCFG.entryId_plug : (C.plug I).entryId = C.entryId := by rfl
+
+@[simp, grind =] theorem ContextCFG.getElem?_blocks_plug (bId : BlockId) :
+    (C.plug I).blocks[bId]? = (·.plug I) <$> C.blocks[bId]? := by
+  simp [plug]
+
+@[simp]
+theorem Block.interp_plug {b : Block n} {br : Branch} {I : Pattern n}
+    {f : HoleId → ITree OpaqueEff Unit} :
+    ((b.plug I).denote br.target br.args).interpLeft f
+    = let g : Hole n → ITree (InstEff ⊕ ErrUB) Unit := fun h => I[h].denote.lift
+      (b.denote br.target br.args).interpLeft (do
+          let h ← Hole.fromId? ·
+          (g h).lift) := by
+  -- rcases b with ⟨args, code, term⟩
+  simp only [denote, plug, ITree.pure_eq_ret, List.forM_eq_forM, ITree.bind_ret,
+    Nat.toString_eq_repr, bind_raiseError, Pattern.getElem_hole]
+  by_cases b.args.length = br.args.length
+  case neg => grind
+  case pos hargs =>
+    simp only [hargs, ↓reduceIte, ITree.interpLeft_bind]
+    simp
+    suffices
+      ITree.interpLeft f (liftM (MultiContext.ofSeq (b.code.plug I)).denote)
+      = ITree.interpLeft
+      (fun x => do
+        let h : Hole n ← Hole.fromId? x
+        I[↑h].denote.lift)
+      (liftM b.code.denote)
+    by sorry
+
+
+
+open ITree in
+theorem ContextCFG.interp_plug {C : ContextCFG n} {I : Pattern n} :
     (C.plug I).interp = C.interp (liftM <| I[·].denote) := by
   simp only [ProgramCFG.interp, interp, Pattern.getElem_hole]
   congr 2
-  rw [denote]
+  simp only [denote, entryId_plug]
+  apply ITree.eq_of_bisim
+  apply ITree.Bisim.coinduct <| fun t u =>
+    ∃ b : Branch,
+      t = (interpHoles (ε:=ErrUB ⊕ InstEff) (fun x => Hole.fromId? x >>= Hole.elim0)
+            (ITree.iter (denote.step (C.plug I)) b))
+      ∧ u = (interpHoles (ε:=ErrUB ⊕ InstEff)
+              (fun x => do
+                let x : Hole n ← Hole.fromId? x
+                liftM I[Fin.val x].denote)
+              (ITree.iter (denote.step C) b))
+  · rintro t u ⟨br, ht, hu⟩
+    simp only [ITree.iter, denote.step, getElem?_blocks_plug, Option.map_eq_map,
+      interpHoles, interpLeft_bind] at ht hu
+    cases hb : C.blocks[br.target]?
+    case none =>
+      simp [hb] at ht hu ⊢
+      simp_all
+      sorry
+    case some b =>
+      simp only [hb, Option.map_some] at ht hu ⊢
+      simp at ht hu
+
+      sorry
+
+
+
+  · grind
+
 
   stop
-
   generalize ht : denote (C.plug I) = t
 
 
@@ -188,6 +257,8 @@ theorem interp_plug {C : ContextCFG n} {I : Pattern n} :
 
 
 end Plug
+
+namespace ContextCFG
 
 /-! ### BlockRef -/
 section BlockRef

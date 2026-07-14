@@ -237,5 +237,17 @@ instance : Coe InstSeq (MultiContext n) where coe := ofSeq
 
 section Lemmas
 
+@[simp, grind =]
+theorem denote_ofSeq (is : InstSeq) :
+    (@ofSeq n is).denote = is.denote.lift := by
+  simp [ofSeq]
+  induction is
+  · simp
+  · simp [*]
+    -- NB: under the current definition of `lift`, which inserts a `tau` after each visible event,
+    --     the current statement (in terms of strong bisim) is *not true*!
+    --     The equivalence holds only up-to weak bisim.
+    sorry
+
 end Lemmas
 end Conv
