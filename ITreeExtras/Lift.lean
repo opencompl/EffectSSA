@@ -62,10 +62,6 @@ section Basic
           (fun x => tau (lift (k ((Subeffect.map i).2 x)))) := by
   simp only [lift, interp_vis, vis_bind, bind_ret, Function.comp]
 
-@[simp]
-theorem liftM_eq_lift (t : ITree ε α) :
-    liftM (n:=ITree δ) t = lift (δ := δ) t := rfl
-
 @[simp, grind =] theorem lift_eq_ret_iff (t : ITree ε α) (r : α) :
     t.lift (δ:=δ) = ret r ↔ t = ret r := by
   simp [lift]
@@ -91,6 +87,32 @@ open Subeffect (map) in
       and_intros <;> rfl
 
 end Basic
+
+/-! ### Lifting Monadic Ops -/
+section Monadic
+
+@[simp, grind =_]
+theorem liftM_eq_lift (t : ITree ε α) :
+    liftM (n:=ITree δ) t = lift (δ := δ) t := rfl
+
+@[simp, grind =] theorem lift_pure (r : α) :
+    (lift (pure r : ITree ε _) : ITree δ _) = pure r := by simp
+
+@[simp, grind =]
+theorem lift_bind (t : ITree ε α) (k : α → ITree ε β) :
+    (lift (t >>= k) : ITree δ _) = t.lift >>= (k · |>.lift) := by
+  simp [lift, interp_bind]
+
+instance : LawfulMonadLiftT (ITree ε) (ITree δ) where
+  monadLift_pure := lift_pure
+  monadLift_bind := lift_bind
+
+@[simp]
+theorem lift_seqRight (t : ITree ε α) (u : ITree ε β) :
+    ((t *> u).lift : ITree δ _) = t.lift *> u.lift := by
+  simp [← liftM_eq_lift]
+
+end Monadic
 
 /-! ### MayReturn -/
 section MayReturn
