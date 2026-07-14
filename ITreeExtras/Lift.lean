@@ -189,7 +189,54 @@ theorem interp_lift (f : δ ⤳ ITree η) (t : ITree ε α) :
           let x ← (f (mapEff i))
           return mapCont _ x
           ) t := by
-  sorry
+  apply eq_of_bisim
+  apply Bisim.coinduct (fun (x y : ITree η α) =>
+    ∃ (α₀ : Type u) (u : ITree η α₀) (k : α₀ → ITree ε α),
+        x = u >>= (fun a => interp f (lift (δ := δ) (k a)))
+      ∧ y = u >>= (fun a => interp (fun i : ε => do
+          let x ← (f (mapEff i))
+          return mapCont i x) (k a)))
+  · rintro x y ⟨α₀, u, k, rfl, rfl⟩
+    cases u with
+    | tau u' =>
+      simp only [tau_bind]
+      right; left
+      exact ⟨_, _, ⟨_, u', k, rfl, rfl⟩, rfl, rfl⟩
+    | vis j k'' =>
+      simp only [vis_bind]
+      right; right
+      exact ⟨j, _, _, fun o => ⟨_, k'' o, k, rfl, rfl⟩, rfl, rfl⟩
+    | ret a =>
+      simp only [pure_bind]
+      cases k a with
+      | ret r => simp
+      | tau t' =>
+        simp only [lift_tau, interp_tau]
+        right; left
+        refine ⟨_, _, ⟨_, ret ⟨⟩, fun _ : PUnit => t', ?_⟩, rfl, rfl⟩
+        simp
+      | vis i k'' =>
+        simp only [lift_vis, interp_vis, bind_assoc, pure_bind]
+        cases f (mapEff i) with
+        | ret o =>
+          simp only [pure_bind]
+          right; left
+          refine ⟨_, _, ⟨_, ret ⟨⟩, fun _ : PUnit => k'' (mapCont i o), ?_⟩, rfl, rfl⟩
+          simp
+        | tau t' =>
+          simp only [tau_bind]
+          right; left
+          refine ⟨_, _, ⟨_, t', fun x => tau (k'' (mapCont i x)), ?_⟩, rfl, rfl⟩
+          simp
+        | vis j k''' =>
+          simp only [vis_bind]
+          right; right
+          refine ⟨j, _, _,
+                  fun o' => ⟨_, k''' o', fun x => tau (k'' (mapCont i x)), ?_⟩,
+                  rfl, rfl⟩
+          simp
+  · refine ⟨PUnit, ret ⟨⟩, fun _ => t, ?_⟩
+    simp
 
 end Interp
 
