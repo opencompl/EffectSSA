@@ -163,6 +163,11 @@ theorem interp_bind {β} (t : ITree ε α) (k : α → ITree ε β) :
             · simp [hva, hfi]
   · exact .inr ⟨PUnit, α, ret ⟨⟩, fun _ => t, k, by simp, by simp⟩
 
+@[simp]
+theorem interp_seqRight {β} (t : ITree ε α) (u : ITree ε β) :
+    interp f (t *> u) = interp f t *> interp f u := by
+  simp [seqRight_eq_bind]
+
 @[simp, grind =]
 theorem interp_forM {γ} (xs : List γ) (g : γ → ITree ε PUnit) :
     interp f (forM xs g) = forM xs (fun a => interp f (g a)) := by
@@ -190,6 +195,11 @@ variable (f : ε ⤳ ITree δ)
 theorem interpLeft_bind {β} (t : ITree (ε ⊕ δ) α) (k : α → ITree (ε ⊕ δ) β) :
     (t >>= k).interpLeft f = t.interpLeft f >>= (fun a => (k a).interpLeft f) :=
   interp_bind _ t k
+
+@[simp]
+theorem interpLeft_seqRight {β} (t : ITree (ε ⊕ δ) α) (u : ITree (ε ⊕ δ) β) :
+    interpLeft f (t *> u) = interpLeft f t *> interpLeft f u := by
+  simp [seqRight_eq_bind]
 
 /-- `interp_forM` specialized to `interpLeft`. -/
 @[simp, grind =]
