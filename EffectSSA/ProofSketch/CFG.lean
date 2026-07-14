@@ -198,17 +198,43 @@ theorem Block.interp_plug {b : Block n} {br : Branch} {I : Pattern n}
   case neg => grind
   case pos hargs =>
     simp only [hargs, ↓reduceIte, ITree.interpLeft_bind]
-    simp
-    suffices
-      ITree.interpLeft f (liftM (MultiContext.ofSeq (b.code.plug I)).denote)
-      = ITree.interpLeft
-      (fun x => do
-        let h : Hole n ← Hole.fromId? x
-        I[↑h].denote.lift)
-      (liftM b.code.denote)
-    by sorry
-
-
+    simp only [ITree.interpLeft_forM, MultiContext.denote_ofSeq, ITree.liftM_eq_lift]
+    congr 2
+    · funext ⟨var, val⟩
+      simp [Effect.trigger, ITree.interpLeft, pushVar]
+    funext ⟨⟩
+    congr 1
+    · -- The main interesting bit of the proof
+      induction b.code
+      case nil =>
+        -- TODO: interpLeft_ret simp-lemma
+        simp [ITree.interpLeft]
+      case cons i_or_h is ih =>
+        rcases i_or_h with i|h
+        · simp only [MultiContext.plug_cons_inst, InstSeq.denote_cons, ITree.lift_seqRight,
+          ITree.interpLeft_seqRight, ih, MultiContext.denote_cons_inst];
+          congr 1
+          simp only [ITree.interpLeft, Effect.trigger, Subeffect.map_eq_self, id_eq,
+            ITree.pure_eq_ret, ITree.lift_vis, Subeffect.map_eq_inr, ITree.lift_ret,
+            Subeffect.map_inr, Subeffect.map_eq_inl, ITree.lift_tau, ITree.interp_vis,
+            ITree.interp_tau, ITree.interp_ret, vis_bind, ITree.bind_ret, ITree.vis_inj, heq_eq_eq,
+            true_and]
+          sorry
+          -- ^^ The above sorry is *NOT* provable, since there is a mismatch in the
+          -- number of tau's on each side. However, in the proof we've been using a
+          -- sorried rewrite which similarly is not actually true due to a tau
+          -- mismatch, perhaps this is where our missing tau went.
+        · simp only [MultiContext.plug_cons_hole, Pattern.getElem_hole, InstSeq.denote_append,
+          ITree.lift_seqRight, ITree.interpLeft_seqRight, ih, MultiContext.denote_cons_hole]
+          congr 1
+          conv => {
+            rhs
+            simp [ITree.interpLeft, Effect.trigger]
+          }
+          sorry
+          -- ^^ Again, we're left with a mismatch in the number of taus
+    · -- ought to be trivial, with the right lemmas
+      sorry
 
 open ITree in
 theorem ContextCFG.interp_plug {C : ContextCFG n} {I : Pattern n} :
