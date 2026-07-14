@@ -57,6 +57,14 @@ theorem bind_raiseError [ErrUB -< ε] {α β} (reason : String) (f : α → ITre
   rw [raiseError, bind_assoc]
   exact congrArg _ <| funext (·.elim)
 
+@[simp, grind =]
+theorem interpLeft_raiseError [ErrUB -< δ] (f : ε ⤳ ITree δ) (reason : String) :
+    ITree.interpLeft f (raiseError reason : ITree (ε ⊕ δ) α)
+      = raiseError reason := by
+  simp only [raiseError, ITree.interpLeft_bind, tau_bind, ITree.bind_ret,
+    ITree.interpLeft_trigger_inr f (ErrUB.error reason), ITree.pure_eq_ret, bind_assoc]
+  congr; grind
+  
 @[grind =]
 theorem raiseError_eq_vis_iff [ErrUB -< ε] {reason : String} {j : ε}
     {k : κε j → ITree ε α} :

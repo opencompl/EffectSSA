@@ -27,6 +27,7 @@ namespace ITree
 
 variable {ε} {κε} [Effect.{u} ε κε]
          {δ} {κδ} [Effect.{u} δ κδ]
+         {ε'} {κε'} [Effect.{u} ε' κε']
          {α}
 
 /--
@@ -173,8 +174,34 @@ leaving events in `δ` as-is.
 def interpLeft (f : ε ⤳ ITree δ) : ITree (ε ⊕ δ) α → ITree δ α :=
   interp (Sum.casesOn · f (Effect.trigger δ))
 
+section InterpLeftLemmas
+variable (f : ε ⤳ ITree δ)
+
 /-- `interp_bind` specialized to `interpLeft`. -/
-theorem interpLeft_bind {β} (f : ε ⤳ ITree δ)
-    (t : ITree (ε ⊕ δ) α) (k : α → ITree (ε ⊕ δ) β) :
+@[simp, grind =]
+theorem interpLeft_bind {β} (t : ITree (ε ⊕ δ) α) (k : α → ITree (ε ⊕ δ) β) :
     (t >>= k).interpLeft f = t.interpLeft f >>= (fun a => (k a).interpLeft f) :=
   interp_bind _ t k
+
+/--
+When `trigger` targets the left component of `ε ⊕ δ`, `interpLeft` handles
+it via the user-provided handler `f`.
+-/
+@[simp, grind =]
+theorem interpLeft_trigger_inl [ε' -< ε] (i : ε') :
+    interpLeft f (Effect.trigger (ε₂ := ε ⊕ δ) ε' i)
+      = f (Subeffect.map (ε₂ := ε) i).fst
+        >>= fun o => tau (return ((Subeffect.map (ε₂ := ε) i).snd o)) := by
+  simp [interpLeft, Effect.trigger]
+
+/--
+When `trigger` targets the right component of `ε ⊕ δ`, `interpLeft` passes
+it through as a `trigger` in `ITree δ`.
+-/
+@[simp, grind =]
+theorem interpLeft_trigger_inr [ε' -< δ] (i : ε') :
+    interpLeft f (Effect.trigger (ε₂ := ε ⊕ δ) ε' i)
+      = Effect.trigger (ε₂ := δ) ε' i >>= fun o => tau (return o) := by
+  simp [interpLeft, Effect.trigger]
+
+end InterpLeftLemmas
