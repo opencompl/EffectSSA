@@ -39,7 +39,7 @@ bundles a pure environment with a global state.
 -/
 structure SEnv where
   /-- A partial map from variables (i.e, virtual registers) to values. -/
-  regs : Var → Option Val := fun _ => none
+  regs : VarId →Option Val := fun _ => none
   /-- The global state, e.g, for memory and UB -/
   state : State := .initial
 
@@ -92,10 +92,10 @@ theorem Pattern.denote_cons  (is : InstSeq) (I : Pattern n) :
   simp [Pattern.denote_eq]
 
 /-! results -/
-variable {x : Var}
+variable {x : VarId}
 
 /-- Instructions only modify the registers in their `results` set. -/
-@[grind .] axiom Inst.regs_denote_of_not_mem_results (i : Inst) {x : Var} {ρ : SEnv}
+@[grind .] axiom Inst.regs_denote_of_not_mem_results (i : Inst) {x : VarId} {ρ : SEnv}
     (h : x ∉ i.results) : (⟦i⟧ ρ).regs x = ρ.regs x
 
 @[grind =] theorem InstSeq.regs_denote_of_not_mem_results (h : x ∉ is.results) :
@@ -156,7 +156,7 @@ types is all that we need to compare.
 * their error field, and
 * the value assigned to each variable `v` for which `P v` holds
 -/
-def SEnv.EquivOn (P : Var → Prop) : SEnv → SEnv → Prop := fun ρ η =>
+def SEnv.EquivOn (P : VarId →Prop) : SEnv → SEnv → Prop := fun ρ η =>
   ρ.state = η.state
   ∧ (∀ v, P v → ρ.regs v = η.regs v)
 
@@ -244,13 +244,13 @@ end Refine
 -/
 section EqnLemma
 
-def Inst.EqnLemma (i : Inst) (x : Var) (ρ : SEnv) : Prop :=
+def Inst.EqnLemma (i : Inst) (x : VarId) (ρ : SEnv) : Prop :=
   x ∈ i.results → (⟦i⟧ ρ).regs x = ρ.regs x
 
-@[grind] def InstSeq.EqnLemma (is : InstSeq) (x : Var) (ρ : SEnv) : Prop :=
+@[grind] def InstSeq.EqnLemma (is : InstSeq) (x : VarId) (ρ : SEnv) : Prop :=
   ∀ i ∈ is, i.EqnLemma x ρ
 
-@[grind] def Pattern.EqnLemma (I : Pattern n) (x : Var) (ρ : SEnv) : Prop :=
+@[grind] def Pattern.EqnLemma (I : Pattern n) (x : VarId) (ρ : SEnv) : Prop :=
   ∀ i ∈ I, i.EqnLemma x ρ
 
 /--
@@ -400,14 +400,14 @@ section EqnLemmaUpTo
 
 See `InstSeq.usesAt` for details.
 -/
-abbrev Pattern.usesAt (v : Var) (I : Pattern n) := I.collapse.usesAt v
+abbrev Pattern.usesAt (v : VarId) (I : Pattern n) := I.collapse.usesAt v
 
 /--
 `I.getDef? v` is an alias of `I.collapse.getDef? v`.
 
 See `InstSeq.getDef?` for details.
 -/
-abbrev Pattern.getDef? (v : Var) (I : Pattern n) : Option Inst :=  I.collapse.getDef? v
+abbrev Pattern.getDef? (v : VarId) (I : Pattern n) : Option Inst :=  I.collapse.getDef? v
 
 /--
 `I.EqnLemmaUpTo h ρ` holds when `ρ` satisfies the equation lemma for all

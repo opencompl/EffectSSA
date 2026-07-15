@@ -134,7 +134,7 @@ attribute [local grind] results args argsResults argsResults.go
 @[grind =] public theorem mem_results_iff : x ∈ is.results ↔ ∃ i ∈ is, x ∈ i.results := by
   induction is <;> grind
 
-@[grind →] public theorem mem_results_of_mem_inst {x : Var} (hi : i ∈ is) (hx : x ∈ i.results) :
+@[grind →] public theorem mem_results_of_mem_inst {x : VarId} (hi : i ∈ is) (hx : x ∈ i.results) :
     x ∈ is.results := by
   grind
 
@@ -159,7 +159,7 @@ end Lemmas
 `is.getDef? v` returns an instruction `i ∈ is` s.t. `v ∈ i.results`,
 or `none` if no such instruction exists
 -/
-public noncomputable def getDef? (v : Var) : (is : InstSeq) → Option { i // i ∈ is ∧ v ∈ is.results }
+public noncomputable def getDef? (v : VarId) : (is : InstSeq) → Option { i // i ∈ is ∧ v ∈ is.results }
   | [] => none
   | i ;> is =>
       open Classical in
@@ -170,7 +170,7 @@ public noncomputable def getDef? (v : Var) : (is : InstSeq) → Option { i // i 
 
 /-- `is.UsesAt y x` is true when `y` is a (transitive) dependency of `x`. -/
 @[grind cases]
-public inductive UsesAt (is : InstSeq) (y : Var) : Var → Prop
+public inductive UsesAt (is : InstSeq) (y : VarId) : VarId → Prop
   | arg  : i ∈ is → x ∈ i.results → y ∈ i.args → UsesAt is y x
   | trans : i ∈ is → x ∈ i.results → z ∈ i.args → UsesAt is y z → UsesAt is y x
 
@@ -184,7 +184,7 @@ union of `i.args` with the recursive set `{ is.usesAt y | y ∈ i.args }`.
 If no instruction of `is` defines the variable `v` as a result,
 then `is.usesAt v` is the empty set.
 -/
-public def usesAt (x : Var) (is : InstSeq) : VarSet :=
+public def usesAt (x : VarId) (is : InstSeq) : VarSet :=
   { y | is.UsesAt y x }
 
 section Lemmas
@@ -206,7 +206,7 @@ public theorem mem_usesAt' :
 @[simp, grind =] public theorem usesAt_nil_eq : usesAt x [] = ∅ := by grind
 
 @[simp, grind =>]
-public theorem usesAt_eq_of_not_mem_results {x : Var} (h : x ∉ is.results) :
+public theorem usesAt_eq_of_not_mem_results {x : VarId} (h : x ∉ is.results) :
     is.usesAt x = ∅ := by
   induction is <;> grind [usesAt]
 

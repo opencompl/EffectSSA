@@ -137,11 +137,6 @@ abbrev interpHoles'  : (f : HoleId → ITree δ Unit) →
 --------------------------------------------------------------------------------
 -/
 
-structure VarId where
-  raw : String
-  deriving DecidableEq, Hashable
-instance : ToString VarId where toString := VarId.raw
-
 /-- `Val` is the type of runtime values -/
 axiom Val : Type
 
