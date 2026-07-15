@@ -101,6 +101,32 @@ variable {fEff : ε → δ} {fCont : (i : ε) → κδ (fEff i) → κε i}
     · rintro ⟨j, l, ⟨rfl, rfl⟩, rfl, rfl⟩
       and_intros <;> rfl
 
+
+/-- Mapping twice is the same as mapping once with the composed maps. -/
+@[simp, grind =] theorem map_map {η κη} [Effect.{u} η κη]
+    (fEff₁ : ε → δ) (fCont₁ : (i : ε) → κδ (fEff₁ i) → κε i)
+    (fEff₂ : δ → η) (fCont₂ : (i : δ) → κη (fEff₂ i) → κδ i)
+    (t : ITree ε α) :
+    map fEff₂ fCont₂ (map fEff₁ fCont₁ t)
+      = map (fEff₂ ∘ fEff₁) (fun _ o => fCont₁ _ (fCont₂ _ o)) t := by
+  apply eq_of_bisim
+  apply Bisim.coinduct (fun (x y : ITree η α) =>
+    ∃ (t : ITree ε α),
+        x = map fEff₂ fCont₂ (map fEff₁ fCont₁ t)
+      ∧ y = map (fEff₂ ∘ fEff₁) (fun i o => fCont₁ i (fCont₂ (fEff₁ i) o)) t)
+  · rintro x y ⟨t, rfl, rfl⟩
+    cases t with
+    | ret r => left; exact ⟨r, by simp, by simp⟩
+    | tau u =>
+      simp only [map_tau]
+      right; left
+      exact ⟨_, _, ⟨u, rfl, rfl⟩, rfl, rfl⟩
+    | vis i k =>
+      simp only [map_vis, Function.comp_apply]
+      right; right
+      exact ⟨_, _, _, fun o => ⟨_, rfl, rfl⟩, rfl, rfl⟩
+  · exact ⟨t, rfl, rfl⟩
+
 /-!
 Lift specializations of the basic lemmas. Since `lift` is defined as
 `map mapEff mapCont`, these are direct corollaries.
