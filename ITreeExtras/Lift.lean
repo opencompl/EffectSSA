@@ -66,9 +66,6 @@ section Basic
   conv => {lhs; rw [lift]}
   simp
 
-theorem liftM_eq_lift (t : ITree ε α) :
-    liftM (n:=ITree δ) t = lift (δ := δ) t := rfl
-
 @[simp, grind =] theorem lift_eq_ret_iff (t : ITree ε α) (r : α) :
     t.lift (δ:=δ) = ret r ↔ t = ret r := by
   rw [lift]; grind
@@ -94,6 +91,66 @@ open Subeffect (map) in
       and_intros <;> rfl
 
 end Basic
+
+/-! ### Lifting Monadic Ops -/
+section Monadic
+
+@[simp, grind =_]
+-- NOTE: for some reason, `grind =` is not accepted here, thus we choose to
+--       *invert* the direction of the grind-lemma, w.r.t. the simp-lemma.
+theorem liftM_eq_lift (t : ITree ε α) :
+    liftM (n:=ITree δ) t = lift (δ := δ) t := rfl
+
+@[simp, grind =] theorem lift_pure (r : α) :
+    (lift (pure r : ITree ε _) : ITree δ _) = pure r := by simp
+
+@[simp, grind =]
+theorem lift_bind (t : ITree ε α) (k : α → ITree ε β) :
+    (lift (t >>= k) : ITree δ _) = t.lift >>= (k · |>.lift) := by
+  apply eq_of_bisim
+  apply Bisim.coinduct (fun (x y : ITree δ β) =>
+    ∃ (α₀ : Type u) (u : ITree ε α₀) (k : α₀ → ITree ε β),
+        x = lift (δ := δ) (u >>= k)
+      ∧ y = u.lift >>= (fun a => (k a).lift))
+  · rintro x y ⟨α₀, u, k, rfl, rfl⟩
+    cases u with
+    | tau u' =>
+      simp only [tau_bind, lift_tau]
+      right; left
+      exact ⟨_, _, ⟨_, u', k, rfl, rfl⟩, rfl, rfl⟩
+    | vis j k'' =>
+      simp only [vis_bind, lift_vis]
+      right; right
+      refine ⟨mapEff j, _, _,
+              fun o => ⟨_, k'' (mapCont j o), k, rfl, rfl⟩, rfl, rfl⟩
+    | ret a =>
+      simp only [pure_bind, lift_pure]
+      cases k a with
+      | ret r => simp
+      | tau t' =>
+        simp only [lift_tau]
+        right; left
+        refine ⟨_, _, ⟨_, ret ⟨⟩, fun _ : PUnit => t', ?_⟩, rfl, rfl⟩
+        simp
+      | vis i k'' =>
+        simp only [lift_vis]
+        right; right
+        refine ⟨mapEff i, _, _,
+                fun o => ⟨_, ret ⟨⟩, fun _ : PUnit => k'' (mapCont i o), ?_⟩,
+                rfl, rfl⟩
+        simp
+  · exact ⟨α, t, k, rfl, rfl⟩
+
+instance : LawfulMonadLiftT (ITree ε) (ITree δ) where
+  monadLift_pure := lift_pure
+  monadLift_bind := lift_bind
+
+@[simp]
+theorem lift_seqRight (t : ITree ε α) (u : ITree ε β) :
+    ((t *> u).lift : ITree δ _) = t.lift *> u.lift := by
+  simp [← liftM_eq_lift]
+
+end Monadic
 
 /-! ### MayReturn -/
 section MayReturn
