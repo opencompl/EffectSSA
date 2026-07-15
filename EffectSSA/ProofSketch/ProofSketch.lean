@@ -497,9 +497,13 @@ end Contextual
 section Residual
 
 /--
-We say that `Γ` is a residual of context `C` under pattern `I` when
+We say that `Γ` is a residual of context `C` under pattern `I` when:
 
-TODO: dedup with Invariant
+* `C.plug I` is wellformed under context `Γ`, and
+* for any result `x` of `I` which is *not* present in `Γ`, the corresponding
+  hole `h`, for which `x` is defined by `I[h]`, *must* be present in `C`.
+
+This essentially means that `Γ`
 -/
 @[grind, grind cases]
 private structure Residual (Γ : VarSet) (C : MultiContext n) (I : Pattern n) where
