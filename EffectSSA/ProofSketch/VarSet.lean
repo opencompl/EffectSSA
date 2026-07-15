@@ -9,11 +9,14 @@ import Mathlib.Data.Set.Lattice
 -/
 namespace EffectSSA.ProofSketch
 
-/-- `Var` is the type of variables -/
-public axiom Var : Type
+/-- `VarId` is the type of variables. -/
+public structure VarId where
+  raw : String
+  deriving DecidableEq, Hashable
+public instance : ToString VarId where toString := VarId.raw
 
 /-- `VarSet` is a set of variables. -/
-public def VarSet := Set Var
+public def VarSet := Set VarId
 
 /-!
 For some reason, having the following definitions be computable requires the relevant definitions to
@@ -34,8 +37,8 @@ namespace VarSet
 
 /-! ### Internal API-/
 
-def toSet : VarSet → Set Var := id
-def ofSet : Set Var → VarSet := id
+def toSet : VarSet → Set VarId := id
+def ofSet : Set VarId → VarSet := id
 
 section Lemmas
 
@@ -59,11 +62,11 @@ instance : Inter VarSet where inter := inter
 def empty : VarSet := ofSet ∅
 instance : EmptyCollection VarSet where emptyCollection := empty
 
-def singleton (v : Var) : VarSet := ofSet { v }
-instance : Singleton Var VarSet where singleton := singleton
+def singleton (v : VarId) : VarSet := ofSet { v }
+instance : Singleton VarId VarSet where singleton := singleton
 
-def Mem (A : VarSet) (v : Var) := v ∈ A.toSet
-instance : Membership Var VarSet where mem := Mem
+def Mem (A : VarSet) (v : VarId) := v ∈ A.toSet
+instance : Membership VarId VarSet where mem := Mem
 
 def sdiff (A B : VarSet) := ofSet <| A.toSet \ B.toSet
 instance : Sub VarSet where sub := sdiff
@@ -75,9 +78,9 @@ variable {A B C : VarSet}
 
 /-! ### ext -/
 
-@[simp, grind =] private theorem mem_toSet (x : Var) (A : VarSet) :
+@[simp, grind =] private theorem mem_toSet (x : VarId) (A : VarSet) :
     x ∈ A.toSet ↔ x ∈ A := by rfl
-@[simp, grind =] private theorem mem_ofSet (x : Var) (A : Set Var) :
+@[simp, grind =] private theorem mem_ofSet (x : VarId) (A : Set VarId) :
     x ∈ (ofSet A) ↔ x ∈ A := by rfl
 
 @[ext, grind ext]
@@ -203,7 +206,7 @@ end Lemmas
 
 /-! ### setOf -/
 
-def setOf (P : Var → Prop) : VarSet :=
+def setOf (P : VarId →Prop) : VarSet :=
   ofSet <| _root_.setOf P
 
 /-- Adapted from Mathlib Set notation -/
@@ -220,10 +223,10 @@ end Lemmas
 /-! ### Map -/
 
 /--
-Given a function `f : Var → VarSet` and a set `A : VarSet`, return the set
+Given a function `f : VarId →VarSet` and a set `A : VarSet`, return the set
   `{ f a | a ∈ A }`
 -/
-@[expose, grind] def flatMap (f : Var → VarSet) (A : VarSet) : VarSet :=
+@[expose, grind] def flatMap (f : VarId →VarSet) (A : VarSet) : VarSet :=
   { x | ∃ y ∈ A, x ∈ f y }
 
 /--
