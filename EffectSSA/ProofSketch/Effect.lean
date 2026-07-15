@@ -179,8 +179,10 @@ end Lemmas
 structure LocalStack where
   raw : Std.HashMap VarId Val := { }
 
+abbrev LocalStackT := StateT LocalStack
+
 def interpLocalStackM [ErrUB -< ε] :
-    (x : ITree (LocalEff ⊕ ε) α) → StateT LocalStack (ITree ε) α :=
+    (x : ITree (LocalEff ⊕ ε) α) → LocalStackT (ITree ε) α :=
   ITree.interpM fun
     | .inr e => liftM <| ITree.vis e .ret
     | .inl (.read x) => do
@@ -199,6 +201,14 @@ def interpLocalStackM [ErrUB -< ε] :
 /-- Interpret local stack effects starting from an empty initial stack. -/
 def interpLocalStack [ErrUB -< ε] (x : ITree (LocalEff ⊕ ε) α) : ITree ε α :=
   (interpLocalStackM x).run' { }
+
+namespace LocalStack
+
+instance : GetElem? LocalStack VarId Val (fun s v => v ∈ s.raw) where
+  getElem s v h := s.raw[v]
+  getElem? s v  := s.raw[v]?
+
+end LocalStack
 
 /-!
 ## Instructions
