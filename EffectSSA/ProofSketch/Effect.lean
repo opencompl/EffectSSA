@@ -211,7 +211,7 @@ instance : GetElem? LocalStack VarId Val (fun s v => v ∈ s.raw) where
 end LocalStack
 
 /-!
-## Instructions
+## Instruction Effect
 --------------------------------------------------------------------------------
 -/
 
@@ -229,14 +229,6 @@ abbrev InstEff := Inst
 
 instance : Effect InstEff (fun _ => Unit) := ⟨⟩
 
-/-! ### Handler -/
-
-axiom handleInst [ErrUB -< ε] [SideEff -< ε] [LocalEff -< ε] : (i : Inst) → ITree ε Unit
-
-noncomputable
-def interpInst [ErrUB -< ε] [SideEff -< ε] [LocalEff -< ε] :
-    ITree (InstEff ⊕ ε) α → ITree ε α :=
-  ITree.interpLeft handleInst
 
 /-!
 ## Effect Aliasses
@@ -244,11 +236,17 @@ def interpInst [ErrUB -< ε] [SideEff -< ε] [LocalEff -< ε] :
 -/
 
 /--
+`BaseEff` gives the "base" effects, which is some opaque notion of side-effects
+enhanced with errors and UB.
+-/
+abbrev BaseEff := SideEff ⊕ ErrUB
+
+/--
 `InterpEff` gives the effects into which instructions and terminators are
 interpreted.
 -/
 noncomputable
-abbrev InterpEff := LocalEff ⊕ SideEff ⊕ ErrUB
+abbrev InterpEff := LocalEff ⊕ BaseEff
 
 /--
 `OpaqueEff` is the totality of effects resulting from unrolling a (closed) CFG
@@ -271,3 +269,14 @@ See also `OpaqueEff`, which omits the holes.
 -/
 noncomputable
 abbrev OpaqueCtxEff := HoleEff ⊕ OpaqueEff
+
+/-!
+## Instruction Handler
+--------------------------------------------------------------------------------
+-/
+
+axiom handleInst : (i : Inst) → ITree InterpEff Unit
+
+noncomputable
+def interpInst : ITree OpaqueEff α → ITree InterpEff α :=
+  ITree.interpLeft handleInst
