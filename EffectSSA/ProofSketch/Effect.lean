@@ -1,7 +1,5 @@
 module
 
-public import EffectSSA.ProofSketch.Inst
-
 public import ITreeExtras
 
 public import Std.Data.HashMap
@@ -223,6 +221,9 @@ an instruction is added to the environment via the `LocalStack` push side effect
 N.B: Terminators are *not* considered effects, since we want to unroll the CFG
 structure right away.
 -/
+
+/-- `Inst` is the type of instructions. -/
+axiom Inst : Type
 
 /-- In `InstEff`, each instruction is a unique effect. -/
 abbrev InstEff := Inst
