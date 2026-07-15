@@ -251,11 +251,7 @@ theorem denote_ofSeq (is : InstSeq) :
   simp [ofSeq]
   induction is
   · simp
-  · simp [*]
-    -- NB: under the current definition of `lift`, which inserts a `tau` after each visible event,
-    --     the current statement (in terms of strong bisim) is *not true*!
-    --     The equivalence holds only up-to weak bisim.
-    sorry
+  · simp [*, Effect.trigger]
 
 end Lemmas
 end Conv
