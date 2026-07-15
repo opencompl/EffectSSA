@@ -14,7 +14,6 @@ info: 'EffectSSA.ProofSketch.Pattern.ctxRefine_of_denoteRefine' depends on axiom
  Inst,
  State,
  Val,
- Var,
  Inst.args,
  Inst.decideEq,
  Inst.denote,

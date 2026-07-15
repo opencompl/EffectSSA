@@ -278,7 +278,7 @@ theorem mem_iff_getElem_hole : i ∈ I ↔ ∃ (h : Hole n), i = I[h] := by
 end Mem
 
 section Results
-variable {I : Pattern n} {is : InstSeq} {x : Var}
+variable {I : Pattern n} {is : InstSeq} {x : VarId}
 
 @[grind =] theorem mem_results_iff : x ∈ I.results ↔ ∃ is ∈ I, x ∈ is.results := by
   induction I <;> grind
