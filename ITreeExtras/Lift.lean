@@ -30,6 +30,7 @@ instance instCoeTOfSubeffect [ε -< δ] {e} : CoeT ε e δ where
 end Effect
 
 namespace ITree
+open Subeffect (mapEff mapCont)
 
 /--
 Translate an ITree along explicit maps on effects and continuations.
@@ -45,8 +46,8 @@ def map (fEff : ε → δ) (fCont : (i : ε) → κδ (fEff i) → κε i)
 /--
 Translate an ITree along a subeffect inclusion `[ε -< δ]`.
 -/
-abbrev lift [ε -< δ] (t : ITree ε α) : ITree δ α :=
-  t.map Subeffect.mapEff Subeffect.mapCont
+def lift [ε -< δ] (t : ITree ε α) : ITree δ α :=
+  t.map mapEff mapCont
 
 /-- NOTE: the following instance cannot be defined on `MonadLift`, given that
 class's first argument is an `outParam`, so we define `MonadLiftT` directly. -/
@@ -77,18 +78,15 @@ variable {fEff : ε → δ} {fCont : (i : ε) → κδ (fEff i) → κε i}
   conv => {lhs; rw [map]}
   simp
 
-theorem liftM_eq_lift [ε -< δ] (t : ITree ε α) :
-    liftM (n:=ITree δ) t = lift (δ := δ) t := rfl
-
 @[simp, grind =] theorem map_eq_ret_iff (t : ITree ε α) (r : α) :
     map fEff fCont t = ret r ↔ t = ret r := by
   rw [map]; grind
 
-@[simp] theorem map_eq_tau_iff (t : ITree ε α) :
+@[simp, grind =] theorem map_eq_tau_iff (t : ITree ε α) :
     map fEff fCont t = tau t' ↔ ∃ u, t = tau u ∧ t' = map fEff fCont u := by
   rw [map]; grind
 
-@[simp] theorem map_eq_vis_iff (t : ITree ε α) :
+@[simp, grind =] theorem map_eq_vis_iff (t : ITree ε α) :
     map fEff fCont t = vis i k ↔ ∃ j l,
       t = vis j l
       ∧ i = fEff j
@@ -103,7 +101,102 @@ theorem liftM_eq_lift [ε -< δ] (t : ITree ε α) :
     · rintro ⟨j, l, ⟨rfl, rfl⟩, rfl, rfl⟩
       and_intros <;> rfl
 
+/-!
+Lift specializations of the basic lemmas. Since `lift` is defined as
+`map mapEff mapCont`, these are direct corollaries.
+-/
+section Lift
+variable [ε -< δ]
+
+@[simp, grind =] theorem lift_ret (r : α) :
+    lift (ε := ε) (δ := δ) (ret r) = ret r := map_ret _
+
+@[simp, grind =] theorem lift_tau (t : ITree ε α) :
+    lift (δ := δ) (tau t) = tau (lift t) := map_tau _
+
+@[simp, grind =] theorem lift_vis (i : ε) (k : κε i → ITree ε α) :
+    lift (δ := δ) (vis i k)
+    = vis (mapEff i) (fun o => (k (mapCont i o)).lift) := map_vis _ _
+
+@[simp, grind =] theorem lift_eq_ret_iff (t : ITree ε α) (r : α) :
+    lift (δ := δ) t = ret r ↔ t = ret r :=
+  map_eq_ret_iff ..
+
+@[simp, grind =] theorem lift_eq_tau_iff (t : ITree ε α) (t' : ITree δ α) :
+    lift (δ := δ) t = tau t' ↔ ∃ u, t = tau u ∧ t' = lift (δ := δ) u :=
+  map_eq_tau_iff ..
+
+@[simp, grind =] theorem lift_eq_vis_iff (t : ITree ε α) (i : δ) (k : κδ i → ITree δ α) :
+    lift (δ := δ) t = vis i k ↔ ∃ j l,
+      t = vis j l
+      ∧ i = mapEff j
+      ∧ k ≍ (fun x : κδ _ => (l (mapCont j x)).lift (δ:=δ)) :=
+  map_eq_vis_iff ..
+
+end Lift
+
 end Basic
+
+/-! ### Lifting Monadic Ops -/
+section Monadic
+variable [ε -< δ]
+
+@[simp, grind =_]
+-- NOTE: for some reason, `grind =` is not accepted here, thus we choose to
+--       *invert* the direction of the grind-lemma, w.r.t. the simp-lemma.
+theorem liftM_eq_lift (t : ITree ε α) :
+    liftM (n:=ITree δ) t = lift (δ := δ) t := rfl
+
+@[simp, grind =] theorem lift_pure (r : α) :
+    (lift (pure r : ITree ε _) : ITree δ _) = pure r := by simp
+
+@[simp, grind =]
+theorem lift_bind (t : ITree ε α) (k : α → ITree ε β) :
+    (lift (t >>= k) : ITree δ _) = t.lift >>= (k · |>.lift) := by
+  apply eq_of_bisim
+  apply Bisim.coinduct (fun (x y : ITree δ β) =>
+    ∃ (α₀ : Type u) (u : ITree ε α₀) (k : α₀ → ITree ε β),
+        x = lift (δ := δ) (u >>= k)
+      ∧ y = u.lift >>= (fun a => (k a).lift))
+  · rintro x y ⟨α₀, u, k, rfl, rfl⟩
+    cases u with
+    | tau u' =>
+      simp only [tau_bind, lift_tau]
+      right; left
+      exact ⟨_, _, ⟨_, u', k, rfl, rfl⟩, rfl, rfl⟩
+    | vis j k'' =>
+      simp only [vis_bind, lift_vis]
+      right; right
+      refine ⟨mapEff j, _, _,
+              fun o => ⟨_, k'' (mapCont j o), k, rfl, rfl⟩, rfl, rfl⟩
+    | ret a =>
+      simp only [pure_bind, lift_pure]
+      cases k a with
+      | ret r => simp
+      | tau t' =>
+        simp only [lift_tau]
+        right; left
+        refine ⟨_, _, ⟨_, ret ⟨⟩, fun _ : PUnit => t', ?_⟩, rfl, rfl⟩
+        simp
+      | vis i k'' =>
+        simp only [lift_vis]
+        right; right
+        refine ⟨mapEff i, _, _,
+                fun o => ⟨_, ret ⟨⟩, fun _ : PUnit => k'' (mapCont i o), ?_⟩,
+                rfl, rfl⟩
+        simp
+  · exact ⟨α, t, k, rfl, rfl⟩
+
+instance : LawfulMonadLiftT (ITree ε) (ITree δ) where
+  monadLift_pure := lift_pure
+  monadLift_bind := lift_bind
+
+@[simp]
+theorem lift_seqRight (t : ITree ε α) (u : ITree ε β) :
+    ((t *> u).lift : ITree δ _) = t.lift *> u.lift := by
+  simp [← liftM_eq_lift]
+
+end Monadic
 
 /-! ### MayReturn -/
 section MayReturn
@@ -144,10 +237,9 @@ theorem mayReturn_map {fEff : ε → δ} {fCont : (i : ε) → κδ (fEff i) →
       grind
 
 @[simp, grind =]
-theorem mayReturn_liftM [ε -< δ] (t : ITree ε α) :
-    (liftM (n:=ITree δ) t).MayReturn x ↔ t.MayReturn x := by
-  rw [liftM_eq_lift]
-  exact mayReturn_map (by grind) t
+theorem mayReturn_lift [ε -< δ] (t : ITree ε α) :
+    (lift (δ := δ) t).MayReturn x ↔ t.MayReturn x :=
+  mayReturn_map (by grind) t
 
 end MayReturn
 
