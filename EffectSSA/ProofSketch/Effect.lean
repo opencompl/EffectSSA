@@ -2,7 +2,8 @@ module
 
 public import ITreeExtras
 
-public import Std.Data.HashMap
+public import EffectSSA.ProofSketch.VarSet
+public import EffectSSA.ProofSketch.LocalStack
 
 /-!
 # Effects
@@ -137,9 +138,6 @@ abbrev interpHoles'  : (f : HoleId → ITree δ Unit) →
 --------------------------------------------------------------------------------
 -/
 
-/-- `Val` is the type of runtime values -/
-axiom Val : Type
-
 inductive LocalEff
   | read (var : VarId)
   | push (var : VarId) (value : Val)
@@ -169,39 +167,21 @@ end Lemmas
 
 /-! ### Interpretation -/
 
-structure LocalStack where
-  raw : Std.HashMap VarId Val := { }
-
-abbrev LocalStackT := StateT LocalStack
-
 def interpLocalStackM [ErrUB -< ε] :
     (x : ITree (LocalEff ⊕ ε) α) → LocalStackT (ITree ε) α :=
   ITree.interpM fun
     | .inr e => liftM <| ITree.vis e .ret
     | .inl (.read x) => do
-        let ρ ← get
-        let some val := ρ.raw[x]? |
-          liftM <| raiseError (ε:=ε) s!"Unknown variable: {x}"
-        return val
-    | .inl (.push x val) => do
-        modify (⟨·.raw.insert x val⟩)
-        -- NOTE: it seems tempting to throw an error here if `x` is already defined.
-        -- However, since we never remove variables, a variable being defined twice
-        -- does not necessarily indicate a mall-formed program. In particular, the
-        -- pre-existing value might actually come from the same instruction in
-        -- a previous iteration of a loop.
+        let val? ← LocalStackT.read? x
+        match val? with
+        | some val => return val
+        | none => liftM <| raiseError (ε:=ε) s!"Unknown variable: {x}"
+    | .inl (.push x val) => LocalStackT.push x val
+
 
 /-- Interpret local stack effects starting from an empty initial stack. -/
 def interpLocalStack [ErrUB -< ε] (x : ITree (LocalEff ⊕ ε) α) : ITree ε α :=
   (interpLocalStackM x).run' { }
-
-namespace LocalStack
-
-instance : GetElem? LocalStack VarId Val (fun s v => v ∈ s.raw) where
-  getElem s v h := s.raw[v]
-  getElem? s v  := s.raw[v]?
-
-end LocalStack
 
 /-!
 ## Instruction Effect
