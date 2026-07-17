@@ -1,5 +1,6 @@
 module
 
+public import Lean.Elab.Tactic.Simp
 
 /-!
 # Holes
@@ -91,5 +92,37 @@ theorem fromId?_id (h : Hole n) :
     (Hole.fromId? h.id) = some h := by
   grind [Hole.fromId?]
 
+-- @[grind ←=]
+theorem eq_elim0 {α : Sort u} (f : Hole 0 → α) : f = Hole.elim0 :=
+  funext fun h => h.elim0
+
 end Lemmas
 end Hole
+
+/-!
+### `Hole.elim0` normalization simproc
+--------------------------------------------------------------------------------
+-/
+section Meta
+
+open Lean Meta Simp Elab
+
+/--
+Normalize any lambda `fun (_ : Hole 0) => _` to `Hole.elim0`.
+
+We restrict the pattern to *lambdas* (rather than arbitrary terms of type
+`Hole 0 → α`) to avoid the simproc firing too often.
+-/
+simproc ↓ EffectSSA.ProofSketch.hole0_elim0_simproc
+    (fun (_ : EffectSSA.ProofSketch.Hole 0) => _) := fun e => do
+  let Expr.lam _ dom _ _ := e | return Step.continue
+  unless ← isDefEq dom (mkApp (mkConst ``EffectSSA.ProofSketch.Hole) (mkNatLit 0)) do
+    return Step.continue
+  let Expr.forallE _ _ codomain _ ← inferType e | return Step.continue
+  if codomain.hasLooseBVars then return Step.continue
+  let u ← getLevel codomain
+  let elim0 := mkApp (mkConst ``EffectSSA.ProofSketch.Hole.elim0 [u]) codomain
+  let proof := mkApp2 (mkConst ``EffectSSA.ProofSketch.Hole.eq_elim0 [u]) codomain e
+  return Step.done { expr := elim0, proof? := proof }
+
+end Meta
