@@ -1,6 +1,7 @@
 module
 
 public import EffectSSA.ProofSketch.Inst
+public import EffectSSA.ProofSketch.Hole
 
 public import ITreeExtras
 
@@ -94,10 +95,6 @@ instance : Effect SideEff SideEff.κ := ⟨⟩
 --------------------------------------------------------------------------------
 -/
 
-structure HoleId where
-  toNat : Nat
-instance : ToString HoleId where toString h := s!"{h.toNat}"
-
 /--
 We consider a (multi-)context to be a program with holes in it.
 Such programs can be denoted into an ITree with each hole id having a unique
@@ -116,6 +113,15 @@ instance : Effect HoleEff (fun _ => Unit) := ⟨⟩
 /-- Continue execution at the instructions that will be substituted for hole `h`. -/
 def jumpToHole (h : HoleId) : ITree HoleEff Unit :=
   .vis h .ret
+
+/--
+Resolve a raw `HoleId` into a well-scoped `Hole n`, raising an error if the
+id is out of range.
+-/
+def Hole.fromId {n} [ErrUB -< ε] (h : HoleId) : ITree ε (Hole n) :=
+  match Hole.fromId? h with
+  | some x => return x
+  | none => raiseError s!"Unknown hole: {h}"
 
 /-! ### Interpretation -/
 

@@ -78,19 +78,11 @@ where
     let some b := C.blocks[bId]? | raiseError s!"Missing Block: {bId}"
     b.denote bId args
 
-def Hole.fromId? {n} [ErrUB -< ε] (h : HoleId) : ITree ε (Hole n) :=
-  if hr : h.toNat < n then
-    return ⟨h.toNat, hr⟩
-  else
-    raiseError s!"Unknown hole: {h}"
-
-abbrev Hole.elim0 : Hole 0 → α := Fin.elim0
-
 noncomputable
 def ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ InstEff) Unit) :
     (ITree (SideEff ⊕ ErrUB)) ReturnVals := do
   C.denote
-  |> interpHoles (Hole.fromId? · >>= f)
+  |> interpHoles (Hole.fromId · >>= f)
   |> interpInst
   |> interpLocalStack
 

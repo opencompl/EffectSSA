@@ -1,6 +1,7 @@
 module
 
 public import EffectSSA.ProofSketch.InstSeq
+public import EffectSSA.ProofSketch.Hole
 
 import Batteries.Data.Vector.Lemmas
 
@@ -19,16 +20,6 @@ it is the counterpart of an `n`-ary context, which is to say that an
 instruction sequence.
 -/
 def Pattern (n : Nat) := Vector InstSeq n
-
-/--
-A `HoleId n` is the name of a hole in a context which may include at most `n`
-distinct holes. It therefore also identifies a particular sequence in an
-`n`-ary pattern.
-
-A `Hole n` is in some sense a meta-variable.
--/
-def Hole n := Fin n
-  deriving DecidableEq
 
 namespace Pattern
 variable (v : Pattern n)
