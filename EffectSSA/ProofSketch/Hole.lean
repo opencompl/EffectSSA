@@ -78,13 +78,22 @@ open Lean Meta Simp Elab
 Normalize any lambda `fun (_ : Hole 0) => _` to `Hole.elim0`.
 
 We restrict the pattern to *lambdas* (rather than arbitrary terms of type
-`Hole 0 → α`) to avoid the simproc firing too often.
+`Hole 0 → α`) to avoid the simproc firing on every term; as it stands, this
+simproc might fire on *every* lambda, also those that have a different
+domain type. [1]
+
+For the same reason, we make this simproc `scoped`.
+
+[1] AFAICT, simprocs are *not* indexed on the type of the expression, only on
+    the actual expression, and it *seems* that for lambdas, this does not
+    include the type of the argument.
 -/
-simproc ↓ EffectSSA.ProofSketch.hole0_elim0_simproc
+scoped simproc ↓ EffectSSA.ProofSketch.hole0_elim0_simproc
     (fun (_ : EffectSSA.ProofSketch.Hole 0) => _) := fun e => do
   let Expr.lam _ dom _ _ := e | return Step.continue
-  unless ← isDefEq dom (mkApp (mkConst ``EffectSSA.ProofSketch.Hole) (mkNatLit 0)) do
-    return Step.continue
+  let Hole0 := mkApp (mkConst ``EffectSSA.ProofSketch.Hole) (mkNatLit 0)
+  unless ← withReducible <| isDefEq dom Hole0 do
+      return Step.continue
   let Expr.forallE _ _ codomain _ ← inferType e | return Step.continue
   if codomain.hasLooseBVars then return Step.continue
   let u ← getLevel codomain
