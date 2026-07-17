@@ -165,6 +165,53 @@ end Basic
 
 /-! ### Lifting Monadic Ops -/
 section Monadic
+
+section Map
+variable {fEff : ε → δ} {fCont : (i : ε) → κδ (fEff i) → κε i}
+
+@[simp, grind =] theorem map_pure (r : α) :
+    map fEff fCont (pure r : ITree ε _) = pure r := by
+  simp
+
+@[simp, grind =]
+theorem map_bind {β} (t : ITree ε α) (k : α → ITree ε β) :
+    map fEff fCont (t >>= k)
+      = map fEff fCont t >>= (fun a => map fEff fCont (k a)) := by
+  apply eq_of_bisim
+  apply Bisim.coinduct (fun (x y : ITree δ β) =>
+    ∃ (α₀ : Type u) (u : ITree ε α₀) (k : α₀ → ITree ε β),
+        x = map fEff fCont (u >>= k)
+      ∧ y = map fEff fCont u >>= (fun a => map fEff fCont (k a)))
+  · rintro x y ⟨α₀, u, k, rfl, rfl⟩
+    cases u with
+    | tau u' =>
+      simp only [tau_bind, map_tau]
+      right; left
+      exact ⟨_, _, ⟨_, u', k, rfl, rfl⟩, rfl, rfl⟩
+    | vis j k'' =>
+      simp only [vis_bind, map_vis]
+      right; right
+      exact ⟨_, _, _, fun o => ⟨_, k'' (fCont j o), k, rfl, rfl⟩, rfl, rfl⟩
+    | ret a =>
+      simp only [pure_bind, map_pure]
+      cases k a with
+      | ret r => simp
+      | tau t' =>
+        simp only [map_tau]
+        right; left
+        refine ⟨_, _, ⟨_, ret ⟨⟩, fun _ : PUnit => t', ?_⟩, rfl, rfl⟩
+        simp
+      | vis i k'' =>
+        simp only [map_vis]
+        right; right
+        refine ⟨_, _, _,
+                fun o => ⟨_, ret ⟨⟩, fun _ : PUnit => k'' (fCont i o), ?_⟩,
+                rfl, rfl⟩
+        simp
+  · exact ⟨α, t, k, rfl, rfl⟩
+
+end Map
+
 variable [ε -< δ]
 
 @[simp, grind =_]
@@ -179,39 +226,7 @@ theorem liftM_eq_lift (t : ITree ε α) :
 @[simp, grind =]
 theorem lift_bind (t : ITree ε α) (k : α → ITree ε β) :
     (lift (t >>= k) : ITree δ _) = t.lift >>= (k · |>.lift) := by
-  apply eq_of_bisim
-  apply Bisim.coinduct (fun (x y : ITree δ β) =>
-    ∃ (α₀ : Type u) (u : ITree ε α₀) (k : α₀ → ITree ε β),
-        x = lift (δ := δ) (u >>= k)
-      ∧ y = u.lift >>= (fun a => (k a).lift))
-  · rintro x y ⟨α₀, u, k, rfl, rfl⟩
-    cases u with
-    | tau u' =>
-      simp only [tau_bind, lift_tau]
-      right; left
-      exact ⟨_, _, ⟨_, u', k, rfl, rfl⟩, rfl, rfl⟩
-    | vis j k'' =>
-      simp only [vis_bind, lift_vis]
-      right; right
-      refine ⟨mapEff j, _, _,
-              fun o => ⟨_, k'' (mapCont j o), k, rfl, rfl⟩, rfl, rfl⟩
-    | ret a =>
-      simp only [pure_bind, lift_pure]
-      cases k a with
-      | ret r => simp
-      | tau t' =>
-        simp only [lift_tau]
-        right; left
-        refine ⟨_, _, ⟨_, ret ⟨⟩, fun _ : PUnit => t', ?_⟩, rfl, rfl⟩
-        simp
-      | vis i k'' =>
-        simp only [lift_vis]
-        right; right
-        refine ⟨mapEff i, _, _,
-                fun o => ⟨_, ret ⟨⟩, fun _ : PUnit => k'' (mapCont i o), ?_⟩,
-                rfl, rfl⟩
-        simp
-  · exact ⟨α, t, k, rfl, rfl⟩
+  simp [lift]
 
 instance : LawfulMonadLiftT (ITree ε) (ITree δ) where
   monadLift_pure := lift_pure
