@@ -1,6 +1,7 @@
 module
 
 public import EffectSSA.ProofSketch.InstSeq
+public import EffectSSA.ProofSketch.Hole
 
 import Batteries.Data.Vector.Lemmas
 

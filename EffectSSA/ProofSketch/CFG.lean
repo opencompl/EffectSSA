@@ -78,7 +78,6 @@ where
     let some b := C.blocks[bId]? | raiseError s!"Missing Block: {bId}"
     b.denote bId args
 
-
 noncomputable
 abbrev ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ InstEff) Unit) :
     (ITree (SideEff ⊕ ErrUB)) ReturnVals := do
