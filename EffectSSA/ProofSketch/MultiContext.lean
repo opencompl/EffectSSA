@@ -27,13 +27,6 @@ A `MultiContext n` is a sequence of instructions, interspersed by (named) holes,
 -/
 abbrev MultiContext (n : Nat) := List (Inst ⊕ Hole n)
 
-/--
-Erase the intrinsic upper bound on a `Hole` index,
-returning the raw underlying `HoleId`.
--/
-def Hole.id (h : Hole n) : HoleId where
-  toNat := h.val
-
 /-! ### Denote -/
 namespace MultiContext
 
