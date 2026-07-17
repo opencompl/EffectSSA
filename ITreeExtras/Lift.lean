@@ -46,8 +46,8 @@ def map (fEff : ε → δ) (fCont : (i : ε) → κδ (fEff i) → κε i)
 /--
 Translate an ITree along a subeffect inclusion `[ε -< δ]`.
 -/
-def lift [ε -< δ] (t : ITree ε α) : ITree δ α :=
-  t.map mapEff mapCont
+@[grind] def lift [ε -< δ] (t : ITree ε α) : ITree δ α :=
+  t.map (mapEff ·) mapCont
 
 /-- NOTE: the following instance cannot be defined on `MonadLift`, given that
 class's first argument is an `outParam`, so we define `MonadLiftT` directly. -/
@@ -108,7 +108,7 @@ variable {fEff : ε → δ} {fCont : (i : ε) → κδ (fEff i) → κε i}
     (fEff₂ : δ → η) (fCont₂ : (i : δ) → κη (fEff₂ i) → κδ i)
     (t : ITree ε α) :
     map fEff₂ fCont₂ (map fEff₁ fCont₁ t)
-      = map (fEff₂ ∘ fEff₁) (fun _ o => fCont₁ _ (fCont₂ _ o)) t := by
+      = map (fEff₂ <| fEff₁ ·) (fun _ o => fCont₁ _ (fCont₂ _ o)) t := by
   apply eq_of_bisim
   apply Bisim.coinduct (fun (x y : ITree η α) =>
     ∃ (t : ITree ε α),
@@ -315,6 +315,7 @@ section Interp
 variable {η κη} [Effect.{u} η κη]
 
 /-- Interpretation composes with `map` -/
+@[simp, grind =]
 theorem interp_map (fEff : ε → δ) (fCont : (i : ε) → κδ (fEff i) → κε i)
     (f : δ ⤳ ITree η) (t : ITree ε α) :
     interp f (map fEff fCont t)
@@ -372,6 +373,7 @@ theorem interp_map (fEff : ε → δ) (fCont : (i : ε) → κδ (fEff i) → κ
     simp
 
 /-- Interpretation composes with `lift` -/
+@[simp, grind =]
 theorem interp_lift [ε -< δ] (f : δ ⤳ ITree η) (t : ITree ε α) :
     interp f (lift (δ := δ) t)
       = interp (fun i : ε => do
@@ -379,6 +381,30 @@ theorem interp_lift [ε -< δ] (f : δ ⤳ ITree η) (t : ITree ε α) :
           return Subeffect.mapCont i x
           ) t :=
   interp_map _ _ f t
+
+/--
+If `t : ITree ε α` is embedded into `ITree (ε ⊕ δ) α` via `map Sum.inl`,
+then interpreting the left component with `f` recovers `interp f t`.
+-/
+@[simp, grind =]
+theorem interpLeft_map_inl (f : ε ⤳ ITree δ) (t : ITree ε α) :
+    interpLeft f (map .inl (no_index fun _ o => o) t)
+      = interp f t := by
+  simp [interpLeft, interp_map]
+
+/--
+If `t : ITree δ α` is embedded into `ITree (ε ⊕ δ) α` via `map Sum.inr`,
+then interpreting the left component with `f` reinterprets each event of `t`
+through the identity handler `Effect.trigger δ`.
+
+Note: the rhs is weakly bisimilar to `t`, but not strongly so,
+since `interp` inserts extra `tau`s.
+-/
+@[simp, grind =]
+theorem interpLeft_map_inr (f : ε ⤳ ITree δ) (t : ITree δ α) :
+    interpLeft f (map .inr (no_index fun _ o => o) t)
+      = interp (Effect.trigger δ) t := by
+  simp [interpLeft, interp_map]
 
 end Interp
 
