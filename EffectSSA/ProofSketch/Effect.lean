@@ -42,11 +42,14 @@ def raiseUB [ErrUB -< ε] (reason := "") : ITree ε α :=
 def raiseError [ErrUB -< ε] (reason := "") : ITree ε α :=
   trigger ErrUB (.error reason) >>= Empty.elim
 
-abbrev raiseErrorOnNone [ErrUB -< ε] (reason := "") (t : ITree ε (Option α)) : ITree ε α := do
-  let x ← t
+def withErrorContext [Monad m] [MonadLiftT (ITree ErrUB) m] (reason : String) (x? : m (Option α)) : m α := do
+  let x ← x?
   match x with
   | some x => return x
-  | none => raiseError reason
+  | none => liftM <| (raiseError reason : ITree ErrUB _)
+
+abbrev raiseErrorOnNone [ErrUB -< ε] (reason := "") (t : ITree ε (Option α)) : ITree ε α := do
+  withErrorContext reason t
 
 section Lemmas
 open Subeffect (map)
@@ -187,11 +190,8 @@ def interpLocalStackM [ErrUB -< ε] :
     (x : ITree (LocalEff ⊕ ε) α) → LocalStackT (ITree ε) α :=
   ITree.interpM fun
     | .inr e => liftM <| ITree.vis e .ret
-    | .inl (.read x) => do
-        let val? ← LocalStackT.read? x
-        match val? with
-        | some val => return val
-        | none => liftM <| raiseError (ε:=ε) s!"Unknown variable: {x}"
+    | .inl (.read x) => withErrorContext s!"Unknown variable: {x}" <|
+        LocalStackT.read? x
     | .inl (.push x val) => LocalStackT.push x val
 
 
@@ -278,8 +278,8 @@ def interpInst : ITree OpaqueEff α → ITree InterpEff α :=
 /-! ### Combined -/
 
 abbrev Hole.fromId [ErrUB -< ε] (h : HoleId) : ITree ε (Hole n) :=
-  (.ret <| Hole.fromId? h)
-  |> raiseErrorOnNone s!"Unknown hole: {h}"
+  withErrorContext s!"Unknown hole: {h}" <|
+    (.ret <| Hole.fromId? h)
 
 noncomputable
 def interpAll
