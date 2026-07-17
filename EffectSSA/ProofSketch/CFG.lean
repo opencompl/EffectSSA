@@ -229,7 +229,7 @@ theorem ContextCFG.interp_plug {C : ContextCFG n} {I : Pattern n} :
     simp only [interpHoles, lift, Subeffect.mapEff, bind_ret, pure_eq_ret, ITree.map_bind, map_map,
       Subeffect.mapCont, Fin.getElem_fin, Hole.val_toFin, liftM_eq_lift, Subeffect.mapEff_eq_inr,
       Subeffect.mapEff_eq_self, Subeffect.map_inr, Subeffect.map_eq_inl, Subeffect.map_eq_self,
-      Subeffect.map_eq_inr, id_eq, Subeffect.map_inl, Pattern.getElem_hole]
+      Subeffect.map_eq_inr, id_eq, Subeffect.map_inl, Pattern.getElem_hole, withErrorContext]
     and_intros <;> (
       congr 1
       funext h
