@@ -81,10 +81,7 @@ where
 noncomputable
 def ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ InstEff) Unit) :
     (ITree (SideEff ⊕ ErrUB)) ReturnVals := do
-  C.denote
-  |> interpHoles (Hole.fromId · >>= f)
-  |> interpInst
-  |> interpLocalStack
+  C.denote |> interpAll (f · |>.lift)
 
 noncomputable
 def ProgramCFG.interp (P : ProgramCFG) : (ITree (SideEff ⊕ ErrUB)) ReturnVals :=
