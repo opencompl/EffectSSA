@@ -61,6 +61,14 @@ theorem denote_cons_inst (i : Inst) (C : MultiContext n) :
 theorem denote_cons_hole (h : Hole n) (C : MultiContext n) :
     denote (Sum.inr h :: C) = trigger HoleEff h.id *> denote C := rfl
 
+@[simp, grind =]
+theorem denote_append (C₁ C₂ : MultiContext n) :
+    denote (C₁ ++ C₂) = C₁.denote *> C₂.denote := by
+  induction C₁
+  case nil => simp
+  case cons h_or_i _ _ =>
+    cases h_or_i <;> simp [*, seqRight_eq_bind]
+
 end DenoteLemmas
 end MultiContext
 
