@@ -45,6 +45,12 @@ def raiseUB [ErrUB -< ε] (reason := "") : ITree ε α :=
 def raiseError [ErrUB -< ε] (reason := "") : ITree ε α :=
   trigger ErrUB (.error reason) >>= Empty.elim
 
+def withErrorContext [Monad m] [MonadLiftT (ITree ErrUB) m] (reason : String) (x? : m (Option α)) : m α := do
+  let x ← x?
+  match x with
+  | some x => return x
+  | none => liftM <| (raiseError reason : ITree ErrUB _)
+
 section Lemmas
 open Subeffect (map)
 
@@ -171,11 +177,8 @@ def interpLocalStackM [ErrUB -< ε] :
     (x : ITree (LocalEff ⊕ ε) α) → StateT LocalStack (ITree ε) α :=
   ITree.interpM fun
     | .inr e => liftM <| ITree.vis e .ret
-    | .inl (.read x) => do
-        let val? ← LocalStackT.read? x
-        match val? with
-        | some val => return val
-        | none => liftM <| raiseError (ε:=ε) s!"Unknown variable: {x}"
+    | .inl (.read x) => withErrorContext s!"Unknown variable: {x}" <|
+        LocalStackT.read? x
     | .inl (.push x val) => LocalStackT.push x val
 
 
@@ -257,14 +260,9 @@ def interpInst : ITree OpaqueEff α → ITree InterpEff α :=
 
 /-! ### Combined -/
 
-/--
-Resolve a raw `HoleId` into a well-scoped `Hole n`, raising an error if the
-id is out of range.
--/
-def Hole.fromId {n} [ErrUB -< ε] (h : HoleId) : ITree ε (Hole n) :=
-  match Hole.fromId? h with
-  | some x => return x
-  | none => raiseError s!"Unknown hole: {h}"
+def Hole.fromId [ErrUB -< ε] (h : HoleId) : ITree ε (Hole n) :=
+  withErrorContext s!"Unknown hole: {h}" <|
+    (.ret <| Hole.fromId? h)
 
 noncomputable
 def interpAll
