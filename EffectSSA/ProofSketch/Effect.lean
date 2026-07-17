@@ -80,6 +80,19 @@ theorem raiseError_eq_vis_iff [ErrUB -< ε] {reason : String} {j : ε}
       (Empty.elim ((map (ε₂:=ε) (.error reason : ErrUB)).snd x) : ITree ε α)) ≍ k := by
   simp [raiseError, trigger]
 
+open Subeffect (mapEff mapCont) in
+@[simp, grind =]
+theorem map_raiseError [ErrUB -< ε] (reason : String) (fEff : ε → δ) (fCont : _) :
+    (raiseError reason : ITree ε α).map fEff fCont =
+      .vis (fEff <| mapEff <| ErrUB.error reason) (fun x => Empty.elim <| mapCont _ <| fCont _ x) := by
+  suffices ∀ {α} (f g : κδ (fEff (map (ErrUB.error reason)).fst) → α),
+    f = g
+  by simpa [raiseError, trigger] using this _ _
+  intros
+  funext x
+  have : Empty := mapCont _ <| fCont _ x
+  contradiction
+
 end Lemmas
 
 /-!
