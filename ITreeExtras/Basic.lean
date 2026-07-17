@@ -99,6 +99,11 @@ section Bind
   show pure r >>= f = _
   simp [-pure_eq_ret]
 
+@[simp, grind =] theorem bind_ret_right (t : ITree ε α) :
+    t >>= ret = t := by
+  show t >>= pure = t
+  simp
+
 @[grind =]
 theorem bind_eq_ret_iff (t : ITree ε α) (f : α → ITree ε β) (x) :
     t >>= f = ret x ↔ ∃ r, t = ret r ∧ f r = ret x := by
