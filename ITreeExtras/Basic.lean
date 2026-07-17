@@ -150,21 +150,3 @@ end SeqRight
 end ITree
 
 namespace Subeffect
-
-/-! ### `Subeffect.map` normalization -/
-
-/-- The `ε' -< (ε₁ ⊕ ε₂)` instance from `ε' -< ε₁` maps to `Sum.inl`. -/
-@[simp, grind =] theorem map_eq_inl [ε' -< ε₁] (e : ε') :
-    map (ε₂ := ε₁ ⊕ ε₂) e = ⟨.inl (map (ε₂:=ε₁) e).fst, (map (ε₂:=ε₁) e).snd⟩ := rfl
-
-@[simp, grind =] theorem map_eq_inr [ε' -< ε₂] (e : ε') :
-    map (ε₂ := ε₁ ⊕ ε₂) e = ⟨.inr (map (ε₂:=ε₂) e).fst, (map (ε₂:=ε₂) e).snd⟩ := rfl
-
-/-- The default identity instance `ε -< ε` maps to the input. -/
-@[simp, grind =] theorem map_eq_self (i : ε₁) :
-    (map (ε₁ := ε₁) (ε₂ := ε₁) i) = ⟨i, id⟩ := rfl
-
-@[simp, grind =] theorem map_inl {ε₃} {κ₃} [Effect ε₃ κ₃] [ε₁ -< ε₃] [ε₂ -< ε₃] {e : ε₁} :
-    (map (ε₁ := ε₁ ⊕ ε₂) (ε₂:=ε₃) <| .inl e) = map (ε₂:=ε₃) e := rfl
-@[simp, grind =] theorem map_inr {ε₃} {κ₃} [Effect ε₃ κ₃] [ε₁ -< ε₃] [ε₂ -< ε₃] {e : ε₂} :
-    (map (ε₁ := ε₁ ⊕ ε₂) (ε₂:=ε₃) <| .inr e) = map (ε₂:=ε₃) e := rfl
