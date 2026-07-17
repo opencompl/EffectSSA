@@ -224,36 +224,20 @@ theorem ContextCFG.interp_plug {C : ContextCFG n} {I : Pattern n} :
     case some b =>
       simp only [hb, Option.map_some] at ht hu ⊢
       simp at ht hu
-
       sorry
 
-
-
-  · stop grind
-  stop
-  generalize ht : denote (C.plug I) = t
-
-
-  simp only [interpHoles, ITree.interpFirst, denote]
-  rw [ITree.interpM_iter', ITree.interpM_iter']
-  · sorry
-  · sorry
-  · intro b
-
-
-  stop
-
-  simp only [ContextCFG.interp, ProgramCFG.interp, bind_pure_comp]
-  simp only [fromId?_zero, denote, Pattern.getElem_hole]
-  simp only [plug, Std.HashMap.getElem?_map]
-  congr 4
-  -- TODO: figure out how to do a proof by bisimulation in the ITree library
-  cases C.blocks[x.target]?
-  simp [interpHoles, denote, ITree.interpLeft]
-  simp only [ITree.interp_iter']
-
-  -- simp only [ITree.interp, bind_pure_comp]
-
+  · refine ⟨⟨C.entryId, []⟩, ?_⟩
+    simp only [interpHoles, lift, Subeffect.mapEff, bind_ret, pure_eq_ret, ITree.map_bind, map_map,
+      Subeffect.mapCont, Fin.getElem_fin, Hole.val_toFin, liftM_eq_lift, Subeffect.mapEff_eq_inr,
+      Subeffect.mapEff_eq_self, Subeffect.map_inr, Subeffect.map_eq_inl, Subeffect.map_eq_self,
+      Subeffect.map_eq_inr, id_eq, Subeffect.map_inl, Pattern.getElem_hole]
+    and_intros <;> (
+      congr 1
+      funext h
+      cases Hole.fromId? h
+      <;> simp
+      <;> grind
+    )
 
 end Plug
 
