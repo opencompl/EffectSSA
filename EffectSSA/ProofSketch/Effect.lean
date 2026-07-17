@@ -5,7 +5,8 @@ public import EffectSSA.ProofSketch.Hole
 
 public import ITreeExtras
 
-public import Std.Data.HashMap
+public import EffectSSA.ProofSketch.VarSet
+public import EffectSSA.ProofSketch.LocalStack
 
 /-!
 # Effects
@@ -65,7 +66,7 @@ theorem interpLeft_raiseError [ErrUB -< δ] (f : ε ⤳ ITree δ) (reason : Stri
   simp only [raiseError, ITree.interpLeft_bind, tau_bind, ITree.bind_ret,
     ITree.interpLeft_trigger_inr f (ErrUB.error reason), ITree.pure_eq_ret, bind_assoc]
   congr; grind
-  
+
 @[grind =]
 theorem raiseError_eq_vis_iff [ErrUB -< ε] {reason : String} {j : ε}
     {k : κε j → ITree ε α} :
@@ -145,9 +146,6 @@ abbrev interpHoles'  : (f : HoleId → ITree δ Unit) →
 --------------------------------------------------------------------------------
 -/
 
-/-- `Val` is the type of runtime values -/
-axiom Val : Type
-
 inductive LocalEff
   | read (var : VarId)
   | push (var : VarId) (value : Val)
@@ -177,25 +175,17 @@ end Lemmas
 
 /-! ### Interpretation -/
 
-structure LocalStack where
-  raw : Std.HashMap VarId Val := { }
-
 def interpLocalStackM [ErrUB -< ε] :
     (x : ITree (LocalEff ⊕ ε) α) → StateT LocalStack (ITree ε) α :=
   ITree.interpM fun
     | .inr e => liftM <| ITree.vis e .ret
     | .inl (.read x) => do
-        let ρ ← get
-        let some val := ρ.raw[x]? |
-          liftM <| raiseError (ε:=ε) s!"Unknown variable: {x}"
-        return val
-    | .inl (.push x val) => do
-        modify (⟨·.raw.insert x val⟩)
-        -- NOTE: it seems tempting to throw an error here if `x` is already defined.
-        -- However, since we never remove variables, a variable being defined twice
-        -- does not necessarily indicate a mall-formed program. In particular, the
-        -- pre-existing value might actually come from the same instruction in
-        -- a previous iteration of a loop.
+        let val? ← LocalStackT.read? x
+        match val? with
+        | some val => return val
+        | none => liftM <| raiseError (ε:=ε) s!"Unknown variable: {x}"
+    | .inl (.push x val) => LocalStackT.push x val
+
 
 /-- Interpret local stack effects starting from an empty initial stack. -/
 def interpLocalStack [ErrUB -< ε] (x : ITree (LocalEff ⊕ ε) α) : ITree ε α :=
