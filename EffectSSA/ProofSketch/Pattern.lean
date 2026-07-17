@@ -20,16 +20,6 @@ instruction sequence.
 -/
 def Pattern (n : Nat) := Vector InstSeq n
 
-/--
-A `HoleId n` is the name of a hole in a context which may include at most `n`
-distinct holes. It therefore also identifies a particular sequence in an
-`n`-ary pattern.
-
-A `Hole n` is in some sense a meta-variable.
--/
-def Hole n := Fin n
-  deriving DecidableEq
-
 namespace Pattern
 variable (v : Pattern n)
 
@@ -63,7 +53,7 @@ instance : GetElem (Pattern n) Nat InstSeq (fun _ i => i < n) where
   getElem I i _ := I.toVector[i]
 
 instance : GetElem (Pattern n) (Hole n) InstSeq (fun _ _ => True) where
-  getElem I h _ := I[h.val]
+  getElem I h _ := I[h.toFin]
 
 /-! ### Destructors -/
 
@@ -132,7 +122,7 @@ variable (i : Nat)
     (i : Nat) (hi : i < n) : I[i]'hi = I.toVector[i] := rfl
 
 @[simp, grind =, grind =_] theorem getElem_hole (I : Pattern n) (h : Hole n) :
-    I[h] = I[h.val] := by rfl
+    I[h] = I[h.toFin] := by rfl
 
 @[simp, grind =] theorem getElem_ofVector (xs : Vector _ n) : (ofVector xs)[i]'hi = xs[i] := by rfl
 @[simp, grind =] theorem getElem_cast (h : n = m) :
@@ -262,7 +252,7 @@ grind_pattern mem_iff_getElem => i ∈ I, GetElem.getElem I
 theorem mem_iff_getElem_hole : i ∈ I ↔ ∃ (h : Hole n), i = I[h] := by
   simp only [mem_iff_getElem]
   constructor
-  · rintro ⟨k, hk, h⟩; exact ⟨⟨k, hk⟩, h⟩
+  · rintro ⟨k, hk, h⟩; exact ⟨⟨⟨k⟩, hk⟩, h⟩
   · grind
 
 @[grind .] theorem not_mem_nil : i ∉ nil := by grind [mem_iff_getElem]
@@ -315,10 +305,10 @@ variable {I : Pattern n}
 abbrev get (p : I.PC) : Inst := p.pc.get
 
 def ofHeadPC [NeZero n] (p : I.head.PC) : I.PC :=
-  ⟨(0 : Fin n), p⟩
+  ⟨⟨⟨0⟩, by grind⟩, p⟩
 
 def ofTailPC [NeZero n] : I.tail.PC → I.PC
-  | ⟨h, p⟩ => ⟨⟨h.val + 1, by grind⟩, ⟨p.idx, by grind⟩⟩
+  | ⟨h, p⟩ => ⟨⟨h.id + 1, by grind⟩, ⟨p.idx, by grind⟩⟩
 
 /-- Map a pattern PC into the sequence PC of the collapsed pattern. -/
 def collapse : {n : Nat} → {I : Pattern n} → (p : I.PC) → I.collapse.PC
@@ -327,8 +317,8 @@ def collapse : {n : Nat} → {I : Pattern n} → (p : I.PC) → I.collapse.PC
       pc.cast <| by
         suffices I = (cons I.head I.tail) by grind
         grind
-  | n + 1, I, ⟨⟨h+1, _⟩, pc⟩ =>
-      let pc : I.tail.collapse.PC := collapse ⟨⟨h, by grind⟩, pc.cast (by grind)⟩
+  | n + 1, I, ⟨⟨⟨h + 1⟩, _⟩, pc⟩ =>
+      let pc : I.tail.collapse.PC := collapse ⟨⟨⟨h⟩, by grind⟩, pc.cast (by grind)⟩
       let pc : (I.head ++ I.tail.collapse).PC := pc.ofAppendRight
       pc.cast <| by
         suffices I = (cons I.head I.tail) by grind

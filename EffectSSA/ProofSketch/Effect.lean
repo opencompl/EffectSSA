@@ -4,6 +4,7 @@ public import ITreeExtras
 
 public import EffectSSA.ProofSketch.VarSet
 public import EffectSSA.ProofSketch.LocalStack
+public import EffectSSA.ProofSketch.Hole
 
 /-!
 # Effects
@@ -40,6 +41,12 @@ def raiseUB [ErrUB -< ε] (reason := "") : ITree ε α :=
 
 def raiseError [ErrUB -< ε] (reason := "") : ITree ε α :=
   trigger ErrUB (.error reason) >>= Empty.elim
+
+abbrev raiseErrorOnNone [ErrUB -< ε] (reason := "") (t : ITree ε (Option α)) : ITree ε α := do
+  let x ← t
+  match x with
+  | some x => return x
+  | none => raiseError reason
 
 section Lemmas
 open Subeffect (map)
@@ -92,10 +99,6 @@ instance : Effect SideEff SideEff.κ := ⟨⟩
 ## Hole Execution
 --------------------------------------------------------------------------------
 -/
-
-structure HoleId where
-  toNat : Nat
-instance : ToString HoleId where toString h := s!"{h.toNat}"
 
 /--
 We consider a (multi-)context to be a program with holes in it.
@@ -247,12 +250,29 @@ noncomputable
 abbrev OpaqueCtxEff := HoleEff ⊕ OpaqueEff
 
 /-!
-## Instruction Handler
+## Handlers
 --------------------------------------------------------------------------------
 -/
+
+/-! ### Instruction -/
 
 axiom handleInst : (i : Inst) → ITree InterpEff Unit
 
 noncomputable
 def interpInst : ITree OpaqueEff α → ITree InterpEff α :=
   ITree.interpLeft handleInst
+
+/-! ### Combined -/
+
+abbrev Hole.fromId [ErrUB -< ε] (h : HoleId) : ITree ε (Hole n) :=
+  (.ret <| Hole.fromId? h)
+  |> raiseErrorOnNone s!"Unknown hole: {h}"
+
+noncomputable
+def interpAll
+    (fHole : Hole n → ITree OpaqueEff Unit)
+    (t : ITree OpaqueCtxEff α) : ITree BaseEff α :=
+  t
+  |> interpHoles (Hole.fromId · >>= fHole)
+  |> interpInst
+  |> interpLocalStack

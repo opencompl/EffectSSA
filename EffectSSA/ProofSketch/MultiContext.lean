@@ -28,13 +28,6 @@ A `MultiContext n` is a sequence of instructions, interspersed by (named) holes,
 abbrev MultiContext (n : Nat) := List (Inst ⊕ Hole n)
 
 /--
-Erase the intrinsic upper bound on a `Hole` index,
-returning the raw underlying `HoleId`.
--/
-def Hole.id (h : Hole n) : HoleId where
-  toNat := h.val
-
-/--
 `C.denote` returns an `ITree` in which each instruction of the context
 is represented as an `InstEff`, and each hole as a `HoleEff`.
 -/
@@ -68,7 +61,7 @@ theorem MultiContext.denote_append (C₁ C₂ : MultiContext n) :
 
 @[simp, grind =]
 theorem MultiContext.hasEffect_denote_inl_iff (C : MultiContext n) (e : HoleId) :
-    C.denote.HasEffect (.inl e) ↔ ∃ h, (.inr ⟨e.toNat, h⟩) ∈ C := by
+    C.denote.HasEffect (.inl e) ↔ ∃ h, (.inr ⟨e, h⟩) ∈ C := by
   sorry
 
 end DenoteLemmas

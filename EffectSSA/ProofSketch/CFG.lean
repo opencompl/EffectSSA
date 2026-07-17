@@ -78,38 +78,14 @@ where
     let some b := C.blocks[bId]? | raiseError s!"Missing Block: {bId}"
     b.denote bId args
 
-/-! ### Hole API-/
-namespace Hole
-
-def fromId? {n} [ErrUB -< ε] (h : HoleId) : ITree ε (Hole n) :=
-  if hr : h.toNat < n then
-    return ⟨h.toNat, hr⟩
-  else
-    raiseError s!"Unknown hole: {h}"
-
-abbrev elim0 : Hole 0 → α := Fin.elim0
-
-section Lemmas
-variable [ErrUB -< ε]
-
-@[simp, grind =]
-theorem fromId?_id (h : Hole n) :
-    (Hole.fromId? h.id : ITree ε (Hole n)) = ITree.ret h := by
-  simp [Hole.fromId?, Hole.id]
-
-end Lemmas
-end Hole
 
 noncomputable
-def ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ InstEff) Unit) :
+abbrev ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ InstEff) Unit) :
     (ITree (SideEff ⊕ ErrUB)) ReturnVals := do
-  C.denote
-  |> interpHoles (Hole.fromId? · >>= f)
-  |> interpInst
-  |> interpLocalStack
+  C.denote |> interpAll (f · |>.lift)
 
 noncomputable
-def ProgramCFG.interp (P : ProgramCFG) : (ITree (SideEff ⊕ ErrUB)) ReturnVals :=
+abbrev ProgramCFG.interp (P : ProgramCFG) : (ITree (SideEff ⊕ ErrUB)) ReturnVals :=
   ContextCFG.interp P Hole.elim0
 
 /-!
@@ -122,10 +98,6 @@ namespace ContextCFG
 
 /-! ### InterpHoles -/
 section InterpHoles
-
-
--- @[simp, grind =] theorem fromId?_zero : Hole.fromId? (n := 0) x = raiseError _ := by
---   simp [Hole.fromId?]
 
 @[simp, grind .]
 axiom hasEffect_raiseError [ErrUB -< ε] (e : ε) :
@@ -189,7 +161,7 @@ theorem Block.interp_plug {b : Block n} {br : Branch} {I : Pattern n}
     ((b.plug I).denote br.target br.args).interpLeft f
     = let g : Hole n → ITree (InstEff ⊕ ErrUB) Unit := fun h => I[h].denote.lift
       (b.denote br.target br.args).interpLeft (do
-          let h ← Hole.fromId? ·
+          let h ← Hole.fromId ·
           (g h).lift) := by
   -- rcases b with ⟨args, code, term⟩
   simp only [denote, plug, ITree.pure_eq_ret, List.forM_eq_forM, ITree.bind_ret,
@@ -228,18 +200,18 @@ theorem Block.interp_plug {b : Block n} {br : Branch} {I : Pattern n}
 open ITree in
 theorem ContextCFG.interp_plug {C : ContextCFG n} {I : Pattern n} :
     (C.plug I).interp = C.interp (liftM <| I[·].denote) := by
-  simp only [ProgramCFG.interp, interp, Pattern.getElem_hole]
+  simp only [ProgramCFG.interp, interp, Pattern.getElem_hole, interpAll]
   congr 2
   simp only [denote, entryId_plug]
   apply ITree.eq_of_bisim
   apply ITree.Bisim.coinduct <| fun t u =>
     ∃ b : Branch,
-      t = (interpHoles (ε:=ErrUB ⊕ InstEff) (fun x => Hole.fromId? x >>= Hole.elim0)
+      t = (interpHoles (ε:=ErrUB ⊕ InstEff) (fun x => Hole.fromId x >>= Hole.elim0)
             (ITree.iter (denote.step (C.plug I)) b))
       ∧ u = (interpHoles (ε:=ErrUB ⊕ InstEff)
               (fun x => do
-                let x : Hole n ← Hole.fromId? x
-                liftM I[Fin.val x].denote)
+                let x : Hole n ← Hole.fromId x
+                liftM I[x].denote)
               (ITree.iter (denote.step C) b))
   · rintro t u ⟨br, ht, hu⟩
     simp only [ITree.iter, denote.step, getElem?_blocks_plug, Option.map_eq_map,
@@ -257,9 +229,7 @@ theorem ContextCFG.interp_plug {C : ContextCFG n} {I : Pattern n} :
 
 
 
-  · grind
-
-
+  · stop grind
   stop
   generalize ht : denote (C.plug I) = t
 
