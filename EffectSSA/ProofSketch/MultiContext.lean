@@ -34,12 +34,15 @@ returning the raw underlying `HoleId`.
 def Hole.id (h : Hole n) : HoleId where
   toNat := h.val
 
+/-! ### Denote -/
+namespace MultiContext
+
 /--
 `C.denote` returns an `ITree` in which each instruction of the context
 is represented as an `InstEff`, and each hole as a `HoleEff`.
 -/
 @[grind]
-def MultiContext.denote : MultiContext n → ITree (HoleEff ⊕ InstEff) Unit
+def denote : MultiContext n → ITree (HoleEff ⊕ InstEff) Unit
   | .inl i :: is => trigger InstEff i    *> denote is
   | .inr h :: is => trigger HoleEff h.id *> denote is
   | [] => .ret ()
@@ -47,18 +50,27 @@ def MultiContext.denote : MultiContext n → ITree (HoleEff ⊕ InstEff) Unit
 section DenoteLemmas
 
 @[simp, grind =]
-theorem MultiContext.denote_nil :
-  MultiContext.denote (n := n) [] = .ret () := rfl
+theorem denote_nil :
+    denote (n := n) [] = .ret () := rfl
 
 @[simp, grind =]
-theorem MultiContext.denote_cons_inst (i : Inst) (C : MultiContext n) :
-    MultiContext.denote (Sum.inl i :: C) = trigger InstEff i *> MultiContext.denote C := rfl
+theorem denote_cons_inst (i : Inst) (C : MultiContext n) :
+    denote (Sum.inl i :: C) = trigger InstEff i *> denote C := rfl
 
 @[simp, grind =]
-theorem MultiContext.denote_cons_hole (h : Hole n) (C : MultiContext n) :
-    MultiContext.denote (Sum.inr h :: C) = trigger HoleEff h.id *> MultiContext.denote C := rfl
+theorem denote_cons_hole (h : Hole n) (C : MultiContext n) :
+    denote (Sum.inr h :: C) = trigger HoleEff h.id *> denote C := rfl
+
+@[simp, grind =]
+theorem denote_append (C₁ C₂ : MultiContext n) :
+    denote (C₁ ++ C₂) = C₁.denote *> C₂.denote := by
+  induction C₁
+  case nil => simp
+  case cons h_or_i _ _ =>
+    cases h_or_i <;> simp [*, seqRight_eq_bind]
 
 end DenoteLemmas
+end MultiContext
 
 /--
 A `HoleEnv n` associates each hole variable `h : Hole n` with an instruction sequence.
