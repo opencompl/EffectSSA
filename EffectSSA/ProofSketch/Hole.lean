@@ -17,8 +17,10 @@ namespace EffectSSA.ProofSketch
 --------------------------------------------------------------------------------
 -/
 
+@[grind cases]
 structure HoleId where
   toNat : Nat
+deriving DecidableEq
 instance : ToString HoleId where toString h := s!"{h.toNat}"
 
 /--
@@ -28,28 +30,66 @@ distinct holes. It therefore also identifies a particular sequence in an
 
 A `Hole n` is in some sense a meta-variable.
 -/
-def Hole n := Fin n
-  deriving DecidableEq
+@[grind cases]
+structure Hole (n : Nat) where
+  /--
+  Erase the intrinsic upper bound on a `Hole` index,
+  returning the raw underlying `HoleId`.
+  -/
+  id : HoleId
+  lt : id.toNat < n
+deriving DecidableEq
+
+/-!
+## HoleId API
+--------------------------------------------------------------------------------
+-/
+namespace HoleId
+
+instance : OfNat HoleId n where
+  ofNat := ⟨n⟩
+
+instance : HAdd HoleId Nat HoleId where
+  hAdd h n := ⟨h.toNat + n⟩
+
+section Lemmas
+
+@[simp, grind =] theorem toNat_ofNat (n : Nat) :
+  (OfNat.ofNat n : HoleId).toNat = n := rfl
+
+@[simp, grind =] theorem toNat_add (h : HoleId) (n : Nat) :
+  (h + n).toNat = h.toNat + n := rfl
+
+end Lemmas
+end HoleId
 
 /-!
 ## Hole API
 --------------------------------------------------------------------------------
 -/
 namespace Hole
+attribute [grind .] Hole.lt
 
-/--
-Erase the intrinsic upper bound on a `Hole` index,
-returning the raw underlying `HoleId`.
--/
-def id (h : Hole n) : HoleId where
-  toNat := h.val
-
-abbrev elim0 : Hole 0 → α := Fin.elim0
+abbrev toNat (h : Hole n) : Nat := h.id.toNat
+def toFin (h : Hole n) : Fin n := ⟨h.toNat, by grind⟩
 
 def fromId? {n} (h : HoleId) : Option (Hole n) :=
   if hr : h.toNat < n then
-    some ⟨h.toNat, hr⟩
+    some ⟨h, hr⟩
   else
     none
 
+def elim0 (h : Hole 0) : α :=
+  h.toFin.elim0
+
+section Lemmas
+
+@[simp, grind =] theorem val_toFin (h : Hole n) : h.toFin.val = h.toNat := rfl
+
+@[simp, grind =]
+theorem fromId?_id (h : Hole n) :
+    (Hole.fromId? h.id) = some h := by
+  grind [Hole.fromId?]
+
+end Lemmas
 end Hole

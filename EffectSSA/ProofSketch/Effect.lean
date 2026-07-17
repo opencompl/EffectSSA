@@ -1,12 +1,10 @@
 module
 
-public import EffectSSA.ProofSketch.Inst
-public import EffectSSA.ProofSketch.Hole
-
 public import ITreeExtras
 
 public import EffectSSA.ProofSketch.VarSet
 public import EffectSSA.ProofSketch.LocalStack
+public import EffectSSA.ProofSketch.Hole
 
 /-!
 # Effects
@@ -44,6 +42,15 @@ def raiseUB [ErrUB -< ε] (reason := "") : ITree ε α :=
 def raiseError [ErrUB -< ε] (reason := "") : ITree ε α :=
   trigger ErrUB (.error reason) >>= Empty.elim
 
+def withErrorContext [Monad m] [MonadLiftT (ITree ErrUB) m] (reason : String) (x? : m (Option α)) : m α := do
+  let x ← x?
+  match x with
+  | some x => return x
+  | none => liftM <| (raiseError reason : ITree ErrUB _)
+
+abbrev raiseErrorOnNone [ErrUB -< ε] (reason := "") (t : ITree ε (Option α)) : ITree ε α := do
+  withErrorContext reason t
+
 section Lemmas
 open Subeffect (map)
 
@@ -75,6 +82,19 @@ theorem raiseError_eq_vis_iff [ErrUB -< ε] {reason : String} {j : ε}
     (fun x : κε (map (ε₂:=ε) (.error reason : ErrUB)).fst =>
       (Empty.elim ((map (ε₂:=ε) (.error reason : ErrUB)).snd x) : ITree ε α)) ≍ k := by
   simp [raiseError, trigger]
+
+open Subeffect (mapEff mapCont) in
+@[simp, grind =]
+theorem map_raiseError [ErrUB -< ε] (reason : String) (fEff : ε → δ) (fCont : _) :
+    (raiseError reason : ITree ε α).map fEff fCont =
+      .vis (fEff <| mapEff <| ErrUB.error reason) (fun x => Empty.elim <| mapCont _ <| fCont _ x) := by
+  suffices ∀ {α} (f g : κδ (fEff (map (ErrUB.error reason)).fst) → α),
+    f = g
+  by simpa [raiseError, trigger] using this _ _
+  intros
+  funext x
+  have : Empty := mapCont _ <| fCont _ x
+  contradiction
 
 end Lemmas
 
@@ -114,15 +134,6 @@ instance : Effect HoleEff (fun _ => Unit) := ⟨⟩
 /-- Continue execution at the instructions that will be substituted for hole `h`. -/
 def jumpToHole (h : HoleId) : ITree HoleEff Unit :=
   .vis h .ret
-
-/--
-Resolve a raw `HoleId` into a well-scoped `Hole n`, raising an error if the
-id is out of range.
--/
-def Hole.fromId {n} [ErrUB -< ε] (h : HoleId) : ITree ε (Hole n) :=
-  match Hole.fromId? h with
-  | some x => return x
-  | none => raiseError s!"Unknown hole: {h}"
 
 /-! ### Interpretation -/
 
@@ -176,14 +187,11 @@ end Lemmas
 /-! ### Interpretation -/
 
 def interpLocalStackM [ErrUB -< ε] :
-    (x : ITree (LocalEff ⊕ ε) α) → StateT LocalStack (ITree ε) α :=
+    (x : ITree (LocalEff ⊕ ε) α) → LocalStackT (ITree ε) α :=
   ITree.interpM fun
     | .inr e => liftM <| ITree.vis e .ret
-    | .inl (.read x) => do
-        let val? ← LocalStackT.read? x
-        match val? with
-        | some val => return val
-        | none => liftM <| raiseError (ε:=ε) s!"Unknown variable: {x}"
+    | .inl (.read x) => withErrorContext s!"Unknown variable: {x}" <|
+        LocalStackT.read? x
     | .inl (.push x val) => LocalStackT.push x val
 
 
@@ -192,7 +200,7 @@ def interpLocalStack [ErrUB -< ε] (x : ITree (LocalEff ⊕ ε) α) : ITree ε �
   (interpLocalStackM x).run' { }
 
 /-!
-## Instructions
+## Instruction Effect
 --------------------------------------------------------------------------------
 -/
 
@@ -205,19 +213,14 @@ N.B: Terminators are *not* considered effects, since we want to unroll the CFG
 structure right away.
 -/
 
+/-- `Inst` is the type of instructions. -/
+axiom Inst : Type
+
 /-- In `InstEff`, each instruction is a unique effect. -/
 abbrev InstEff := Inst
 
 instance : Effect InstEff (fun _ => Unit) := ⟨⟩
 
-/-! ### Handler -/
-
-axiom handleInst [ErrUB -< ε] [SideEff -< ε] [LocalEff -< ε] : (i : Inst) → ITree ε Unit
-
-noncomputable
-def interpInst [ErrUB -< ε] [SideEff -< ε] [LocalEff -< ε] :
-    ITree (InstEff ⊕ ε) α → ITree ε α :=
-  ITree.interpLeft handleInst
 
 /-!
 ## Effect Aliasses
@@ -225,11 +228,17 @@ def interpInst [ErrUB -< ε] [SideEff -< ε] [LocalEff -< ε] :
 -/
 
 /--
+`BaseEff` gives the "base" effects, which is some opaque notion of side-effects
+enhanced with errors and UB.
+-/
+abbrev BaseEff := SideEff ⊕ ErrUB
+
+/--
 `InterpEff` gives the effects into which instructions and terminators are
 interpreted.
 -/
 noncomputable
-abbrev InterpEff := LocalEff ⊕ SideEff ⊕ ErrUB
+abbrev InterpEff := LocalEff ⊕ BaseEff
 
 /--
 `OpaqueEff` is the totality of effects resulting from unrolling a (closed) CFG
@@ -252,3 +261,31 @@ See also `OpaqueEff`, which omits the holes.
 -/
 noncomputable
 abbrev OpaqueCtxEff := HoleEff ⊕ OpaqueEff
+
+/-!
+## Handlers
+--------------------------------------------------------------------------------
+-/
+
+/-! ### Instruction -/
+
+axiom handleInst : (i : Inst) → ITree InterpEff Unit
+
+noncomputable
+def interpInst : ITree OpaqueEff α → ITree InterpEff α :=
+  ITree.interpLeft handleInst
+
+/-! ### Combined -/
+
+abbrev Hole.fromId [ErrUB -< ε] (h : HoleId) : ITree ε (Hole n) :=
+  withErrorContext s!"Unknown hole: {h}" <|
+    (.ret <| Hole.fromId? h)
+
+noncomputable
+def interpAll
+    (fHole : Hole n → ITree OpaqueEff Unit)
+    (t : ITree OpaqueCtxEff α) : ITree BaseEff α :=
+  t
+  |> interpHoles (Hole.fromId · >>= fHole)
+  |> interpInst
+  |> interpLocalStack

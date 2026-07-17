@@ -61,6 +61,19 @@ public def denote : (is : InstSeq) → ITree InstEff Unit
   | i :: is => Effect.trigger InstEff i *> denote is
   | [] => .ret ()
 
+section Lemmas
+
+@[simp, grind =] public theorem denote_nil : denote ([] : InstSeq) = .ret () := by rfl
+
+@[simp, grind =] public theorem denote_cons :
+    denote (i ;> is) = Effect.trigger InstEff i *> denote is := by rfl
+
+@[simp, grind =] public theorem denote_append {xs ys : InstSeq} :
+    denote (xs ++ ys) = denote xs *> denote ys := by
+  induction xs <;> simp [*, seqRight_eq_bind]
+
+end Lemmas
+
 /-!
 ## Variables
 -/

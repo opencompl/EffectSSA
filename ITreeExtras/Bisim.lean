@@ -16,17 +16,21 @@ The main result is `ITree.eq_of_bisim`: bisimilarity implies equality.
 @[expose] public section
 namespace ITree
 
-variable {ε} {κ} [Effect.{u} ε κ] {α}
+variable {ε} {κ} [Effect.{u} ε κ] {α β}
 
 namespace ITree
 variable {t : ITree ε α}
+
+coinductive BisimUpTo (R : α → β → Prop) : ITree ε α → ITree ε β → Prop where
+  | ret : R x y → BisimUpTo R (.ret x) (.ret y)
+  | tau : BisimUpTo R s₁ s₂ → BisimUpTo R (.tau s₁) (.tau s₂)
+  | vis : (∀ o : κ i, BisimUpTo R (k₁ o) (k₂ o)) → BisimUpTo R (.vis i k₁) (.vis i k₂)
 
 /--
 Strong bisimilarity for ITrees.
 Both trees must unfold to the same constructor, and continuations must again be bisimilar.
 -/
-coinductive Bisim {ε} {κ} [Effect.{u} ε κ] {α} :
-    ITree ε α → ITree ε α → Prop where
+coinductive Bisim : ITree ε α → ITree ε α → Prop where
   | ret : Bisim (.ret r) (.ret r)
   | tau : Bisim s₁ s₂ → Bisim (.tau s₁) (.tau s₂)
   | vis : (∀ o : κ i, Bisim (k₁ o) (k₂ o)) → Bisim (.vis i k₁) (.vis i k₂)

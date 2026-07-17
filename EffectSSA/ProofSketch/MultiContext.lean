@@ -62,6 +62,19 @@ theorem denote_append (C₁ C₂ : MultiContext n) :
   case cons h_or_i _ _ =>
     cases h_or_i <;> simp [*, seqRight_eq_bind]
 
+@[simp, grind =]
+theorem MultiContext.denote_append (C₁ C₂ : MultiContext n) :
+    MultiContext.denote (C₁ ++ C₂) = MultiContext.denote C₁ *> MultiContext.denote C₂ := by
+  induction C₁
+  case nil => simp
+  case cons h_or_i _ _ =>
+    cases h_or_i <;> simp [*, seqRight_eq_bind]
+
+@[simp, grind =]
+theorem MultiContext.hasEffect_denote_inl_iff (C : MultiContext n) (e : HoleId) :
+    C.denote.HasEffect (.inl e) ↔ ∃ h, (.inr ⟨e, h⟩) ∈ C := by
+  sorry
+
 end DenoteLemmas
 end MultiContext
 
@@ -235,4 +248,15 @@ def ofSeq : InstSeq → MultiContext n :=
   List.map Sum.inl
 instance : Coe InstSeq (MultiContext n) where coe := ofSeq
 
+section Lemmas
+
+@[simp, grind =]
+theorem denote_ofSeq (is : InstSeq) :
+    (@ofSeq n is).denote = is.denote.lift := by
+  simp [ofSeq]
+  induction is
+  · simp
+  · simp [*, Effect.trigger]
+
+end Lemmas
 end Conv
