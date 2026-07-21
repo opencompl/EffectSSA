@@ -120,7 +120,7 @@ instance (priority:=low) instSubSumR {ι₁ ι₂ ι'}
     {ε₁ : ι₁ → Type u} {ε₂ : ι₂ → Type u} {ε' : ι' → Type u}
     [sub : ε₁ -< ε₂] : ε₁ -< ε' ⊕ₑ ε₂ where
   map t := let ⟨i, f⟩ := (sub.map t); ⟨.inr i, f⟩
-  map_surj := by grind
+  map_surj := sub.map_surj
 
 /-- The `ε' -< (ε₁ ⊕ₑ ε₂)` instance derived from `ε' -< ε₂` maps to `Sum.inr`. -/
 @[simp] theorem map_eq_inr [ε' -< ε₂] (e : ι') :
