@@ -91,17 +91,13 @@ instance [subl : ε₁ -< ε'] [subr : ε₂ -< ε'] : (ε₁ ⊕ₑ ε₂) -< �
   map_surj i₁ := by cases i₁ <;> apply Subeffect.map_surj
 
 @[simp] theorem map_inl [ε₁ -< ε'] [ε₂ -< ε'] {e : ι₁} :
-    (map (ε₁ := ε₁ ⊕ₑ ε₂) (ε₂:=ε') <| .inl e)
-    = map (ε₁ := ε₁) (ε₂ := ε') e := rfl
+    (map (ε₁ := ε₁ ⊕ₑ ε₂) (ε₂:=ε') <| .inl e) = map e := rfl
 @[simp] theorem mapEff_inl [ε₁ -< ε'] [ε₂ -< ε'] {e : ι₁} :
-    (mapEff (ε₁ ⊕ₑ ε₂) ε' <| .inl e)
-    = mapEff ε₁ ε' e := rfl
+    (mapEff (ε₁ ⊕ₑ ε₂) ε' <| .inl e) = mapEff ε₁ ε' e := rfl
 @[simp] theorem map_inr [ε₁ -< ε'] [ε₂ -< ε'] {e : ι₂} :
-    (map (ε₁ := ε₁ ⊕ₑ ε₂) (ε₂:=ε') <| .inr e)
-    = map (ε₁ := ε₂) (ε₂ := ε') e := rfl
+    (map (ε₁ := ε₁ ⊕ₑ ε₂) (ε₂:=ε') <| .inr e) = map e := rfl
 @[simp] theorem mapEff_inr [ε₁ -< ε'] [ε₂ -< ε'] {e : ι₂} :
-    (mapEff (ε₁ ⊕ₑ ε₂) ε' <| .inr e)
-    = mapEff ε₂ ε' e := rfl
+    (mapEff (ε₁ ⊕ₑ ε₂) ε' <| .inr e) = mapEff ε₂ ε' e := rfl
 
 /-- `ε₁` is a sub-effect of `ε₁ ⊕ₑ ε₂`. -/
 instance (priority:=mid) instSubSumL [sub : ε₁ -< ε₂] : ε₁ -< (ε₂ ⊕ₑ ε') where
