@@ -24,6 +24,7 @@ variable {ι : Type u} {ε : ι → Type u}
          {ιδ : Type u} {δ : ιδ → Type u} {α}
 
 namespace ITree
+open Subeffect (mapEff mapCont)
 
 /--
 Translate an ITree along explicit maps on effects and continuations.
@@ -40,7 +41,7 @@ def map (fEff : ι → ιδ) (fCont : (i : ι) → δ (fEff i) → ε i)
 Translate an ITree along a subeffect inclusion `[ε -< δ]`.
 -/
 @[grind] def lift [ε -< δ] (t : ITree ε α) : ITree δ α :=
-  t.map (Subeffect.mapEff ε δ ·) (Subeffect.mapCont ε δ)
+  t.map (mapEff ε δ ·) (mapCont ε δ)
 
 /-- NOTE: the following instance cannot be defined on `MonadLift`, given that
 class's first argument is an `outParam`, so we define `MonadLiftT` directly. -/
