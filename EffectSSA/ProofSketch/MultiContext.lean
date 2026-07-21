@@ -17,7 +17,7 @@ namespace EffectSSA.ProofSketch
 open ITree
 open Effect (trigger)
 
-variable {ε : Type} {κε : ε → Type} [Effect ε κε]
+variable {ι : Type} {ε : ι → Type}
 
 /--
 A `MultiContext n` is a sequence of instructions, interspersed by (named) holes, such that:
@@ -35,7 +35,7 @@ namespace MultiContext
 is represented as an `InstEff`, and each hole as a `HoleEff`.
 -/
 @[grind]
-def denote : MultiContext n → ITree (HoleEff ⊕ InstEff) Unit
+def denote : MultiContext n → ITree (HoleEff ⊕ₑ InstEff) Unit
   | .inl i :: is => trigger InstEff i    *> denote is
   | .inr h :: is => trigger HoleEff h.id *> denote is
   | [] => .ret ()

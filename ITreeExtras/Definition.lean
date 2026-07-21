@@ -17,22 +17,22 @@ upstream rev `d1aeffe87ec7bd4bd13ed92fdc00ef6c5d58f800`).
 namespace ITree
 open Coinductive Lean.Order
 
-inductive ITreeF (ε : Type u) {κ : ε → Type u} [Effect ε κ]
+inductive ITreeF {ι : Type u} (ε : ι → Type u)
     (α : Type v) (ITree : Type w) : Type (max u v w) where
   | ret (r : α)
   | tau (t : ITree)
-  | vis (i : ε) (k : κ i → ITree)
+  | vis (i : ι) (k : ε i → ITree)
 
-inductive ITreeF.In (ε : Type u) (α : Type u) : Type u where
+inductive ITreeF.In (ι : Type u) (α : Type u) : Type u where
   | ret (r : α)
   | tau
-  | vis (i : ε)
+  | vis (i : ι)
 
-instance (ε : Type u) {κ : ε → Type u} [Effect ε κ] (α : Type u) : PF (ITreeF ε α) where
-  P := ⟨ITreeF.In ε α, fun
+instance {ι : Type u} (ε : ι → Type u) (α : Type u) : PF (ITreeF ε α) where
+  P := ⟨ITreeF.In ι α, fun
     | .ret _ => PEmpty
     | .tau => PUnit
-    | .vis i => κ i⟩
+    | .vis i => ε i⟩
   unpack
     | .ret r => .obj (.ret r) nofun
     | .tau t => .obj .tau λ _ => t
@@ -44,17 +44,17 @@ instance (ε : Type u) {κ : ε → Type u} [Effect ε κ] (α : Type u) : PF (I
   unpack_pack := by rintro _ ⟨⟩ <;> simp
   pack_unpack := by rintro _ (⟨⟨⟩, _⟩ | ⟨⟨⟩⟩) <;> simp <;> funext x <;> cases x
 
-abbrev ITree (ε : Type u) {κ : ε → Type u} [Effect ε κ] (α : Type u) : Type u :=
+abbrev ITree {ι : Type u} (ε : ι → Type u) (α : Type u) : Type u :=
   CoInd (ITreeF ε α)
-abbrev ITreeN (ε : Type u) {κ : ε → Type u} [Effect ε κ] (α : Type u) (n : Nat) : Type u :=
+abbrev ITreeN {ι : Type u} (ε : ι → Type u) (α : Type u) (n : Nat) : Type u :=
   CoIndN (ITreeF ε α) n
 
-variable {ε} {κ} [Effect.{u} ε κ] {α}
+variable {ι} {ε : ι → Type u} {α}
 
 def ITree.fold (t : ITreeF ε α (ITree ε α)) : ITree ε α := CoInd.fold _ t
 def ITree.ret (r : α) : ITree ε α := ITree.fold (.ret r)
 def ITree.tau (t : ITree ε α) : ITree ε α := ITree.fold (.tau t)
-def ITree.vis (i : ε) (k : κ i → ITree ε α) : ITree ε α := ITree.fold (.vis i k)
+def ITree.vis (i : ι) (k : ε i → ITree ε α) : ITree ε α := ITree.fold (.vis i k)
 def ITree.unfold (t : ITree ε α) : ITreeF ε α (ITree ε α) := CoInd.unfold _ t
 
 /- Ideally everything above this would be automatically generated -/
@@ -86,13 +86,13 @@ theorem fold_tau_approx_1 (t : ITree ε α) n :
     tau_approx_1 t n
 
 @[simp]
-theorem vis_approx_1 i (t : κ i → ITree ε α) n :
+theorem vis_approx_1 i (t : ε i → ITree ε α) n :
   (ITree.vis i t).approx (n + 1) = ITreeF.vis i (λ o => (t o).approx n) := by
     simp [ITree.vis, ITree.fold, CoInd.fold, PF.map, PF.pack]
     rfl
 
 @[simp]
-theorem fold_vis_approx_1 i (t : κ i → ITree ε α) n :
+theorem fold_vis_approx_1 i (t : ε i → ITree ε α) n :
   (ITree.fold (ITreeF.vis i t)).approx (n + 1) = ITreeF.vis i (λ o => (t o).approx n) := vis_approx_1 i t n
 
 @[simp]
@@ -106,7 +106,7 @@ theorem unfold_tau (t : ITree ε α) :
     simp [ITree.tau, ITree.fold, ITree.unfold]
 
 @[simp]
-theorem unfold_vis i (t : κ i → ITree ε α) :
+theorem unfold_vis i (t : ε i → ITree ε α) :
   ITree.unfold (ITree.vis i t) = ITreeF.vis i t := by
     simp [ITree.vis, ITree.fold, ITree.unfold]
 
@@ -131,7 +131,7 @@ theorem tau_mono γ [PartialOrder γ] (f : γ → ITree ε α) :
     apply tau_monoN
     grind [CoInd.leN_le, monotone]
 
-theorem vis_monoN i (t1 t2 : κ i → ITree ε α) n :
+theorem vis_monoN i (t1 t2 : ε i → ITree ε α) n :
   (∀ o, CoIndN.le _ ((t1 o).approx n) ((t2 o).approx n)) →
   CoIndN.le _ ((ITree.vis i t1).approx (n + 1)) ((ITree.vis i t2).approx (n + 1))
  := by
@@ -142,7 +142,7 @@ theorem vis_monoN i (t1 t2 : κ i → ITree ε α) n :
     grind [coherent1]
 
 @[partial_fixpoint_monotone]
-theorem vis_mono γ [PartialOrder γ] i (f : γ → κ i → ITree ε α) :
+theorem vis_mono γ [PartialOrder γ] i (f : γ → ε i → ITree ε α) :
   monotone f →
   monotone (λ x => ITree.vis i (f x)) := by
     intro hf t1 t2 hle
@@ -272,7 +272,7 @@ instance : Monad (ITree.{u} ε) where
   bind := ITree.bind
 
 @[elab_as_elim, cases_eliminator]
-def ITree.cases {ε} {κ} [Effect.{u} ε κ] {α}
+def ITree.cases {ι} {ε : ι → Type u} {α}
     {motive : ITree ε α → Sort v}
     (ret : ∀ r, motive (pure r))
     (tau : ∀ t : ITree ε α, motive (t.tau))
@@ -334,9 +334,9 @@ theorem vis_bind {β} i k (t : β → ITree ε α) :
   (.vis i k) >>= t = .vis i (λ o => k o >>= t) := by simp [Bind.bind]
 
 
-def Effect.trigger (ε₁) {κ₁} [Effect.{u} ε₁ κ₁]
-    {ε₂} {κ₂} [Effect.{u} ε₂ κ₂]
-    [ε₁ -< ε₂] (i : ε₁) : ITree.{u} ε₂ (κ₁ i) :=
+def Effect.trigger {ι₁ ι₂} (ε₁ : ι₁ → Type u)
+    {ε₂ : ι₂ → Type u}
+    [ε₁ -< ε₂] (i : ι₁) : ITree.{u} ε₂ (ε₁ i) :=
   let ⟨i₂, f⟩ := (Subeffect.map i);
   ITree.vis i₂ (λ x => return (f x))
 

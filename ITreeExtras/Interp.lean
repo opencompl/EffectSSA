@@ -19,15 +19,15 @@ by our use of modified `tau`.
 namespace ITree
 
 /-- Notation for effect handlers targeting a monad `m`. -/
-abbrev Effect.Transform (ε) {κ} [Effect ε κ] (m : Type u → Type u) :=
-  (i : ε) → m (κ i)
+abbrev Effect.Transform {ι : Type u} (ε : ι → Type u) (m : Type u → Type u) :=
+  (i : ι) → m (ε i)
 @[inherit_doc] scoped infixr:25 unicode(" ⤳ ", " ~> ") => ITree.Effect.Transform
 
 namespace ITree
 
-variable {ε} {κε} [Effect.{u} ε κε]
-         {δ} {κδ} [Effect.{u} δ κδ]
-         {ε'} {κε'} [Effect.{u} ε' κε']
+variable {ι : Type u} {ε : ι → Type u}
+         {ιδ : Type u} {δ : ιδ → Type u}
+         {ιε' : Type u} {ε' : ιε' → Type u}
          {α}
 
 /--
@@ -63,7 +63,7 @@ variable (f : ε ⤳ ITree δ)
   rw (occs := [1]) [iter]
   simp
 
-@[simp, grind =] theorem interp_vis (i : ε) (k : κε i → ITree ε α) :
+@[simp, grind =] theorem interp_vis (i : ι) (k : ε i → ITree ε α) :
     interp f (vis i k) = f i >>= fun o => tau (interp f (k o)) := by
   unfold interp
   rw (occs := [1]) [iter]
@@ -175,7 +175,7 @@ Interpretation composes: interpreting `t` through `g` then `h` is the same as
 interpreting `t` through the pointwise composition `interp h ∘ g`.
 -/
 @[simp, grind =]
-theorem interp_interp {η κη} [Effect.{u} η κη]
+theorem interp_interp {ιη : Type u} {η : ιη → Type u}
     (g : ε ⤳ ITree δ) (h : δ ⤳ ITree η) (t : ITree ε α) :
     interp h (interp g t) = interp (fun i => interp h (g i)) t := by
   apply eq_of_bisim
@@ -228,11 +228,11 @@ theorem interp_interp {η κη} [Effect.{u} η κη]
 /-! ### Interpreting Sum Effects -/
 
 /--
-Given an ITree with events in `ε ⊕ δ`,
+Given an ITree with events in `ε ⊕ₑ δ`,
 interpret only events in `ε` using the handler `f`,
 leaving events in `δ` as-is.
 -/
-def interpLeft (f : ε ⤳ ITree δ) : ITree (ε ⊕ δ) α → ITree δ α :=
+def interpLeft (f : ε ⤳ ITree δ) : ITree (ε ⊕ₑ δ) α → ITree δ α :=
   interp (Sum.casesOn · f (Effect.trigger δ))
 
 section InterpLeftLemmas
@@ -242,42 +242,42 @@ variable (f : ε ⤳ ITree δ)
 
 /-- `interp_bind` specialized to `interpLeft`. -/
 @[simp, grind =]
-theorem interpLeft_bind {β} (t : ITree (ε ⊕ δ) α) (k : α → ITree (ε ⊕ δ) β) :
+theorem interpLeft_bind {β} (t : ITree (ε ⊕ₑ δ) α) (k : α → ITree (ε ⊕ₑ δ) β) :
     (t >>= k).interpLeft f = t.interpLeft f >>= (fun a => (k a).interpLeft f) :=
   interp_bind _ t k
 
 @[simp]
-theorem interpLeft_seqRight {β} (t : ITree (ε ⊕ δ) α) (u : ITree (ε ⊕ δ) β) :
+theorem interpLeft_seqRight {β} (t : ITree (ε ⊕ₑ δ) α) (u : ITree (ε ⊕ₑ δ) β) :
     interpLeft f (t *> u) = interpLeft f t *> interpLeft f u := by
   simp [seqRight_eq_bind]
 
 /-- `interp_forM` specialized to `interpLeft`. -/
 @[simp, grind =]
 theorem interpLeft_forM {γ} (f : ε ⤳ ITree δ)
-    (xs : List γ) (g : γ → ITree (ε ⊕ δ) PUnit) :
+    (xs : List γ) (g : γ → ITree (ε ⊕ₑ δ) PUnit) :
     (forM xs g).interpLeft f = forM xs (fun a => (g a).interpLeft f) :=
   interp_forM _ xs g
 
 /-! ### trigger -/
 
 /--
-When `trigger` targets the left component of `ε ⊕ δ`, `interpLeft` handles
+When `trigger` targets the left component of `ε ⊕ₑ δ`, `interpLeft` handles
 it via the user-provided handler `f`.
 -/
 @[simp, grind =]
-theorem interpLeft_trigger_inl [ε' -< ε] (i : ε') :
-    interpLeft f (Effect.trigger (ε₂ := ε ⊕ δ) ε' i)
-      = f (Subeffect.map (ε₂ := ε) i).fst
-        >>= fun o => tau (return ((Subeffect.map (ε₂ := ε) i).snd o)) := by
+theorem interpLeft_trigger_inl [ε' -< ε] (i : ιε') :
+    interpLeft f (Effect.trigger (ε₂ := ε ⊕ₑ δ) ε' i)
+      = f (Subeffect.map (ε₁ := ε') (ε₂ := ε) i).fst
+        >>= fun o => tau (return ((Subeffect.map (ε₁ := ε') (ε₂ := ε) i).snd o)) := by
   simp [interpLeft, Effect.trigger]
 
 /--
-When `trigger` targets the right component of `ε ⊕ δ`, `interpLeft` passes
+When `trigger` targets the right component of `ε ⊕ₑ δ`, `interpLeft` passes
 it through as a `trigger` in `ITree δ`.
 -/
 @[simp, grind =]
-theorem interpLeft_trigger_inr [ε' -< δ] (i : ε') :
-    interpLeft f (Effect.trigger (ε₂ := ε ⊕ δ) ε' i)
+theorem interpLeft_trigger_inr [ε' -< δ] (i : ιε') :
+    interpLeft f (Effect.trigger (ε₂ := ε ⊕ₑ δ) ε' i)
       = Effect.trigger (ε₂ := δ) ε' i >>= fun o => tau (return o) := by
   simp [interpLeft, Effect.trigger]
 

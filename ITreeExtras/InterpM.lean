@@ -68,7 +68,7 @@ class LawfulMonadIter (m : Type u → Type u) [Monad m] [MonadIter m] where
         | .inl a => tau <| MonadIter.iter f a
         | .inr b => return b
 
-variable {ε} {κ} [Effect.{u} ε κ] {α}
+variable {ι : Type u} {ε : ι → Type u} {α}
 variable {m : Type u → Type u} [Monad m] [MonadIter m]
 
 section Instances
@@ -127,7 +127,7 @@ See also `ITree.interp` for a specialization where the target monad is an `ITree
 do note that `interp` and `interpM (m := ITree _)` differ slightly in how they
 handle `tau`s in the given `ITree`.
 -/
-def interpM (h : (i : ε) → m (κ i)) : ITree ε α → m α :=
+def interpM (h : (i : ι) → m (ε i)) : ITree ε α → m α :=
   MonadIter.iter fun t =>
     match t.unfold with
     | .ret r   => return (.inr r)
@@ -135,7 +135,7 @@ def interpM (h : (i : ε) → m (κ i)) : ITree ε α → m α :=
     | .vis i k => h i >>= fun o => return (.inl (k o))
 
 section Lemmas
-variable [LawfulMonad m] [LawfulMonadIter m] (h : (i : ε) → m (κ i))
+variable [LawfulMonad m] [LawfulMonadIter m] (h : (i : ι) → m (ε i))
 
 @[simp, grind =] theorem interpM_ret (r : α) :
     interpM h (ret r) = return r := by
@@ -149,7 +149,7 @@ variable [LawfulMonad m] [LawfulMonadIter m] (h : (i : ε) → m (κ i))
     interpM h (.tau t) = LawfulMonadIter.tau (interpM h t) := by
   rw [interpM, LawfulMonadIter.iter_eq]; simp
 
-@[simp, grind =] theorem interpM_vis (i : ε) (k : κ i → ITree ε α) :
+@[simp, grind =] theorem interpM_vis (i : ι) (k : ε i → ITree ε α) :
     interpM h (vis i k) = (do
       let o ← h i
       LawfulMonadIter.tau <| interpM h (k o)) := by

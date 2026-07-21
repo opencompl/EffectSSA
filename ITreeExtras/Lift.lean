@@ -20,22 +20,19 @@ defined as the specialization of `map` at the maps supplied by a
 
 @[expose] public section
 namespace ITree
-variable {ε} {κε} [Effect.{u} ε κε] {δ} {κδ} [Effect.{u} δ κδ] {α}
+variable {ι : Type u} {ε : ι → Type u}
+         {ιδ : Type u} {δ : ιδ → Type u} {α}
 
-namespace Effect
-
-instance instCoeTOfSubeffect [ε -< δ] {e} : CoeT ε e δ where
-  coe := (Subeffect.map e).1
-
-end Effect
+-- NOTE: previously there was a `CoeT ε e δ` instance derived from `[ε -< δ]`,
+-- but with the new representation of effects as families we can no longer key
+-- typeclass search on the index type alone (many families share an index).
 
 namespace ITree
-open Subeffect (mapEff mapCont)
 
 /--
 Translate an ITree along explicit maps on effects and continuations.
 -/
-def map (fEff : ε → δ) (fCont : (i : ε) → κδ (fEff i) → κε i)
+def map (fEff : ι → ιδ) (fCont : (i : ι) → δ (fEff i) → ε i)
     (t : ITree ε α) : ITree δ α :=
   match t.unfold with
   | .ret x => .ret x
@@ -47,7 +44,7 @@ def map (fEff : ε → δ) (fCont : (i : ε) → κδ (fEff i) → κε i)
 Translate an ITree along a subeffect inclusion `[ε -< δ]`.
 -/
 @[grind] def lift [ε -< δ] (t : ITree ε α) : ITree δ α :=
-  t.map (mapEff ·) mapCont
+  t.map (Subeffect.mapEff ε δ ·) (Subeffect.mapCont ε δ)
 
 /-- NOTE: the following instance cannot be defined on `MonadLift`, given that
 class's first argument is an `outParam`, so we define `MonadLiftT` directly. -/
@@ -61,7 +58,7 @@ section Lemmas
 
 /-! ### Basic -/
 section Basic
-variable {fEff : ε → δ} {fCont : (i : ε) → κδ (fEff i) → κε i}
+variable {fEff : ι → ιδ} {fCont : (i : ι) → δ (fEff i) → ε i}
 
 @[simp, grind =] theorem map_ret (r : α) :
     map fEff fCont (ret r) = ret r := by
@@ -72,7 +69,7 @@ variable {fEff : ε → δ} {fCont : (i : ε) → κδ (fEff i) → κε i}
   conv => {lhs; rw [map]}
   simp
 
-@[simp, grind =] theorem map_vis (i : ε) (k : κε i → ITree ε α) :
+@[simp, grind =] theorem map_vis (i : ι) (k : ε i → ITree ε α) :
     map fEff fCont (vis i k)
     = vis (fEff i) (fun o => (k (fCont i o)).map fEff fCont) := by
   conv => {lhs; rw [map]}
@@ -103,9 +100,9 @@ variable {fEff : ε → δ} {fCont : (i : ε) → κδ (fEff i) → κε i}
 
 
 /-- Mapping twice is the same as mapping once with the composed maps. -/
-@[simp, grind =] theorem map_map {η κη} [Effect.{u} η κη]
-    (fEff₁ : ε → δ) (fCont₁ : (i : ε) → κδ (fEff₁ i) → κε i)
-    (fEff₂ : δ → η) (fCont₂ : (i : δ) → κη (fEff₂ i) → κδ i)
+@[simp, grind =] theorem map_map {ιη : Type u} {η : ιη → Type u}
+    (fEff₁ : ι → ιδ) (fCont₁ : (i : ι) → δ (fEff₁ i) → ε i)
+    (fEff₂ : ιδ → ιη) (fCont₂ : (i : ιδ) → η (fEff₂ i) → δ i)
     (t : ITree ε α) :
     map fEff₂ fCont₂ (map fEff₁ fCont₁ t)
       = map (fEff₂ <| fEff₁ ·) (fun _ o => fCont₁ _ (fCont₂ _ o)) t := by
@@ -140,9 +137,10 @@ variable [ε -< δ]
 @[simp, grind =] theorem lift_tau (t : ITree ε α) :
     lift (δ := δ) (tau t) = tau (lift t) := map_tau _
 
-@[simp, grind =] theorem lift_vis (i : ε) (k : κε i → ITree ε α) :
+@[simp, grind =] theorem lift_vis (i : ι) (k : ε i → ITree ε α) :
     lift (δ := δ) (vis i k)
-    = vis (mapEff i) (fun o => (k (mapCont i o)).lift) := map_vis _ _
+    = vis (Subeffect.mapEff ε δ i)
+          (fun o => (k (Subeffect.mapCont ε δ i o)).lift) := map_vis _ _
 
 @[simp, grind =] theorem lift_eq_ret_iff (t : ITree ε α) (r : α) :
     lift (δ := δ) t = ret r ↔ t = ret r :=
@@ -152,11 +150,11 @@ variable [ε -< δ]
     lift (δ := δ) t = tau t' ↔ ∃ u, t = tau u ∧ t' = lift (δ := δ) u :=
   map_eq_tau_iff ..
 
-@[simp, grind =] theorem lift_eq_vis_iff (t : ITree ε α) (i : δ) (k : κδ i → ITree δ α) :
+@[simp, grind =] theorem lift_eq_vis_iff (t : ITree ε α) (i : ιδ) (k : δ i → ITree δ α) :
     lift (δ := δ) t = vis i k ↔ ∃ j l,
       t = vis j l
-      ∧ i = mapEff j
-      ∧ k ≍ (fun x : κδ _ => (l (mapCont j x)).lift (δ:=δ)) :=
+      ∧ i = Subeffect.mapEff ε δ j
+      ∧ k ≍ (fun x : δ _ => (l (Subeffect.mapCont ε δ j x)).lift (δ:=δ)) :=
   map_eq_vis_iff ..
 
 end Lift
@@ -193,8 +191,8 @@ theorem lift_bind (t : ITree ε α) (k : α → ITree ε β) :
     | vis j k'' =>
       simp only [vis_bind, lift_vis]
       right; right
-      refine ⟨mapEff j, _, _,
-              fun o => ⟨_, k'' (mapCont j o), k, rfl, rfl⟩, rfl, rfl⟩
+      refine ⟨Subeffect.mapEff ε δ j, _, _,
+              fun o => ⟨_, k'' (Subeffect.mapCont ε δ j o), k, rfl, rfl⟩, rfl, rfl⟩
     | ret a =>
       simp only [pure_bind, lift_pure]
       cases k a with
@@ -207,8 +205,8 @@ theorem lift_bind (t : ITree ε α) (k : α → ITree ε β) :
       | vis i k'' =>
         simp only [lift_vis]
         right; right
-        refine ⟨mapEff i, _, _,
-                fun o => ⟨_, ret ⟨⟩, fun _ : PUnit => k'' (mapCont i o), ?_⟩,
+        refine ⟨Subeffect.mapEff ε δ i, _, _,
+                fun o => ⟨_, ret ⟨⟩, fun _ : PUnit => k'' (Subeffect.mapCont ε δ i o), ?_⟩,
                 rfl, rfl⟩
         simp
   · exact ⟨α, t, k, rfl, rfl⟩
@@ -227,7 +225,7 @@ end Monadic
 /-! ### MayReturn -/
 section MayReturn
 
-theorem mayReturn_map {fEff : ε → δ} {fCont : (i : ε) → κδ (fEff i) → κε i}
+theorem mayReturn_map {fEff : ι → ιδ} {fCont : (i : ι) → δ (fEff i) → ε i}
     (surj : ∀ i, Function.Surjective (fCont i)) (t : ITree ε α) :
     (map fEff fCont t).MayReturn x ↔ t.MayReturn x := by
   constructor
@@ -272,9 +270,9 @@ end MayReturn
 /-! ### HasEffect -/
 section HasEffect
 
-theorem hasEffect_map {fEff : ε → δ} {fCont : (i : ε) → κδ (fEff i) → κε i}
+theorem hasEffect_map {fEff : ι → ιδ} {fCont : (i : ι) → δ (fEff i) → ε i}
     (surj : ∀ i, Function.Surjective (fCont i))
-    (t : ITree ε α) {e : δ} :
+    (t : ITree ε α) {e : ιδ} :
     (map fEff fCont t).HasEffect e ↔
       ∃ e', t.HasEffect e' ∧ fEff e' = e := by
   constructor
@@ -303,23 +301,23 @@ theorem hasEffect_map {fEff : ε → δ} {fCont : (i : ε) → κδ (fEff i) →
       grind
 
 @[simp, grind =]
-theorem hasEffect_lift [ε -< δ] (t : ITree ε α) {e : δ} :
+theorem hasEffect_lift [ε -< δ] (t : ITree ε α) {e : ιδ} :
     (lift (δ:=δ) t).HasEffect e ↔
-      ∃ e', t.HasEffect e' ∧ Subeffect.mapEff e' = e :=
+      ∃ e', t.HasEffect e' ∧ Subeffect.mapEff ε δ e' = e :=
   hasEffect_map (by grind) t
 
 end HasEffect
 
 /-! ### Interp -/
 section Interp
-variable {η κη} [Effect.{u} η κη]
+variable {ιη : Type u} {η : ιη → Type u}
 
 /-- Interpretation composes with `map` -/
 @[simp, grind =]
-theorem interp_map (fEff : ε → δ) (fCont : (i : ε) → κδ (fEff i) → κε i)
+theorem interp_map (fEff : ι → ιδ) (fCont : (i : ι) → δ (fEff i) → ε i)
     (f : δ ⤳ ITree η) (t : ITree ε α) :
     interp f (map fEff fCont t)
-      = interp (fun i : ε => do
+      = interp (fun i : ι => do
           let x ← f (fEff i)
           return fCont i x
           ) t := by
@@ -327,7 +325,7 @@ theorem interp_map (fEff : ε → δ) (fCont : (i : ε) → κδ (fEff i) → κ
   apply Bisim.coinduct (fun (x y : ITree η α) =>
     ∃ (α₀ : Type u) (u : ITree η α₀) (k : α₀ → ITree ε α),
         x = u >>= (fun a => interp f (map fEff fCont (k a)))
-      ∧ y = u >>= (fun a => interp (fun i : ε => do
+      ∧ y = u >>= (fun a => interp (fun i : ι => do
           let x ← f (fEff i)
           return fCont i x) (k a)))
   · rintro x y ⟨α₀, u, k, rfl, rfl⟩
@@ -376,14 +374,14 @@ theorem interp_map (fEff : ε → δ) (fCont : (i : ε) → κδ (fEff i) → κ
 @[simp, grind =]
 theorem interp_lift [ε -< δ] (f : δ ⤳ ITree η) (t : ITree ε α) :
     interp f (lift (δ := δ) t)
-      = interp (fun i : ε => do
-          let x ← f (Subeffect.mapEff i)
-          return Subeffect.mapCont i x
+      = interp (fun i : ι => do
+          let x ← f (Subeffect.mapEff ε δ i)
+          return Subeffect.mapCont ε δ i x
           ) t :=
   interp_map _ _ f t
 
 /--
-If `t : ITree ε α` is embedded into `ITree (ε ⊕ δ) α` via `map Sum.inl`,
+If `t : ITree ε α` is embedded into `ITree (ε ⊕ₑ δ) α` via `map Sum.inl`,
 then interpreting the left component with `f` recovers `interp f t`.
 -/
 @[simp, grind =]
@@ -393,7 +391,7 @@ theorem interpLeft_map_inl (f : ε ⤳ ITree δ) (t : ITree ε α) :
   simp [interpLeft, interp_map]
 
 /--
-If `t : ITree δ α` is embedded into `ITree (ε ⊕ δ) α` via `map Sum.inr`,
+If `t : ITree δ α` is embedded into `ITree (ε ⊕ₑ δ) α` via `map Sum.inr`,
 then interpreting the left component with `f` reinterprets each event of `t`
 through the identity handler `Effect.trigger δ`.
 

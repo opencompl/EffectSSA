@@ -9,16 +9,16 @@ public import ITreeExtras.Basic
 
 @[expose] public section
 namespace ITree.ITree
-variable {ε} {κ} [Effect.{u} ε κ] {α : Type _}
+variable {ι : Type u} {ε : ι → Type u} {α : Type _}
 
 /--
-`t.HasEffect e` holds when the effect `e : ε` is used to label a node in tree
+`t.HasEffect e` holds when the effect `e : ι` is used to label a node in tree
 `t`, which is reachable in finitely many steps.
 -/
-inductive HasEffect : ITree ε α → ε → Prop where
-  | vis_self {t i} {k : κ i → ITree ε α} :
+inductive HasEffect : ITree ε α → ι → Prop where
+  | vis_self {t i} {k : ε i → ITree ε α} :
       t.unfold = .vis i k → HasEffect t i
-  | vis_cont {t i i'} {k : κ i' → ITree ε α} {o} :
+  | vis_cont {t i i'} {k : ε i' → ITree ε α} {o} :
       t.unfold = .vis i' k → HasEffect (k o) i → HasEffect t i
   | tau {t i t'} :
       t.unfold = .tau t' → HasEffect t' i → HasEffect t i
@@ -30,12 +30,12 @@ which is reachable in finitely many steps.
 inductive MayReturn : ITree ε α → α → Prop where
   | ret : t.unfold = .ret r → MayReturn t r
   | tau {t r t'} : t.unfold = .tau t' → MayReturn t' r → MayReturn t r
-  | vis {r i} {k : κ i → ITree ε α} {o : κ i} :
+  | vis {r i} {k : ε i → ITree ε α} {o : ε i} :
       t.unfold = .vis i k → MayReturn (k o) r → MayReturn t r
 
 
 section Lemmas
-variable {ε₁ ε₂} {κ₁ κ₂} [Effect.{u} ε₁ κ₁] [Effect.{u} ε₂ κ₂] {α : Type _}
+variable {ι₁ ι₂ : Type u} {ε₁ : ι₁ → Type u} {ε₂ : ι₂ → Type u} {α : Type _}
 
 /-!
 ## HasEffect Basic Lemmas
@@ -43,18 +43,18 @@ variable {ε₁ ε₂} {κ₁ κ₂} [Effect.{u} ε₁ κ₁] [Effect.{u} ε₂ 
 section HasEffectLemmas
 
 /-- `HasEffect` is transparent under `tau`. -/
-@[simp, grind =] theorem hasEffect_tau {t : ITree ε α} {i : ε} :
+@[simp, grind =] theorem hasEffect_tau {t : ITree ε α} {i : ι} :
     HasEffect (ITree.tau t) i ↔ HasEffect t i := by
   constructor
   · intro h; cases h <;> simp_all
   · exact HasEffect.tau (unfold_tau _)
 
 /-- `ret _` carries no effects. -/
-@[simp, grind .] theorem not_hasEffect_ret {r : α} {i : ε} :
+@[simp, grind .] theorem not_hasEffect_ret {r : α} {i : ι} :
     ¬HasEffect (ITree.ret (ε:=ε) r) i := by
   intro h; cases h <;> simp_all
 
-@[simp, grind =] theorem hasEffect_vis {i j : ε} {k : κ i → ITree ε α} :
+@[simp, grind =] theorem hasEffect_vis {i j : ι} {k : ε i → ITree ε α} :
     (ITree.vis i k).HasEffect j ↔ i = j ∨ (∃ o, (k o).HasEffect j) := by
   constructor
   · intro h
@@ -91,7 +91,7 @@ section MayReturnLemmas
   · intro h; cases h <;> simp_all
   · exact MayReturn.tau (unfold_tau t)
 
-@[simp, grind =] theorem mayReturn_vis {i : ε} {k : κ i → ITree ε α} {x : α} :
+@[simp, grind =] theorem mayReturn_vis {i : ι} {k : ε i → ITree ε α} {x : α} :
     MayReturn (ITree.vis i k) x ↔ ∃ o, MayReturn (k o) x := by
   constructor
   · intro h
@@ -140,14 +140,14 @@ theorem hasEffect_bind_of_hasEffect_left {t : ITree ε α} (f : α → ITree ε 
 
 /-- If `t` may return `y` and `f y` has effect `i`, then so does `t >>= f`. -/
 theorem hasEffect_bind_of_hasEffect_right {t : ITree ε α} {f : α → ITree ε β} {y : α}
-    {i : ε} (hy : t.MayReturn y) (hf : (f y).HasEffect i) :
+    {i : ι} (hy : t.MayReturn y) (hf : (f y).HasEffect i) :
     (t >>= f).HasEffect i := by
   induction hy <;> grind
 
 /--
 `t >>= f` has effect `i` iff either `t` does or `t` may return a value `x` such that `f x` does.
 -/
-@[simp, grind =] theorem hasEffect_bind {t : ITree ε α} {f : α → ITree ε β} {i : ε} :
+@[simp, grind =] theorem hasEffect_bind {t : ITree ε α} {f : α → ITree ε β} {i : ι} :
     (t >>= f).HasEffect i ↔ t.HasEffect i ∨ ∃ x, t.MayReturn x ∧ (f x).HasEffect i := by
   constructor
   · generalize hx : t >>= f = x
@@ -184,7 +184,7 @@ theorem mayReturn_forM {xs : List α} {f : α → ITree ε PUnit} :
 has effect `e`, and for all preceding elements `y`, `f y` terminates.
 -/
 @[simp, grind =]
-theorem hasEffect_forM {xs : List α} {f : α → ITree ε PUnit} {e : ε} :
+theorem hasEffect_forM {xs : List α} {f : α → ITree ε PUnit} {e : ι} :
     (forM xs f).HasEffect e ↔
       ∃ i, ∃ hi : i < xs.length,
         (∀ j (hj : j < i), (f xs[j]).MayReturn ⟨⟩)
@@ -209,14 +209,15 @@ end ForM
 section Trigger
 
 @[simp, grind =]
-theorem hasEffect_trigger [ε₁ -< ε₂] (i : ε₁) (e : ε₂) :
-    (Effect.trigger ε₁ i : ITree ε₂ _).HasEffect e ↔ (Subeffect.map i).fst = e := by
+theorem hasEffect_trigger [ε₁ -< ε₂] (i : ι₁) (e : ι₂) :
+    (Effect.trigger ε₁ i : ITree ε₂ _).HasEffect e
+    ↔ (Subeffect.map (ε₁ := ε₁) (ε₂ := ε₂) i).fst = e := by
   simp [Effect.trigger]
 
 @[simp, grind =]
-theorem mayReturn_trigger [ε₁ -< ε₂] (i : ε₁) (y : κ₁ i) :
+theorem mayReturn_trigger [ε₁ -< ε₂] (i : ι₁) (y : ε₁ i) :
     (Effect.trigger ε₁ i : ITree ε₂ _).MayReturn y
-    ↔ ∃ o, y = (Subeffect.map (ε₂:=ε₂) i).snd o := by
+    ↔ ∃ o, y = (Subeffect.map (ε₁ := ε₁) (ε₂:=ε₂) i).snd o := by
   simp [Effect.trigger]
 
 end Trigger

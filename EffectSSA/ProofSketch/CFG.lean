@@ -15,7 +15,7 @@ making it a multi-context.
 namespace EffectSSA.ProofSketch
 open ITree
 
-variable {ε : Type} {κε : ε → Type} [Effect ε κε]
+variable {ι : Type} {ε : ι → Type}
 
 /-!
 ## CFG Types
@@ -79,12 +79,12 @@ where
     b.denote bId args
 
 noncomputable
-def ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ InstEff) Unit) :
-    (ITree (SideEff ⊕ ErrUB)) ReturnVals := do
+def ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUBE ⊕ₑ InstEff) Unit) :
+    (ITree (SideEffE ⊕ₑ ErrUBE)) ReturnVals := do
   C.denote |> interpAll (f · |>.lift)
 
 noncomputable
-def ProgramCFG.interp (P : ProgramCFG) : (ITree (SideEff ⊕ ErrUB)) ReturnVals :=
+def ProgramCFG.interp (P : ProgramCFG) : (ITree (SideEffE ⊕ₑ ErrUBE)) ReturnVals :=
   ContextCFG.interp P Hole.elim0
 
 /-!

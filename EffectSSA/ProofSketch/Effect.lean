@@ -18,8 +18,8 @@ open ITree
 open Effect (trigger)
 open MonadIter (iter)
 
-variable {ε : Type} {κε : ε → Type} [Effect ε κε]
-         {δ : Type} {κδ : δ → Type} [Effect δ κδ]
+variable {ι : Type} {ε : ι → Type}
+         {ιδ : Type} {δ : ιδ → Type}
          {α : Type}
 
 /-!
@@ -35,46 +35,47 @@ inductive ErrUB
   | ub (reason : String)
   | error (reason : String)
 
-instance : Effect ErrUB (fun _ => Empty) := ⟨⟩
+/-- The `ErrUB` effect family: raising an error yields no continuation. -/
+abbrev ErrUBE : ErrUB → Type := fun _ => Empty
 
 /-! ### Helpers -/
 
-def raiseUB [ErrUB -< ε] (reason := "") : ITree ε α :=
-  trigger ErrUB (.ub reason) >>= Empty.elim
+def raiseUB [ErrUBE -< ε] (reason := "") : ITree ε α :=
+  trigger ErrUBE (.ub reason) >>= Empty.elim
 
-def raiseError [ErrUB -< ε] (reason := "") : ITree ε α :=
-  trigger ErrUB (.error reason) >>= Empty.elim
+def raiseError [ErrUBE -< ε] (reason := "") : ITree ε α :=
+  trigger ErrUBE (.error reason) >>= Empty.elim
 
 section Lemmas
 open Subeffect (map)
 
 @[simp, grind =]
-theorem bind_raiseUB [ErrUB -< ε] {α β} (reason : String) (f : α → ITree ε β) :
+theorem bind_raiseUB [ErrUBE -< ε] {α β} (reason : String) (f : α → ITree ε β) :
     raiseUB reason >>= f = raiseUB reason := by
   rw [raiseUB, bind_assoc]
   exact congrArg _ <| funext (·.elim)
 
 @[simp, grind =]
-theorem bind_raiseError [ErrUB -< ε] {α β} (reason : String) (f : α → ITree ε β) :
+theorem bind_raiseError [ErrUBE -< ε] {α β} (reason : String) (f : α → ITree ε β) :
     raiseError reason >>= f = raiseError reason := by
   rw [raiseError, bind_assoc]
   exact congrArg _ <| funext (·.elim)
 
 @[simp, grind =]
-theorem interpLeft_raiseError [ErrUB -< δ] (f : ε ⤳ ITree δ) (reason : String) :
-    ITree.interpLeft f (raiseError reason : ITree (ε ⊕ δ) α)
+theorem interpLeft_raiseError [ErrUBE -< δ] (f : ε ⤳ ITree δ) (reason : String) :
+    ITree.interpLeft f (raiseError reason : ITree (ε ⊕ₑ δ) α)
       = raiseError reason := by
   simp only [raiseError, ITree.interpLeft_bind, tau_bind, ITree.bind_ret,
     ITree.interpLeft_trigger_inr f (ErrUB.error reason), ITree.pure_eq_ret, bind_assoc]
   congr; grind
 
 @[grind =]
-theorem raiseError_eq_vis_iff [ErrUB -< ε] {reason : String} {j : ε}
-    {k : κε j → ITree ε α} :
+theorem raiseError_eq_vis_iff [ErrUBE -< ε] {reason : String} {j : ι}
+    {k : ε j → ITree ε α} :
     (raiseError reason : ITree ε α) = ITree.vis j k ↔
-    (map (ε₂:=ε) (.error reason : ErrUB)).fst = j ∧
-    (fun x : κε (map (ε₂:=ε) (.error reason : ErrUB)).fst =>
-      (Empty.elim ((map (ε₂:=ε) (.error reason : ErrUB)).snd x) : ITree ε α)) ≍ k := by
+    (map (ε₁:=ErrUBE) (ε₂:=ε) (.error reason)).fst = j ∧
+    (fun x : ε (map (ε₁ := ErrUBE) (ε₂:=ε) (.error reason)).fst =>
+      (Empty.elim ((map (ε₁ := ErrUBE) (ε₂:=ε) (.error reason)).snd x) : ITree ε α)) ≍ k := by
   simp [raiseError, trigger]
 
 end Lemmas
@@ -89,8 +90,7 @@ Let `SideEff` be some arbitrary set of language-specific side-effects.
 This could, e.g, model memory operations.
 -/
 axiom SideEff : Type
-axiom SideEff.κ : SideEff → Type
-instance : Effect SideEff SideEff.κ := ⟨⟩
+axiom SideEffE : SideEff → Type
 
 /-!
 ## Hole Execution
@@ -106,9 +106,7 @@ Note that although holes in the AST have an intrinsically typed upper bound,
 `HoleEff` carries only the raw `Nat`-typed id of the hole, to prevent too many
 dependent types showing up in the semantics.
 -/
-abbrev HoleEff := HoleId
-
-instance : Effect HoleEff (fun _ => Unit) := ⟨⟩
+abbrev HoleEff : HoleId → Type := fun _ => Unit
 
 /-! ### Helper -/
 
@@ -120,7 +118,7 @@ def jumpToHole (h : HoleId) : ITree HoleEff Unit :=
 
 /-- Interpret hole effects by delegating each hole id to `f`. -/
 def interpHoles [ε -< δ] (f : HoleId → ITree ε Unit) :
-    (x : ITree (HoleEff ⊕ δ) α) → ITree δ α :=
+    (x : ITree (HoleEff ⊕ₑ δ) α) → ITree δ α :=
   ITree.interpLeft (f · |>.lift)
 
 /--
@@ -130,7 +128,7 @@ It can be used to avoid having to specify `ε` when Lean fails to infer it.
 -/
 @[simp, grind]
 abbrev interpHoles'  : (f : HoleId → ITree δ Unit) →
-    (x : ITree (HoleEff ⊕ δ) α) → ITree δ α :=
+    (x : ITree (HoleEff ⊕ₑ δ) α) → ITree δ α :=
   interpHoles
 
 /-!
@@ -142,33 +140,35 @@ inductive LocalEff
   | read (var : VarId)
   | push (var : VarId) (value : Val)
 
-instance : Effect LocalEff (fun
-    | .read _ => Val
-    | .push _ _ => Unit) := ⟨⟩
+/-- The `LocalEff` family: reads return a value, pushes return unit. -/
+abbrev LocalEffE : LocalEff → Type
+  | .read _ => Val
+  | .push _ _ => Unit
 
 /-! ### Helpers -/
 
-def readVar [LocalEff -< ε] (var : VarId) : ITree ε Val :=
-  trigger LocalEff <| .read var
+def readVar [LocalEffE -< ε] (var : VarId) : ITree ε Val :=
+  trigger LocalEffE <| .read var
 
-def pushVar [LocalEff -< ε] (var : VarId) (value : Val) : ITree ε Unit :=
-  trigger LocalEff <| .push var value
+def pushVar [LocalEffE -< ε] (var : VarId) (value : Val) : ITree ε Unit :=
+  trigger LocalEffE <| .push var value
 
 section Lemmas
-variable [LocalEff -< ε]
+variable [LocalEffE -< ε]
 open Subeffect (map)
 
 @[simp, grind =]
-theorem hasEffect_pushVar {e : ε} :
-    (pushVar (ε:=ε) var value).HasEffect e ↔ (Subeffect.map (.push var value : LocalEff)).fst = e := by
+theorem hasEffect_pushVar {e : ι} :
+    (pushVar (ε:=ε) var value).HasEffect e
+    ↔ (Subeffect.map (ε₁ := LocalEffE) (ε₂ := ε) (.push var value)).fst = e := by
   simp [pushVar, Effect.trigger]
 
 end Lemmas
 
 /-! ### Interpretation -/
 
-def interpLocalStackM [ErrUB -< ε] :
-    (x : ITree (LocalEff ⊕ ε) α) → StateT LocalStack (ITree ε) α :=
+def interpLocalStackM [ErrUBE -< ε] :
+    (x : ITree (LocalEffE ⊕ₑ ε) α) → StateT LocalStack (ITree ε) α :=
   ITree.interpM fun
     | .inr e => liftM <| ITree.vis e .ret
     | .inl (.read x) => do
@@ -180,7 +180,7 @@ def interpLocalStackM [ErrUB -< ε] :
 
 
 /-- Interpret local stack effects starting from an empty initial stack. -/
-def interpLocalStack [ErrUB -< ε] (x : ITree (LocalEff ⊕ ε) α) : ITree ε α :=
+def interpLocalStack [ErrUBE -< ε] (x : ITree (LocalEffE ⊕ₑ ε) α) : ITree ε α :=
   (interpLocalStackM x).run' { }
 
 /-!
@@ -198,9 +198,7 @@ structure right away.
 -/
 
 /-- In `InstEff`, each instruction is a unique effect. -/
-abbrev InstEff := Inst
-
-instance : Effect InstEff (fun _ => Unit) := ⟨⟩
+abbrev InstEff : Inst → Type := fun _ => Unit
 
 /-!
 ## Effect Aliasses
@@ -211,14 +209,14 @@ instance : Effect InstEff (fun _ => Unit) := ⟨⟩
 `BaseEff` gives the "base" effects, which is some arbitrary notion of
 side-effects enriched with errors and UB.
 -/
-abbrev BaseEff := SideEff ⊕ ErrUB
+abbrev BaseEff := SideEffE ⊕ₑ ErrUBE
 
 /--
 `InterpEff` gives the effects into which instructions and terminators are
 interpreted.
 -/
 noncomputable
-abbrev InterpEff := LocalEff ⊕ SideEff ⊕ ErrUB
+abbrev InterpEff := LocalEffE ⊕ₑ SideEffE ⊕ₑ ErrUBE
 
 /--
 `OpaqueEff` is the totality of effects resulting from unrolling a (closed) CFG
@@ -228,7 +226,7 @@ abbrev InterpEff := LocalEff ⊕ SideEff ⊕ ErrUB
 That is, each instruction is still an "opaque" effect.
 -/
 noncomputable
-abbrev OpaqueEff := InstEff ⊕ InterpEff
+abbrev OpaqueEff := InstEff ⊕ₑ InterpEff
 
 /--
 `OpaqueCtxEff` is the totality of effects resulting from unrolling a CFG with
@@ -240,7 +238,7 @@ That is, each instruction is still an "opaque" effect.
 See also `OpaqueEff`, which omits the holes.
 -/
 noncomputable
-abbrev OpaqueCtxEff := HoleEff ⊕ OpaqueEff
+abbrev OpaqueCtxEff := HoleEff ⊕ₑ OpaqueEff
 
 /-!
 ## Handlers
@@ -261,7 +259,7 @@ def interpInst : ITree OpaqueEff α → ITree InterpEff α :=
 Resolve a raw `HoleId` into a well-scoped `Hole n`, raising an error if the
 id is out of range.
 -/
-def Hole.fromId {n} [ErrUB -< ε] (h : HoleId) : ITree ε (Hole n) :=
+def Hole.fromId {n} [ErrUBE -< ε] (h : HoleId) : ITree ε (Hole n) :=
   match Hole.fromId? h with
   | some x => return x
   | none => raiseError s!"Unknown hole: {h}"
