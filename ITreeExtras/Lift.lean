@@ -136,8 +136,8 @@ variable [ε -< δ]
 
 @[simp, grind =] theorem lift_vis (i : ι) (k : ε i → ITree ε α) :
     lift (δ := δ) (vis i k)
-    = vis (Subeffect.mapEff ε δ i)
-          (fun o => (k (Subeffect.mapCont ε δ i o)).lift) := map_vis _ _
+    = vis (mapEff ε δ i) (fun o => (k (mapCont ε δ i o)).lift) :=
+  map_vis _ _
 
 @[simp, grind =] theorem lift_eq_ret_iff (t : ITree ε α) (r : α) :
     lift (δ := δ) t = ret r ↔ t = ret r :=
@@ -150,8 +150,8 @@ variable [ε -< δ]
 @[simp, grind =] theorem lift_eq_vis_iff (t : ITree ε α) (i : ιδ) (k : δ i → ITree δ α) :
     lift (δ := δ) t = vis i k ↔ ∃ j l,
       t = vis j l
-      ∧ i = Subeffect.mapEff ε δ j
-      ∧ k ≍ (fun x : δ _ => (l (Subeffect.mapCont ε δ j x)).lift (δ:=δ)) :=
+      ∧ i = mapEff ε δ j
+      ∧ k ≍ (fun x : δ _ => (l (mapCont ε δ j x)).lift (δ:=δ)) :=
   map_eq_vis_iff ..
 
 end Lift
@@ -188,8 +188,8 @@ theorem lift_bind (t : ITree ε α) (k : α → ITree ε β) :
     | vis j k'' =>
       simp only [vis_bind, lift_vis]
       right; right
-      refine ⟨Subeffect.mapEff ε δ j, _, _,
-              fun o => ⟨_, k'' (Subeffect.mapCont ε δ j o), k, rfl, rfl⟩, rfl, rfl⟩
+      refine ⟨mapEff ε δ j, _, _,
+              fun o => ⟨_, k'' (mapCont ε δ j o), k, rfl, rfl⟩, rfl, rfl⟩
     | ret a =>
       simp only [pure_bind, lift_pure]
       cases k a with
@@ -202,8 +202,8 @@ theorem lift_bind (t : ITree ε α) (k : α → ITree ε β) :
       | vis i k'' =>
         simp only [lift_vis]
         right; right
-        refine ⟨Subeffect.mapEff ε δ i, _, _,
-                fun o => ⟨_, ret ⟨⟩, fun _ : PUnit => k'' (Subeffect.mapCont ε δ i o), ?_⟩,
+        refine ⟨mapEff ε δ i, _, _,
+                fun o => ⟨_, ret ⟨⟩, fun _ : PUnit => k'' (mapCont ε δ i o), ?_⟩,
                 rfl, rfl⟩
         simp
   · exact ⟨α, t, k, rfl, rfl⟩
@@ -300,7 +300,7 @@ theorem hasEffect_map {fEff : ι → ιδ} {fCont : (i : ι) → δ (fEff i) →
 @[simp, grind =]
 theorem hasEffect_lift [ε -< δ] (t : ITree ε α) {e : ιδ} :
     (lift (δ:=δ) t).HasEffect e ↔
-      ∃ e', t.HasEffect e' ∧ Subeffect.mapEff ε δ e' = e :=
+      ∃ e', t.HasEffect e' ∧ mapEff ε δ e' = e :=
   hasEffect_map (by grind) t
 
 end HasEffect
@@ -372,8 +372,8 @@ theorem interp_map (fEff : ι → ιδ) (fCont : (i : ι) → δ (fEff i) → ε
 theorem interp_lift [ε -< δ] (f : δ ⤳ ITree η) (t : ITree ε α) :
     interp f (lift (δ := δ) t)
       = interp (fun i : ι => do
-          let x ← f (Subeffect.mapEff ε δ i)
-          return Subeffect.mapCont ε δ i x
+          let x ← f (mapEff ε δ i)
+          return mapCont ε δ i x
           ) t :=
   interp_map _ _ f t
 
