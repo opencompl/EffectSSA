@@ -105,9 +105,7 @@ instance (priority:=mid) instSubSumL [sub : ε₁ -< ε₂] : ε₁ -< (ε₂ �
 
 /-- The `ε' -< (ε₁ ⊕ₑ ε₂)` instance derived from `ε' -< ε₁` maps to `Sum.inl`. -/
 @[simp] theorem map_eq_inl [ε' -< ε₁] (e : ι') :
-    map (ε₁ := ε') (ε₂ := ε₁ ⊕ₑ ε₂) e
-    = ⟨.inl (map (ε₁ := ε') (ε₂ := ε₁) e).fst,
-       (map (ε₁ := ε') (ε₂ := ε₁) e).snd⟩ := rfl
+    map (ε₁ := ε') (ε₂ := ε₁ ⊕ₑ ε₂) e = ⟨.inl (map e).fst, (map e).snd⟩ := rfl
 @[simp] theorem mapEff_eq_inl [ε' -< ε₁] (e : ι') :
     mapEff ε' (ε₁ ⊕ₑ ε₂) e = .inl (mapEff ε' ε₁ e) := rfl
 
