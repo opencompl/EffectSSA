@@ -23,10 +23,6 @@ namespace ITree
 variable {ι : Type u} {ε : ι → Type u}
          {ιδ : Type u} {δ : ιδ → Type u} {α}
 
--- NOTE: previously there was a `CoeT ε e δ` instance derived from `[ε -< δ]`,
--- but with the new representation of effects as families we can no longer key
--- typeclass search on the index type alone (many families share an index).
-
 namespace ITree
 
 /--
