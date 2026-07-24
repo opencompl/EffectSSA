@@ -427,7 +427,7 @@ def Pattern.DenRefine (I J : Pattern n) : Prop :=
   ∀ h : Hole n, ∀ ρ η,
     I.EqnLemmaUpTo h ρ →
     J.EqnLemmaUpTo h η →
-    let x := I[h].denote ρ
+    let x := I[h].interp ρ
     let y := J[h].interp η
     x ⊒ y
 

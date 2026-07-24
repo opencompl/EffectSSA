@@ -61,6 +61,9 @@ public def denote : (is : InstSeq) → ITree InstEff Unit
   | i :: is => Effect.trigger InstEff i *> denote is
   | [] => .ret ()
 
+public noncomputable abbrev interp (is : InstSeq) (ρ : LocalStack) : ITree BaseEff LocalStack :=
+  Prod.snd <$> (interpAllM Hole.elim0 is.denote.lift).run ρ
+
 section Lemmas
 
 @[simp, grind =] public theorem denote_nil : denote ([] : InstSeq) = .ret () := by rfl

@@ -282,10 +282,16 @@ abbrev Hole.fromId [ErrUB -< ε] (h : HoleId) : ITree ε (Hole n) :=
     (.ret <| Hole.fromId? h)
 
 noncomputable
-def interpAll
+def interpAllM
     (fHole : Hole n → ITree OpaqueEff Unit)
-    (t : ITree OpaqueCtxEff α) : ITree BaseEff α :=
+    (t : ITree OpaqueCtxEff α) : StateT LocalStack (ITree BaseEff) α :=
   t
   |> interpHoles (Hole.fromId · >>= fHole)
   |> interpInst
-  |> interpLocalStack
+  |> interpLocalStackM
+
+noncomputable
+abbrev interpAll
+    (fHole : Hole n → ITree OpaqueEff Unit)
+    (t : ITree OpaqueCtxEff α) : ITree BaseEff α :=
+  (interpAllM fHole t).run' { }

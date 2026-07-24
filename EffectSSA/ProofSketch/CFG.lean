@@ -199,8 +199,8 @@ theorem Block.interp_plug {b : Block n} {br : Branch} {I : Pattern n}
 open ITree in
 theorem ContextCFG.interp_plug {C : ContextCFG n} {I : Pattern n} :
     (C.plug I).interp = C.interp (liftM <| I[·].denote) := by
-  simp only [ProgramCFG.interp, interp, Pattern.getElem_hole, interpAll]
-  congr 2
+  simp only [ProgramCFG.interp, interp, Pattern.getElem_hole, interpAll, interpAllM]
+  congr 3
   simp only [denote, entryId_plug]
   apply ITree.eq_of_bisim
   apply ITree.Bisim.coinduct <| fun t u =>
