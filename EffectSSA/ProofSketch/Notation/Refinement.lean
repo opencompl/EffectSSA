@@ -1,5 +1,7 @@
 module
 
+public import ITreeExtras.Bisim
+
 /-!
 # Refinement Relation
 -/
@@ -33,7 +35,7 @@ instance [Refinement α] :
 
 end Trans
 
-/-! ## Refinement Option Instance
+/-! ## Refinement Instances
 We provide a refinement instance for `Option α`, where `none` is refined by
 anything
 -/
@@ -49,3 +51,21 @@ instance [Refinement α] : Refinement (Option α) where
   antisymm := by grind
 
 end Option
+
+section ITree
+open ITree
+variable {ε κ} [Effect ε κ]
+
+instance [Refinement α] : Refinement (ITree ε α) where
+  IsRefinedBy := ITree.BisimUpTo (· ⊒ ·)
+  refl x := ITree.bisimUpTo_refl_of Refinement.refl x
+  trans := by
+    apply ITree.bisimUpTo_trans_of
+    intro x y z
+    exact Refinement.trans
+  antisymm := by
+    apply ITree.bisimUpTo_antisymm_of
+    intro x y
+    exact Refinement.antisymm
+
+end ITree

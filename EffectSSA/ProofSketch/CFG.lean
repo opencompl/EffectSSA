@@ -2,6 +2,7 @@ module
 
 public import EffectSSA.ProofSketch.MultiContext
 public import EffectSSA.ProofSketch.Effect
+public import EffectSSA.ProofSketch.Notation.Refinement
 
 public import Std.Data.HashMap
 
@@ -86,6 +87,33 @@ abbrev ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ Ins
 noncomputable
 abbrev ProgramCFG.interp (P : ProgramCFG) : (ITree (SideEff ⊕ ErrUB)) ReturnVals :=
   ContextCFG.interp P Hole.elim0
+
+/-!
+## ReturnVals API
+-/
+namespace ReturnVals
+
+abbrev length (xs : ReturnVals) := xs.toList.length
+
+@[grind, grind cases]
+inductive IsRefinedBy : ReturnVals → ReturnVals → Prop
+  | nil : IsRefinedBy ⟨[]⟩ ⟨[]⟩
+  | cons : x ⊒ y → IsRefinedBy ⟨xs⟩ ⟨ys⟩ → IsRefinedBy ⟨x :: xs⟩ ⟨y :: ys⟩
+
+variable {xs ys zs : ReturnVals}
+
+axiom isRefinedBy_trans : xs.IsRefinedBy ys → ys.IsRefinedBy zs → xs.IsRefinedBy zs
+axiom isRefinedBy_antiSymm : xs.IsRefinedBy ys → ys.IsRefinedBy xs → xs = ys
+
+instance : Refinement ReturnVals where
+  IsRefinedBy := IsRefinedBy
+  refl xs := by
+    rcases xs with ⟨xs⟩
+    induction xs <;> grind
+  trans := isRefinedBy_trans
+  antisymm := isRefinedBy_antiSymm
+
+end ReturnVals
 
 /-!
 ## ContextCFG API

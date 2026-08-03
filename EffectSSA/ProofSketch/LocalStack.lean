@@ -1,6 +1,7 @@
 module
 
 public import EffectSSA.ProofSketch.VarSet
+public import EffectSSA.ProofSketch.Notation.Refinement
 
 import Std.Data.HashMap
 
@@ -118,4 +119,15 @@ def push (var : VarId) (val : Val) : LocalStackT m Unit :=
   -- a previous iteration of a loop.
 
 end LocalStackT
+
+/-!
+## Value Refinement
+--------------------------------------------------------------------------------
+-/
+namespace Val
+
+@[instance] axiom Val.Refine : Refinement Val
+
+end Val
+
 end Expose

@@ -180,8 +180,6 @@ end Semantics
 -/
 section Refine
 
-@[instance] axiom Val.Refine : Refinement Val
-
 instance : Refinement LocalStack where
   IsRefinedBy ρ η := ∀ v : VarId, ρ[v]? ⊒ η[v]?
 
