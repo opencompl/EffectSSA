@@ -455,11 +455,11 @@ when for any complete context `C` such that `C[I]` and `C[J]` are both
 wellformed, `C[I]` is (denotationally) refined by `C[J]`.
 -/
 def Pattern.CtxRefine (I J : Pattern n) : Prop :=
-  ∀ (C : MultiContext n), C.Complete →
+  ∀ (C : ContextCFG n), C.Complete →
     let CI := C.plug I;
     let CJ := C.plug J;
-    CI.WellFormed ∅ → CJ.WellFormed ∅ →
-      ⟦CI⟧ {} ⊒ ⟦CJ⟧ {}
+    -- CI.WellFormed ∅ → CJ.WellFormed ∅ →
+      CI.interp ⊒ CJ.interp
 
 /--
 Two patterns `I` and `J` are contextually equivalent,
@@ -538,8 +538,11 @@ all variables of the original program considered in previous steps of the
 induction, thus we keep the following invariant about `Γ`.
 -/
 @[grind, grind cases] private structure Invariant
-    (Γ : VarSet) (C : MultiContext n) (I : Pattern n) (ρ : SEnv)
-    extends Residual Γ C I where
+    (Γ : VarSet)
+    -- (C : MultiContext n)
+    (I : Pattern n) (ρ : LocalStack)
+    -- extends Residual Γ C I
+    where
   /--
   If `x ∈ Γ`, then any transitive dependencies of `x` (in `I`) are also
   part of `Γ`.
@@ -550,76 +553,108 @@ induction, thus we keep the following invariant about `Γ`.
 
 
 namespace Invariant
-variable {Γ} {C : MultiContext n} {I : Pattern n} {ρ : SEnv} {i : Inst}
+variable {Γ} {C : MultiContext n} {I : Pattern n} {ρ : LocalStack} {i : Inst}
 
-private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Invariant ∅ C I { } := by
-  have nsI : I.NoShadowing := by
-    apply C.noShadowing_pattern_of_plug_noShadowing
-    <;> grind
-  grind [Pattern.mem_iff_getElem_hole]
+private theorem initial : Invariant ∅ I { } := sorry
 
-private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
-    Invariant Γ (.inl i :: C) I ρ → Invariant (i.results ∪ Γ) C I (⟦i⟧ ρ) := by
-  rintro ⟨residual, closed, eqn, nsI⟩
-  have : ∀ x ∈ i.results, x ∉ I.results := by
-    intro x hx hxI
-    have : x ∉ (C.plug I).results := by grind
-    obtain ⟨h, hhC, hhx⟩ : ∃ h, Sum.inr h ∈ C ∧ x ∈ I[h].results := by
-      have : x ∉ Γ := by grind
-      have := residual.residual x hxI;
-      grind
-    grind
-  constructor
-  <;> grind
+-- private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Invariant ∅ C I { } := by
+--   have nsI : I.NoShadowing := by
+--     apply C.noShadowing_pattern_of_plug_noShadowing
+--     <;> grind
+--   grind [Pattern.mem_iff_getElem_hole]
 
-private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
-    Invariant Γ (.inr h :: C) I ρ →
-    Invariant (I[h].results ∪ Γ) C I (⟦I[h]⟧ ρ) := by
-  rintro ⟨residual, closed, eqn, nsI⟩
-  generalize his : I[h] = is at *
-  constructor
-  · grind
-  · have hΔ : is.args ⊆ Γ := by grind
-    replace his : is ⊆ I.collapse := by grind
-    generalize Γ = Δ at ⊢ hΔ closed
-    clear eqn
-    intro x hx y hy
-    induction is generalizing Δ with
-    | nil => grind
-    | cons i is ih =>
-        have his : is ⊆ I.collapse := by grind
-        have hΔ' : is.args ⊆ i.results ∪ Δ := by grind
-        specialize ih his _ hΔ'
-        specialize ih <| by -- prove closedness
-          clear ih
-          intro x hx y hy
-          by_cases x ∈ Δ; grind
-          have : x ∈ i.results := by grind
-          · rw [InstSeq.mem_usesAt'] at hy
-            obtain ⟨j, hj, hxj, hy⟩ := hy
-            obtain rfl : i = j := by
-              have hi : i ∈ I.collapse := by grind
-              have hj : j ∈ I.collapse := by grind
-              apply InstSeq.eq_of_not_disjoint_results_of_noShadowing hi hj nsI
-              grind
-            rcases hy with ( (hy : y ∈ i.args) | ⟨z, hzi, hyz⟩ )
-            · have : y ∈ Δ := by grind
-              grind
-            · grind
-        grind
-  · intro x hx
-    by_cases x ∈ Γ; grind
-    have hx : x ∈ is.results := by grind
-    · obtain ⟨Δ, wf⟩ : ∃ Δ, is.WellFormed Δ := by grind
-      subst his
-      rw [Pattern.eqnLemma_of_mem_results_get hx nsI]
-      apply InstSeq.eqnLemma_denote_self _
-      · grind
-      · grind
-  · grind
+-- private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
+--     Invariant Γ (.inl i :: C) I ρ
+--     → ⟦i⟧ ρ = .ret η
+--     → Invariant (i.results ∪ Γ) C I η := by
+--   stop
+--   rintro ⟨residual, closed, eqn, nsI⟩ hη
+--   have : ∀ x ∈ i.results, x ∉ I.results := by
+--     intro x hx hxI
+--     have : x ∉ (C.plug I).results := by grind
+--     obtain ⟨h, hhC, hhx⟩ : ∃ h, Sum.inr h ∈ C ∧ x ∈ I[h].results := by
+--       have : x ∉ Γ := by grind
+--       have := residual.residual x hxI;
+--       grind
+--     grind
+--   stop
+--   constructor
+--   <;> grind
+
+-- private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
+--     Invariant Γ (.inr h :: C) I ρ
+--     → ⟦I[h]⟧ ρ = .ret η
+--     → Invariant (I[h].results ∪ Γ) C I η := by stop
+--   rintro ⟨residual, closed, eqn, nsI⟩ hη
+--   generalize his : I[h] = is at *
+--   stop
+--   constructor
+--   · grind
+--   · have hΔ : is.args ⊆ Γ := by grind
+--     replace his : is ⊆ I.collapse := by grind
+--     generalize Γ = Δ at ⊢ hΔ closed
+--     clear eqn
+--     intro x hx y hy
+--     induction is generalizing Δ with
+--     | nil => grind
+--     | cons i is ih =>
+--         have his : is ⊆ I.collapse := by grind
+--         have hΔ' : is.args ⊆ i.results ∪ Δ := by grind
+--         specialize ih his _ hΔ'
+--         specialize ih <| by -- prove closedness
+--           clear ih
+--           intro x hx y hy
+--           by_cases x ∈ Δ; grind
+--           have : x ∈ i.results := by grind
+--           · rw [InstSeq.mem_usesAt'] at hy
+--             obtain ⟨j, hj, hxj, hy⟩ := hy
+--             obtain rfl : i = j := by
+--               have hi : i ∈ I.collapse := by grind
+--               have hj : j ∈ I.collapse := by grind
+--               apply InstSeq.eq_of_not_disjoint_results_of_noShadowing hi hj nsI
+--               grind
+--             rcases hy with ( (hy : y ∈ i.args) | ⟨z, hzi, hyz⟩ )
+--             · have : y ∈ Δ := by grind
+--               grind
+--             · grind
+--         grind
+--   · intro x hx
+--     by_cases x ∈ Γ; grind
+--     have hx : x ∈ is.results := by grind
+--     · obtain ⟨Δ, wf⟩ : ∃ Δ, is.WellFormed Δ := by grind
+--       subst his
+--       rw [Pattern.eqnLemma_of_mem_results_get hx nsI]
+--       apply InstSeq.eqnLemma_denote_self _
+--       · grind
+--       · grind
+--   · grind
 
 
 end Invariant
+
+coinductive InterpLocalIsRefinedBy :
+    ITree InterpEff ReturnVals → LocalStack → ITree InterpEff ReturnVals → LocalStack → Prop
+  | read_left {t : Val → ITree InterpEff ReturnVals} :
+      ρ[x]? = some v
+      → InterpLocalIsRefinedBy (t v) ρ u η
+      → InterpLocalIsRefinedBy (.vis (.inl <| .read x) t) ρ u η
+  | read_right {u : Val → ITree InterpEff ReturnVals} :
+      η[x]? = some v
+      → InterpLocalIsRefinedBy t ρ (u v) η
+      → InterpLocalIsRefinedBy t ρ (.vis (.inl <| .read x) u) η
+  | push_left {t : Unit → ITree InterpEff ReturnVals} :
+      InterpLocalIsRefinedBy (t ()) (ρ.insert x v) u η
+      → InterpLocalIsRefinedBy (.vis (.inl <| .push x v) t) ρ u η
+  | vis :
+      InterpLocalIsRefinedBy t ρ u η
+  | tau :
+      InterpLocalIsRefinedBy t ρ u η
+      → InterpLocalIsRefinedBy (.tau t) ρ (.tau u) η
+  | ret :
+      x ⊒ y
+      → InterpLocalIsRefinedBy (.ret x) ρ (.ret y) η
+
+
 
 /--
 Proving denotational refinement is sufficient for showing contextual refinement.
@@ -628,8 +663,52 @@ theorem Pattern.ctxRefine_of_denoteRefine (I J : Pattern n)
     (hI : I.HasEqn) (hJ : J.HasEqn)
     (h_denoteRefine : I.DenRefine J) :
     I.CtxRefine J := by
-  intro C hC CI CJ hCI hCJ
+  intro C hC CI CJ -- hCI hCJ
   subst CI CJ
+  repeat rw [ContextCFG.interp_plug]
+  show interpAll _ C.denote ⊒ interpAll _ C.denote
+
+  let fI (h : Hole n) : ITree OpaqueEff Unit := I[h].denote.lift
+  let fJ (h : Hole n) : ITree OpaqueEff Unit := J[h].denote.lift
+  suffices ∀ ρ η, ρ ⊒ η →
+    ∀ {Γ}, Invariant Γ I ρ →
+    ∀ {Δ}, Invariant Δ J η →
+    (interpAllM fI C.denote).run' ρ
+    ⊒ (interpAllM fJ C.denote).run' η
+  by
+    specialize this ∅ ∅
+    simp only [getElem_hole, Fin.getElem_fin, Hole.val_toFin, ITree.liftM_eq_lift, interpAll]
+    simp [interpAllM]
+    sorry
+  skip
+
+  intro ρ η hρη Γ hΓ Δ hΔ
+
+  let CH := fun (t u : ITree BaseEff ReturnVals) =>
+    ∃ v : ITree OpaqueCtxEff ReturnVals,
+      t = (interpAllM fI v).run' ρ
+      ∧ u = (interpAllM fJ v).run' η
+  refine ITree.BisimUpTo.coinduct _ CH ?_ _ _ <| by
+    exact ⟨C.denote, ⟨rfl, rfl⟩⟩
+  rintro _ _ ⟨v, rfl, rfl⟩
+  cases v
+  · simp; grind
+  · simp [CH]; grind
+  case vis i k =>
+    simp [CH]
+    rcases i with h|i|ℓ|_
+    · -- hole
+      simp
+      sorry
+    · -- inst
+      simp
+      sorry
+    · sorry
+    · simp
+      stop
+
+
+  stop
 
   suffices ∀ ρ η, ρ ⊒ η →
       ∀ {Γ}, Invariant Γ C I ρ →
@@ -669,6 +748,7 @@ Proving denotational equivalence is sufficient for showing contextual equivalenc
 theorem Pattern.ctxEquiv_of_denoteEquiv (I J : Pattern n)
     (hI : I.HasEqn) (hJ : J.HasEqn) (h_denoteEquiv : I.DenEquiv J) :
     I.CtxEquiv J := by
+  stop
   intro C hC CI CJ hCI hCJ
   have : I.DenRefine J ∧ J.DenRefine I := by grind [DenRefine, DenEquiv]
   apply Refinement.antisymm
