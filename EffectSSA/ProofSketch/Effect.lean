@@ -199,6 +199,10 @@ def interpLocalStackM [ErrUB -< ε] :
 def interpLocalStack [ErrUB -< ε] (x : ITree (LocalEff ⊕ ε) α) : ITree ε α :=
   (interpLocalStackM x).run' { }
 
+/-- Interpret local stack effects starting from a speciefied stack. -/
+def interpLocalStackWith [ErrUB -< ε] (x : ITree (LocalEff ⊕ ε) α) : LocalStack → ITree ε α :=
+  (interpLocalStackM x).run'
+
 /-!
 ## Instruction Effect
 --------------------------------------------------------------------------------
@@ -295,3 +299,206 @@ abbrev interpAll
     (fHole : Hole n → ITree OpaqueEff Unit)
     (t : ITree OpaqueCtxEff α) : ITree BaseEff α :=
   (interpAllM fHole t).run' { }
+
+/-! ### Lemmas -/
+section Lemmas
+open LawfulMonadIter (tau)
+
+@[simp, grind =]
+theorem interpAllM_ret (fHole : Hole n → ITree OpaqueEff Unit) (r : α) :
+    interpAllM fHole (.ret r) = pure r := by
+  simp [interpAllM, interpHoles, interpInst, interpLocalStackM, ITree.interpLeft]
+
+@[simp, grind =]
+theorem interpAllM_tau (fHole : Hole n → ITree OpaqueEff Unit) (t : ITree OpaqueCtxEff α) :
+    interpAllM fHole (.tau t) = tau (interpAllM fHole t) := by
+  simp [interpAllM, interpHoles, interpInst, interpLocalStackM, ITree.interpLeft]
+
+
+/--
+`ITree.map` with the identity effect and continuation maps is the identity.
+-/
+@[simp, grind =]
+theorem _root_.ITree.map_id_id {ε} {κε : ε → Type} [Effect ε κε] {α}
+    (t : ITree ε α) :
+    t.map (fun i => i) (fun _ x => x) = t := by
+  apply ITree.eq_of_bisim
+  apply ITree.Bisim.coinduct (fun (x y : ITree ε α) =>
+    x = y.map (fun i => i) (fun _ x => x))
+  · rintro _ y rfl
+    cases y with
+    | ret r => exact .inl ⟨r, by simp, rfl⟩
+    | tau u => exact .inr (.inl ⟨_, u, rfl, by simp, rfl⟩)
+    | vis i k => exact .inr (.inr ⟨i, _, k, fun _ => rfl, by simp, rfl⟩)
+  · rfl
+
+/--
+For the sum-based `Subeffect BaseEff BaseEff` instance, `Subeffect.map` at any
+`i : BaseEff` still yields `⟨i, id⟩`, matching the reflexivity instance's map.
+-/
+@[simp, grind =]
+theorem Subeffect.map_baseEff_eq_self (i : BaseEff) :
+    (Subeffect.map (ε₁ := BaseEff) (ε₂ := BaseEff) i) = ⟨i, id⟩ := by
+  rcases i with s | e <;> rfl
+
+/--
+The `ITree.lift` from `BaseEff` to itself is the identity, for the reflexivity
+`Subeffect BaseEff BaseEff` instance.
+-/
+@[simp, grind =]
+theorem _root_.ITree.lift_baseEff_self_refl (t : ITree BaseEff α) :
+    @ITree.ITree.lift BaseEff _ _ BaseEff _ _ _ Subeffect.inst t = t := by
+  -- With the reflexivity `Subeffect BaseEff BaseEff` instance, `lift` is
+  -- literally `map id id`, so this follows from `ITree.map_id_id`.
+  exact ITree.map_id_id t
+
+/--
+The `ITree.lift` from `BaseEff` to itself is the identity, for the sum-based
+`Subeffect BaseEff BaseEff` instance (the one Lean picks by default when the
+target `BaseEff = SideEff ⊕ ErrUB` is displayed as a sum).
+
+See also `ITree.lift_baseEff_self_refl` for the reflexivity instance variant;
+both are needed as `simp` lemmas since the two instances arise in different
+elaboration contexts.
+-/
+@[simp, grind =]
+theorem _root_.ITree.lift_baseEff_self (t : ITree BaseEff α) :
+    ITree.lift (δ := BaseEff) t = t := by
+  apply ITree.eq_of_bisim
+  apply ITree.Bisim.coinduct (fun (x y : ITree BaseEff α) => x = y.lift)
+  · rintro _ y rfl
+    cases y with
+    | ret r => exact .inl ⟨r, by simp, rfl⟩
+    | tau u => exact .inr (.inl ⟨_, u, rfl, by simp, rfl⟩)
+    | vis i k =>
+      refine .inr (.inr ⟨i, fun o => (k o).lift, k, fun _ => rfl, ?_, rfl⟩)
+      rw [ITree.lift_vis]
+      congr 1
+      · exact congrArg _ (Subeffect.map_baseEff_eq_self i)
+      · rcases i with s | e <;> rfl
+  · rfl
+
+variable (fHole : Hole n → ITree OpaqueEff Unit)
+
+/--
+`vis`-case for a `HoleEff`.
+Resolves the hole via `Hole.fromId` and `fHole`, then continues with `k ()`
+after one `tau` step (introduced by `interpLocalStackM`).
+-/
+@[simp, grind =]
+theorem interpAllM_vis_hole
+    (h : HoleId) (k : Unit → ITree OpaqueCtxEff α) :
+    interpAllM fHole (.vis (Sum.inl h : OpaqueCtxEff) k) = (do
+      interpLocalStackM (interpInst (Hole.fromId h >>= fHole).lift)
+      tau (interpAllM fHole (k ()))) := by
+  simp only [interpAllM, interpHoles, interpInst, interpLocalStackM,
+    ITree.interpLeft, ITree.interp_vis, ITree.interp_bind, ITree.interp_tau,
+    ITree.interpM_bind, ITree.interpM_tau]
+
+/--
+`vis`-case for an `InstEff`.
+Delegates to `handleInst i`, then continues with `k ()` after two `tau` steps
+(one from `interpHoles` passing the effect through, one from `interpLocalStackM`).
+-/
+@[simp, grind =]
+theorem interpAllM_vis_inst
+    (i : Inst) (k : Unit → ITree OpaqueCtxEff α) :
+    interpAllM fHole (.vis (Sum.inr (Sum.inl i) : OpaqueCtxEff) k) = (do
+      interpLocalStackM (handleInst i)
+      tau (tau (interpAllM fHole (k ())))) := by
+  simp only [interpAllM, interpHoles, interpInst, interpLocalStackM,
+    ITree.interpLeft, ITree.interp_vis, ITree.interp_bind, ITree.interp_tau,
+    ITree.interp_ret, ITree.interpM_bind, ITree.interpM_tau, ITree.interpM_ret,
+    Effect.trigger, Subeffect.map_eq_self, ITree.tau_bind, bind_assoc,
+    ITree.pure_eq_ret, id_eq, pure_bind]
+
+/--
+`vis`-case for a `LocalEff.read`.
+Reads variable `x` from the local stack (raising an error if unbound), then
+continues with `k` after three `tau` steps (one from each interpretation layer).
+-/
+@[simp, grind =]
+theorem interpAllM_vis_local_read
+    (x : VarId) (k : Val → ITree OpaqueCtxEff α) :
+    interpAllM fHole (.vis (Sum.inr (Sum.inr (Sum.inl (.read x))) : OpaqueCtxEff) k) = (do
+      let o ← (withErrorContext s!"Unknown variable: {x}" (LocalStackT.read? x)
+                  : LocalStackT (ITree BaseEff) Val)
+      tau (tau (tau (interpAllM fHole (k o))))) := by
+  simp [interpAllM, interpHoles, interpInst, interpLocalStackM,
+    ITree.interpLeft, Effect.trigger, ITree.pure_eq_ret]
+
+/--
+`vis`-case for a `LocalEff.push`.
+Pushes `(x, val)` onto the local stack, then continues with `k ()`
+after three `tau` steps (one from each interpretation layer).
+-/
+@[simp, grind =]
+theorem interpAllM_vis_local_push
+    (x : VarId) (val : Val) (k : Unit → ITree OpaqueCtxEff α) :
+    interpAllM fHole (.vis (Sum.inr (Sum.inr (Sum.inl (.push x val))) : OpaqueCtxEff) k) = (do
+      (LocalStackT.push x val : LocalStackT (ITree BaseEff) Unit)
+      tau (tau (tau (interpAllM fHole (k ()))))) := by
+  simp [interpAllM, interpHoles, interpInst, interpLocalStackM,
+    ITree.interpLeft, Effect.trigger, ITree.pure_eq_ret]
+
+/--
+`vis`-case for a `BaseEff`.
+The effect is passed through unchanged to the base ITree, and the continuation
+is invoked after three `tau` steps (one from each interpretation layer).
+-/
+@[simp, grind =]
+theorem interpAllM_vis_base
+    (b : BaseEff) (k : (Sum.rec SideEff.κ (fun _ : ErrUB => Empty) b)
+                          → ITree OpaqueCtxEff α) :
+    interpAllM fHole (.vis (Sum.inr (Sum.inr (Sum.inr b)) : OpaqueCtxEff) k) = (do
+      let o ← (liftM (ITree.vis b ITree.ret) : LocalStackT (ITree BaseEff) _)
+      tau (tau (tau (interpAllM fHole (k o))))) := by
+  simp only [interpAllM, interpHoles, interpInst, interpLocalStackM,
+    ITree.interpLeft, ITree.interp_vis, ITree.interp_bind, ITree.interp_tau,
+    ITree.interp_ret, ITree.interpM_bind, ITree.interpM_tau, ITree.interpM_vis,
+    ITree.interpM_ret, Effect.trigger, Subeffect.map_eq_self,
+    ITree.pure_eq_ret, id_eq, pure_bind, ITree.tau_bind, bind_assoc,
+    StateT.tau_bind, liftM, monadLift, MonadLift.monadLift,
+    ITree.lift_baseEff_self, ITree.lift_baseEff_self_refl]
+
+/--
+`vis`-case for an arbitrary effect, split into the individual cases via `match`.
+-/
+@[grind =]
+theorem interpAllM_vis
+    (e : OpaqueCtxEff)
+    (k :
+      Sum.rec (fun (_ : HoleEff) => Unit)
+        (Sum.rec (fun (_ : InstEff) => Unit)
+          (Sum.rec
+            (fun (l : LocalEff) => match l with | .read _ => Val | .push _ _ => Unit)
+            (Sum.rec SideEff.κ (fun (_ : ErrUB) => Empty))))
+        e
+      → ITree OpaqueCtxEff α) :
+    interpAllM fHole (.vis e k) =
+      match e, k with
+      | .inl h, k => (do
+          interpLocalStackM (interpInst (Hole.fromId h >>= fHole).lift)
+          tau (interpAllM fHole (k ())))
+      | .inr (.inl i), k => (do
+          interpLocalStackM (handleInst i)
+          tau (tau (interpAllM fHole (k ()))))
+      | .inr (.inr (.inl (.read x))), k => (do
+          let o ← (withErrorContext s!"Unknown variable: {x}" (LocalStackT.read? x)
+                      : LocalStackT (ITree BaseEff) Val)
+          tau (tau (tau (interpAllM fHole (k o)))))
+      | .inr (.inr (.inl (.push x val))), k => (do
+          (LocalStackT.push x val : LocalStackT (ITree BaseEff) Unit)
+          tau (tau (tau (interpAllM fHole (k ())))))
+      | .inr (.inr (.inr b)), k => (do
+          let o ← (liftM (ITree.vis b .ret : ITree BaseEff _)
+                    : LocalStackT (ITree BaseEff) _)
+          tau (tau (tau (interpAllM fHole (k o))))) := by
+  rcases e with h | i | (⟨x⟩ | ⟨x, val⟩) | b
+  · exact interpAllM_vis_hole fHole h k
+  · exact interpAllM_vis_inst fHole i k
+  · exact interpAllM_vis_local_read fHole x k
+  · exact interpAllM_vis_local_push fHole x val k
+  · exact interpAllM_vis_base fHole b k
+
+end Lemmas
