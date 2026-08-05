@@ -143,6 +143,34 @@ theorem bind_eq_vis_iff (t : ITree ε α) (f : α → ITree ε β) (i) (k) :
 
 end Bind
 
+/-! ### `Functor.map` -/
+section Map
+
+@[simp, grind =] theorem fmap_ret (f : α → β) (x : α) :
+    f <$> ret (ε:=ε) x = ret (f x) := by
+  show f <$> pure x = pure _
+  simp [-pure_eq_ret]
+
+@[simp, grind =] theorem fmap_tau (f : α → β) (t : ITree ε α) :
+    f <$> tau t = tau (f <$> t) := by
+  show tau t >>= (pure ∘ f) = tau (t >>= (pure ∘ f))
+  simp
+
+@[simp, grind =] theorem fmap_vis (f : α → β) (i : ε) (k : κ i → ITree ε α) :
+    f <$> vis i k = vis i (fun o => f <$> k o) := by
+  show vis i k >>= (pure ∘ f) = vis i (fun o => k o >>= (pure ∘ f))
+  simp
+
+end Map
+
+/-! ### `StateT.run` interop -/
+section StateT
+
+@[simp, grind =] theorem StateT.run_tau_comp {σ} (f : σ → ITree ε (α × σ)) (s : σ) :
+    StateT.run (ITree.tau ∘ f) s = tau (StateT.run f s) := rfl
+
+end StateT
+
 /-! ### SeqRight-/
 section SeqRight
 
