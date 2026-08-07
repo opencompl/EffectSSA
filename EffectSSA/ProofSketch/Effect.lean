@@ -239,6 +239,22 @@ theorem _root_.ExceptT.mk_tau_run {E : Type} (x : ExceptT E (ITree ε) α) :
   rfl
 
 @[simp, grind =]
+theorem _root_.ExceptT.tau_bind {E β : Type} (x : ExceptT E (ITree ε) α)
+    (f : α → ExceptT E (ITree ε) β) :
+    (ITree.tau x >>= f : ExceptT E (ITree ε) β) = ITree.tau (x >>= f : ExceptT E (ITree ε) β) := by
+  simp [Bind.bind, ExceptT.bind, ExceptT.mk]
+
+@[simp, grind =]
+theorem _root_.ExceptT.ret_ok_bind {E β : Type} (a : α) (f : α → ExceptT E (ITree ε) β) :
+    (ITree.ret (.ok a) >>= f : ExceptT E (ITree ε) β) = f a := by
+  simp [Bind.bind, ExceptT.bind, ExceptT.mk, ExceptT.bindCont]
+
+@[simp, grind =]
+theorem _root_.ExceptT.ret_error_bind {E β : Type} (e : E) (f : α → ExceptT E (ITree ε) β) :
+    (ITree.ret (.error e) >>= f : ExceptT E (ITree ε) β) = ITree.ret (.error e) := by
+  simp [Bind.bind, ExceptT.bind, ExceptT.mk, ExceptT.bindCont]
+
+@[simp, grind =]
 theorem _root_.ExceptT.map_tau {E β : Type} (f : α → β) (x : ExceptT E (ITree ε) α) :
     (f <$> (ITree.tau x) : ExceptT E (ITree ε) β)
       = ITree.tau (f <$> x : ExceptT E (ITree ε) β) := by
@@ -282,6 +298,35 @@ theorem interpErrUBM_pure (r : α) :
   show interpErrUB (pure (r, s)) = (pure (r, s) : ExceptT ErrUB (ITree ε) (α × σ))
   simp
 
+/--
+Lifting an `ITree` into its own effect type is the identity.
+
+We state this for sums specifically: when the effect is syntactically a sum,
+Lean elaborates `ε₁ ⊕ ε₂ -< ε₁ ⊕ ε₂` through the sum instance rather than the
+reflexivity instance, so the two give different (but propositionally equal)
+terms.
+-/
+@[simp, grind =]
+theorem _root_.ITree.lift_sum_self {ε₁ κ₁ ε₂ κ₂} [Effect.{u} ε₁ κ₁] [Effect.{u} ε₂ κ₂]
+    {β : Type u} (t : ITree (ε₁ ⊕ ε₂) β) : ITree.lift (δ := ε₁ ⊕ ε₂) t = t := by
+  apply ITree.eq_of_bisim
+  apply ITree.Bisim.coinduct (fun (x y : ITree (ε₁ ⊕ ε₂) β) => x = y.lift)
+  · rintro _ y rfl
+    cases y with
+    | ret r => exact .inl ⟨r, by simp, rfl⟩
+    | tau u => exact .inr (.inl ⟨_, u, rfl, by simp, rfl⟩)
+    | vis i k =>
+      refine .inr (.inr ⟨i, fun o => (k o).lift, k, fun _ => rfl, ?_, rfl⟩)
+      rcases i with i | i <;> rw [ITree.lift_vis] <;> rfl
+  · rfl
+
+/-- `interpErrUBM` commutes with lifting an effect-only computation into `StateT`. -/
+@[simp, grind =]
+theorem interpErrUBM_liftM (t : ITree (ε ⊕ ErrUB) α) :
+    interpErrUBM (liftM t : StateT σ (ITree (ε ⊕ ErrUB)) α) = liftM (interpErrUB t) := by
+  funext s
+  simp [interpErrUBM, StateT.run, liftM, monadLift, MonadLift.monadLift, StateT.lift]
+
 @[simp, grind =]
 theorem interpErrUBM_get :
     interpErrUBM (get : StateT σ (ITree (ε ⊕ ErrUB)) σ) = get := by
@@ -295,6 +340,11 @@ theorem _root_.StateT.run_throw_exceptT {σ ρ : Type} {m : Type → Type} [Mona
     (throw e : StateT σ (ExceptT ρ m) α) s = (throw e : ExceptT ρ m (α × σ)) := by
   show StateT.lift (throw e) s = (throw e : ExceptT ρ m (α × σ))
   simp [StateT.lift]
+
+@[simp]
+theorem _root_.StateT.liftM_throw {σ ρ : Type} {m : Type → Type} [Monad m] [LawfulMonad m]
+    {α} (e : ρ) : (liftM (throw e : ExceptT ρ m α) : StateT σ (ExceptT ρ m) α) = throw e :=
+  rfl
 
 @[simp, grind =]
 theorem _root_.StateT.throw_bind {σ ρ : Type} {m : Type → Type} [Monad m] [LawfulMonad m]
@@ -552,69 +602,6 @@ theorem interpAllM_run'_tau (t : ITree OpaqueCtxEff α) (ρ : LocalStack) :
   simp [StateT.run']
 
 
-/--
-`ITree.map` with the identity effect and continuation maps is the identity.
--/
-@[simp, grind =]
-theorem _root_.ITree.map_id_id {ε} {κε : ε → Type} [Effect ε κε] {α}
-    (t : ITree ε α) :
-    t.map (fun i => i) (fun _ x => x) = t := by
-  apply ITree.eq_of_bisim
-  apply ITree.Bisim.coinduct (fun (x y : ITree ε α) =>
-    x = y.map (fun i => i) (fun _ x => x))
-  · rintro _ y rfl
-    cases y with
-    | ret r => exact .inl ⟨r, by simp, rfl⟩
-    | tau u => exact .inr (.inl ⟨_, u, rfl, by simp, rfl⟩)
-    | vis i k => exact .inr (.inr ⟨i, _, k, fun _ => rfl, by simp, rfl⟩)
-  · rfl
-
-/--
-For the sum-based `Subeffect BaseEff BaseEff` instance, `Subeffect.map` at any
-`i : BaseEff` still yields `⟨i, id⟩`, matching the reflexivity instance's map.
--/
-@[simp, grind =]
-theorem Subeffect.map_baseEff_eq_self (i : BaseEff) :
-    (Subeffect.map (ε₁ := BaseEff) (ε₂ := BaseEff) i) = ⟨i, id⟩ := by
-  rcases i with s | e <;> rfl
-
-/--
-The `ITree.lift` from `BaseEff` to itself is the identity, for the reflexivity
-`Subeffect BaseEff BaseEff` instance.
--/
-@[simp, grind =]
-theorem _root_.ITree.lift_baseEff_self_refl (t : ITree BaseEff α) :
-    @ITree.ITree.lift BaseEff _ _ BaseEff _ _ _ Subeffect.inst t = t := by
-  -- With the reflexivity `Subeffect BaseEff BaseEff` instance, `lift` is
-  -- literally `map id id`, so this follows from `ITree.map_id_id`.
-  exact ITree.map_id_id t
-
-/--
-The `ITree.lift` from `BaseEff` to itself is the identity, for the sum-based
-`Subeffect BaseEff BaseEff` instance (the one Lean picks by default when the
-target `BaseEff = SideEff ⊕ ErrUB` is displayed as a sum).
-
-See also `ITree.lift_baseEff_self_refl` for the reflexivity instance variant;
-both are needed as `simp` lemmas since the two instances arise in different
-elaboration contexts.
--/
-@[simp, grind =]
-theorem _root_.ITree.lift_baseEff_self (t : ITree BaseEff α) :
-    ITree.lift (δ := BaseEff) t = t := by
-  apply ITree.eq_of_bisim
-  apply ITree.Bisim.coinduct (fun (x y : ITree BaseEff α) => x = y.lift)
-  · rintro _ y rfl
-    cases y with
-    | ret r => exact .inl ⟨r, by simp, rfl⟩
-    | tau u => exact .inr (.inl ⟨_, u, rfl, by simp, rfl⟩)
-    | vis i k =>
-      refine .inr (.inr ⟨i, fun o => (k o).lift, k, fun _ => rfl, ?_, rfl⟩)
-      rw [ITree.lift_vis]
-      congr 1
-      · exact congrArg _ (Subeffect.map_baseEff_eq_self i)
-      · rcases i with s | e <;> rfl
-  · rfl
-
 /-! #### Interpreting `BaseEff` into `ExceptT ErrUB` -/
 
 @[simp, grind =]
@@ -691,9 +678,13 @@ theorem interpAllM_vis_local_read (x : VarId) (k : Val → ITree OpaqueCtxEff α
     interpAllM fHole (.vis (Sum.inr (Sum.inr (Sum.inl (.read x))) : OpaqueCtxEff) k) = (do
       let o ← interpErrUBM (withErrorContext s!"Unknown variable: {x}" (LocalStackT.read? x))
       tau (tau (tau (interpAllM fHole (k o))))) := by
-  simp [interpAllM, interpHoles, interpInst, interpLocalStackM,
-    ITree.interpLeft, Effect.trigger, ITree.pure_eq_ret, interpErrUBM, interpErrUB]
-  sorry
+  simp only [interpAllM, interpHoles, interpInst, interpLocalStackM,
+    ITree.interpLeft, ITree.interp_vis, ITree.interp_bind, ITree.interp_tau,
+    ITree.interp_ret, ITree.interpM_bind, ITree.interpM_tau, ITree.interpM_vis,
+    ITree.interpM_ret, Effect.trigger, Subeffect.map_eq_self,
+    ITree.pure_eq_ret, id_eq, pure_bind, ITree.tau_bind, bind_assoc,
+    StateT.tau_eq, StateT.tau_bind,
+    interpErrUBM_bind, interpErrUBM_tau, StateT.exceptT_tau_eq]
 
 /--
 `vis`-case for a `LocalEff.push`.
@@ -720,23 +711,26 @@ theorem interpAllM_vis_base (b : BaseEff)
     interpAllM fHole (.vis (Sum.inr (Sum.inr (Sum.inr b)) : OpaqueCtxEff) k) = (do
       let o ← interpErrUB (ITree.vis b ITree.ret)
       tau (tau (tau (interpAllM fHole (k o))))) := by
-  stop
   simp only [interpAllM, interpHoles, interpInst, interpLocalStackM,
     ITree.interpLeft, ITree.interp_vis, ITree.interp_bind, ITree.interp_tau,
     ITree.interp_ret, ITree.interpM_bind, ITree.interpM_tau, ITree.interpM_vis,
     ITree.interpM_ret, Effect.trigger, Subeffect.map_eq_self,
     ITree.pure_eq_ret, id_eq, pure_bind, ITree.tau_bind, bind_assoc,
-    StateT.tau_eq, StateT.tau_bind, liftM, monadLift, MonadLift.monadLift,
-    ITree.lift_baseEff_self, ITree.lift_baseEff_self_refl, interpErrUBM_bind,
+    StateT.tau_eq, StateT.tau_bind,
+    interpErrUBM_bind,
     interpErrUBM_tau, StateT.exceptT_tau_eq]
+  congr 1
+  funext s
+  simp [interpErrUBM, StateT.run, liftM, monadLift, MonadLift.monadLift, StateT.lift]
+  rcases b with e | e <;> simp
 
 /-- Raised errors and UB abort the computation, discarding the continuation. -/
 @[simp, grind =]
 theorem interpAllM_vis_errUB (e : ErrUB) (k : Empty → ITree OpaqueCtxEff α) :
     interpAllM fHole (.vis (Sum.inr (Sum.inr (Sum.inr (Sum.inr e))) : OpaqueCtxEff) k)
       = throw e := by
-  rw [interpAllM_vis_base (b := .inr e) (k := k), interpErrUBM_liftM_vis_inr,
-    StateT.throw_bind]
+  rw [interpAllM_vis_base (b := .inr e) (k := k), interpErrUB_vis_inr]
+  simp
 
 /--
 `vis`-case for an arbitrary effect, split into the individual cases via `match`.
