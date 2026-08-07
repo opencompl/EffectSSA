@@ -12,7 +12,6 @@ class Refinement α where
   IsRefinedBy : α → α → Prop
   refl : ∀ x, IsRefinedBy x x := by grind
   trans : ∀ {x y z}, IsRefinedBy x y → IsRefinedBy y z → IsRefinedBy x z := by grind
-  antisymm : ∀ {x y}, IsRefinedBy x y → IsRefinedBy y x → x = y := by grind
 export Refinement (IsRefinedBy)
 
 infixl:50 " ⊒ " => IsRefinedBy
@@ -21,7 +20,6 @@ infixl:50 " ⊒ " => IsRefinedBy
 section Grind
 
 attribute [grind .] Refinement.refl
-attribute [grind .] Refinement.antisymm
 attribute [grind →] Refinement.trans
 
 end Grind
@@ -48,7 +46,6 @@ instance [Refinement α] : Refinement (Option α) where
     | some x, some y => x ⊒ y
   refl := by grind
   trans := by grind
-  antisymm := by grind
 
 end Option
 
@@ -63,9 +60,5 @@ instance [Refinement α] : Refinement (ITree ε α) where
     apply ITree.bisimUpTo_trans_of
     intro x y z
     exact Refinement.trans
-  antisymm := by
-    apply ITree.bisimUpTo_antisymm_of
-    intro x y
-    exact Refinement.antisymm
 
 end ITree
