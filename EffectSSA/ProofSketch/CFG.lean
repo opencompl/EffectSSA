@@ -81,11 +81,11 @@ where
 
 noncomputable
 abbrev ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ InstEff) Unit) :
-    (ITree (SideEff ⊕ ErrUB)) ReturnVals := do
+    ExceptT ErrUB (ITree SideEff) ReturnVals := do
   C.denote |> interpAll (f · |>.lift)
 
 noncomputable
-abbrev ProgramCFG.interp (P : ProgramCFG) : (ITree (SideEff ⊕ ErrUB)) ReturnVals :=
+abbrev ProgramCFG.interp (P : ProgramCFG) : ExceptT ErrUB (ITree SideEff) ReturnVals :=
   ContextCFG.interp P Hole.elim0
 
 /-!
@@ -103,7 +103,6 @@ inductive IsRefinedBy : ReturnVals → ReturnVals → Prop
 variable {xs ys zs : ReturnVals}
 
 axiom isRefinedBy_trans : xs.IsRefinedBy ys → ys.IsRefinedBy zs → xs.IsRefinedBy zs
-axiom isRefinedBy_antiSymm : xs.IsRefinedBy ys → ys.IsRefinedBy xs → xs = ys
 
 instance : Refinement ReturnVals where
   IsRefinedBy := IsRefinedBy
@@ -111,7 +110,6 @@ instance : Refinement ReturnVals where
     rcases xs with ⟨xs⟩
     induction xs <;> grind
   trans := isRefinedBy_trans
-  antisymm := isRefinedBy_antiSymm
 
 end ReturnVals
 
@@ -227,8 +225,8 @@ theorem Block.interp_plug {b : Block n} {br : Branch} {I : Pattern n}
 open ITree in
 theorem ContextCFG.interp_plug {C : ContextCFG n} {I : Pattern n} :
     (C.plug I).interp = C.interp (liftM <| I[·].denote) := by
-  simp only [ProgramCFG.interp, interp, Pattern.getElem_hole, interpAll, interpAllM]
-  congr 3
+  simp only [ProgramCFG.interp, interp, interpAll, interpAllM]
+  congr 4
   simp only [denote, entryId_plug]
   apply ITree.eq_of_bisim
   apply ITree.Bisim.coinduct <| fun t u =>

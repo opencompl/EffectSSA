@@ -98,6 +98,225 @@ theorem map_raiseError [ErrUB -< ε] (reason : String) (fEff : ε → δ) (fCont
 
 end Lemmas
 
+/-! ### Interpretation -/
+section Interp
+universe u
+variable {ρ : Type u} {m : Type u → Type u}
+
+/--
+`ExceptT ρ m` iterates by iterating in `m`, aborting the loop as soon as the
+body throws.
+-/
+instance [Monad m] [MonadIter m] : MonadIter (ExceptT ρ m) where
+  iter f a := ExceptT.mk <| iter (init := a) fun a => (f a).run >>= fun
+    | .ok (.inl a) => pure (.inl a)
+    | .ok (.inr b) => pure (.inr (.ok b))
+    | .error e     => pure (.inr (.error e))
+
+@[simp, grind =]
+theorem _root_.ExceptT.run_iter [Monad m] [MonadIter m] {α β}
+    (f : α → ExceptT ρ m (α ⊕ β)) (a : α) :
+    ExceptT.run (iter (m := ExceptT ρ m) f a)
+      = iter (fun a => (f a).run >>= fun
+          | .ok (.inl a) => pure (.inl a)
+          | .ok (.inr b) => pure (.inr (.ok b))
+          | .error e     => pure (.inr (.error e))) a :=
+  rfl
+
+instance [Monad m] [LawfulMonad m] [MonadIter m] [im : LawfulMonadIter m] :
+    LawfulMonadIter (ExceptT ρ m) where
+  tau x := .mk (im.tau x.run)
+  iter_eq f a := by
+    ext
+    rw [ExceptT.run_iter, im.iter_eq]
+    simp only [ExceptT.run_bind, bind_assoc]
+    congr 1
+    funext x
+    rcases x with e | (a | b) <;> simp
+
+/--
+Interpret `ErrUB` effects into `ExceptT ErrUB`: both errors and UB abort the
+computation, with the thrown value recording which of the two occurred.
+-/
+def interpErrUB : ITree (ε ⊕ ErrUB) α → ExceptT ErrUB (ITree ε) α :=
+  ITree.interpM fun
+    | .inl e => liftM (ITree.vis e .ret)
+    | .inr e => throw e
+
+/-- `interpErrUB`, applied underneath a state layer. -/
+def interpErrUBM {σ} (x : StateT σ (ITree (ε ⊕ ErrUB)) α) :
+    StateT σ (ExceptT ErrUB (ITree ε)) α :=
+  interpErrUB ∘ x.run
+
+section Refinement
+
+instance [Refinement α] : Refinement (Except ErrUB α) where
+  IsRefinedBy
+    -- An interpreter error is refined by anything
+    | .error (.error _), _ => True
+    -- UB is *not* refined by an interpreter error
+    | .error (.ub _), .error (.error _) => False
+    -- UB *is* refined by anuthing else
+    | .error (.ub _), _ => True
+    -- Values are not refined by UB nor interpreter errors
+    | .ok _, .error _ => False
+    | .ok x, .ok y => x ⊒ y
+
+end Refinement
+
+section Lemmas
+open LawfulMonadIter (tau)
+variable {σ : Type}
+
+@[simp, grind =]
+theorem interpErrUB_ret (r : α) :
+    interpErrUB (.ret r : ITree (ε ⊕ ErrUB) α) = pure r := by
+  simp [interpErrUB]
+
+@[simp, grind =]
+theorem interpErrUB_tau (t : ITree (ε ⊕ ErrUB) α) :
+    interpErrUB (.tau t) = tau (interpErrUB t) := by
+  simp [interpErrUB]
+
+@[simp, grind =]
+theorem interpErrUB_vis_inl (e : ε) (k : κε e → ITree (ε ⊕ ErrUB) α) :
+    interpErrUB (.vis (.inl e) k) = (do
+      let o ← (liftM (ITree.vis e .ret) : ExceptT ErrUB (ITree ε) _)
+      tau (interpErrUB (k o))) := by
+  simp [interpErrUB]
+
+/-- Errors and UB abort the computation, discarding the continuation. -/
+@[simp, grind =]
+theorem interpErrUB_vis_inr (e : ErrUB) (k : Empty → ITree (ε ⊕ ErrUB) α) :
+    interpErrUB (.vis (.inr e) k) = throw e := by
+  simp [interpErrUB]
+
+@[simp, grind =]
+theorem interpErrUB_raiseUB (reason : String) :
+    interpErrUB (raiseUB reason : ITree (ε ⊕ ErrUB) α) = throw (.ub reason) := by
+  simp [raiseUB, Effect.trigger]
+
+@[simp, grind =]
+theorem interpErrUB_raiseError (reason : String) :
+    interpErrUB (raiseError reason : ITree (ε ⊕ ErrUB) α) = throw (.error reason) := by
+  simp [raiseError, Effect.trigger]
+
+@[simp, grind =]
+theorem interpErrUB_bind {β} (t : ITree (ε ⊕ ErrUB) α) (f : α → ITree (ε ⊕ ErrUB) β) :
+    interpErrUB (t >>= f) = interpErrUB t >>= fun a => interpErrUB (f a) :=
+  ITree.interpM_bind _ t f
+
+@[simp, grind =]
+theorem interpErrUBM_bind {β} (x : StateT σ (ITree (ε ⊕ ErrUB)) α)
+    (f : α → StateT σ (ITree (ε ⊕ ErrUB)) β) :
+    interpErrUBM (x >>= f) = interpErrUBM x >>= fun a => interpErrUBM (f a) := by
+  funext s; exact interpErrUB_bind (x s) _
+
+@[simp, grind =]
+theorem interpErrUBM_tau (x : StateT σ (ITree (ε ⊕ ErrUB)) α) :
+    interpErrUBM (ITree.tau ∘ x) = ITree.tau ∘ (interpErrUBM x) := by
+  funext s; exact interpErrUB_tau (x s)
+
+@[simp, grind =]
+theorem _root_.StateT.run'_pure {m : Type → Type} [Monad m] [LawfulMonad m] (a : α) (s : σ) :
+    (pure a : StateT σ m α).run' s = pure a := by
+  show (fun x => x.fst) <$> (pure (a, s) : m (α × σ)) = pure a
+  simp
+
+/-- `pure` in `ExceptT E (ITree ε)` returns an `ok` value. -/
+@[simp]
+theorem _root_.ExceptT.pure_eq_ret {E : Type} (r : α) :
+    (pure r : ExceptT E (ITree ε) α) = ITree.ret (.ok r) :=
+  rfl
+
+/--
+`ExceptT.mk` and `ExceptT.run` are identities, so the `tau` of the
+`LawfulMonadIter (ExceptT E (ITree ε))` instance is just `ITree.tau`.
+-/
+@[simp, grind =]
+theorem _root_.ExceptT.mk_tau_run {E : Type} (x : ExceptT E (ITree ε) α) :
+    ExceptT.mk (ITree.tau x.run) = ITree.tau x :=
+  rfl
+
+@[simp, grind =]
+theorem _root_.ExceptT.map_tau {E β : Type} (f : α → β) (x : ExceptT E (ITree ε) α) :
+    (f <$> (ITree.tau x) : ExceptT E (ITree ε) β)
+      = ITree.tau (f <$> x : ExceptT E (ITree ε) β) := by
+  simp [Functor.map, ExceptT.map, ExceptT.mk]
+
+@[simp, grind =]
+theorem _root_.ExceptT.map_ret_ok {E β : Type} (f : α → β) (a : α) :
+    (f <$> (ITree.ret (.ok a) : ExceptT E (ITree ε) α) : ExceptT E (ITree ε) β)
+      = ITree.ret (.ok (f a)) := by
+  simp [Functor.map, ExceptT.map, ExceptT.mk]
+
+@[simp, grind =]
+theorem _root_.ExceptT.map_ret_error {E β : Type} (f : α → β) (e : E) :
+    (f <$> (ITree.ret (.error e) : ExceptT E (ITree ε) α) : ExceptT E (ITree ε) β)
+      = ITree.ret (.error e) := by
+  simp [Functor.map, ExceptT.map, ExceptT.mk]
+
+/-- `tau` in `StateT σ (ExceptT E (ITree ε))` is just a `tau` in the underlying `ITree`. -/
+@[simp, grind =]
+theorem _root_.StateT.exceptT_tau_eq {E : Type} (x : StateT σ (ExceptT E (ITree ε)) α) :
+    tau x = ITree.tau ∘ x :=
+  rfl
+
+@[simp, grind =]
+theorem _root_.StateT.run_tau_comp {E : Type} (x : StateT σ (ExceptT E (ITree ε)) α) (s : σ) :
+    StateT.run (ITree.tau ∘ x : StateT σ (ExceptT E (ITree ε)) α) s
+      = ITree.tau (StateT.run x s : ITree ε (Except E (α × σ))) :=
+  rfl
+
+/-- Lifting an `ErrUB`-only computation and interpreting it again throws. -/
+@[simp, grind =]
+theorem interpErrUB_lift_raiseError (reason : String) :
+    interpErrUB ((raiseError reason : ITree ErrUB α).lift : ITree (ε ⊕ ErrUB) α)
+      = throw (.error reason) := by
+  simp [ITree.lift]
+
+@[simp, grind =]
+theorem interpErrUBM_pure (r : α) :
+    interpErrUBM (pure r : StateT σ (ITree (ε ⊕ ErrUB)) α) = pure r := by
+  funext s
+  show interpErrUB (pure (r, s)) = (pure (r, s) : ExceptT ErrUB (ITree ε) (α × σ))
+  simp
+
+@[simp, grind =]
+theorem interpErrUBM_get :
+    interpErrUBM (get : StateT σ (ITree (ε ⊕ ErrUB)) σ) = get := by
+  funext s
+  show interpErrUB (pure (s, s)) = (pure (s, s) : ExceptT ErrUB (ITree ε) (σ × σ))
+  simp
+
+@[simp]
+theorem _root_.StateT.run_throw_exceptT {σ ρ : Type} {m : Type → Type} [Monad m] [LawfulMonad m]
+    {α} (e : ρ) (s : σ) :
+    (throw e : StateT σ (ExceptT ρ m) α) s = (throw e : ExceptT ρ m (α × σ)) := by
+  show StateT.lift (throw e) s = (throw e : ExceptT ρ m (α × σ))
+  simp [StateT.lift]
+
+@[simp, grind =]
+theorem _root_.StateT.throw_bind {σ ρ : Type} {m : Type → Type} [Monad m] [LawfulMonad m]
+    {α β} (e : ρ) (f : α → StateT σ (ExceptT ρ m) β) :
+    (throw e : StateT σ (ExceptT ρ m) α) >>= f = throw e := by
+  funext s
+  show (StateT.lift (throw e) s : ExceptT ρ m (α × σ)) >>= (fun p => f p.1 p.2)
+      = (StateT.lift (throw e) s : ExceptT ρ m (β × σ))
+  simp [StateT.lift]
+
+@[simp, grind =]
+theorem interpErrUBM_push (x : VarId) (val : Val) :
+    interpErrUBM (LocalStackT.push x val : LocalStackT (ITree (ε ⊕ ErrUB)) Unit)
+      = LocalStackT.push x val := by
+  funext s
+  show interpErrUB (pure ((), s.insert x val))
+      = (pure ((), s.insert x val) : ExceptT ErrUB (ITree ε) (Unit × LocalStack))
+  simp
+
+end Lemmas
+end Interp
+
 /-!
 ## Opaque Side Effects
 --------------------------------------------------------------------------------
@@ -285,19 +504,24 @@ abbrev Hole.fromId [ErrUB -< ε] (h : HoleId) : ITree ε (Hole n) :=
   withErrorContext s!"Unknown hole: {h}" <|
     (.ret <| Hole.fromId? h)
 
+/--
+`interpAllM` interprets holes, instructions, local variables and `ErrUB` away,
+leaving only the `SideEff` side-effects uninterpreted.
+-/
 noncomputable
 def interpAllM
     (fHole : Hole n → ITree OpaqueEff Unit)
-    (t : ITree OpaqueCtxEff α) : StateT LocalStack (ITree BaseEff) α :=
+    (t : ITree OpaqueCtxEff α) : (StateT LocalStack <| ExceptT ErrUB <| ITree SideEff) α :=
   t
   |> interpHoles (Hole.fromId · >>= fHole)
   |> interpInst
   |> interpLocalStackM
+  |> interpErrUBM
 
 noncomputable
 abbrev interpAll
     (fHole : Hole n → ITree OpaqueEff Unit)
-    (t : ITree OpaqueCtxEff α) : ITree BaseEff α :=
+    (t : ITree OpaqueCtxEff α) : ExceptT ErrUB (ITree SideEff) α :=
   (interpAllM fHole t).run' { }
 
 /-! ### Lemmas -/
@@ -312,7 +536,20 @@ theorem interpAllM_ret (fHole : Hole n → ITree OpaqueEff Unit) (r : α) :
 @[simp, grind =]
 theorem interpAllM_tau (fHole : Hole n → ITree OpaqueEff Unit) (t : ITree OpaqueCtxEff α) :
     interpAllM fHole (.tau t) = tau (interpAllM fHole t) := by
-  simp [interpAllM, interpHoles, interpInst, interpLocalStackM, ITree.interpLeft]
+  simp only [interpAllM, interpLocalStackM, interpInst, ITree.interpLeft, interpHoles,
+    ITree.lift_bind, ITree.interp_tau, ITree.interp_interp, ITree.interpM_tau, tau,
+    interpErrUBM_tau, ExceptT.mk_tau_run]
+  rfl
+
+@[simp, grind =]
+theorem interpAllM_run'_ret (r : α) (ρ : LocalStack) :
+    (interpAllM fHole (.ret r)).run' ρ = .ret (.ok r) := by
+  simp
+
+@[simp, grind =]
+theorem interpAllM_run'_tau (t : ITree OpaqueCtxEff α) (ρ : LocalStack) :
+    (interpAllM fHole (.tau t)).run' ρ = .tau ((interpAllM fHole t).run' ρ) := by
+  simp [StateT.run']
 
 
 /--
@@ -378,6 +615,38 @@ theorem _root_.ITree.lift_baseEff_self (t : ITree BaseEff α) :
       · rcases i with s | e <;> rfl
   · rfl
 
+/-! #### Interpreting `BaseEff` into `ExceptT ErrUB` -/
+
+@[simp, grind =]
+theorem interpErrUBM_liftM_vis_inr {σ} (e : ErrUB) :
+    interpErrUBM (liftM (ITree.vis (Sum.inr e : BaseEff) ITree.ret)
+        : StateT σ (ITree BaseEff) Empty) = throw e := by
+  funext s
+  show interpErrUB ((ITree.vis (Sum.inr e : BaseEff) ITree.ret).lift >>= fun a => pure (a, s)) = _
+  simp
+
+@[simp, grind =]
+theorem interpErrUBM_liftM_raiseError {σ} (reason : String) :
+    interpErrUBM (liftM (raiseError reason : ITree ErrUB α)
+        : StateT σ (ITree BaseEff) α) = throw (.error reason) := by
+  funext s
+  show interpErrUB ((raiseError reason : ITree ErrUB α).lift >>= fun a => pure (a, s)) = _
+  simp
+
+/-- Reading an unbound variable raises an error (rather than UB). -/
+@[simp, grind =]
+theorem interpErrUBM_withErrorContext_read? (reason : String) (x : VarId) :
+    interpErrUBM (withErrorContext reason (LocalStackT.read? x) : LocalStackT (ITree BaseEff) Val)
+      = (do
+        let ρ ← get
+        match ρ[x]? with
+        | some v => pure v
+        | none => throw (.error reason)) := by
+  rw [withErrorContext, interpErrUBM_bind, LocalStackT.read?, interpErrUBM_bind,
+    interpErrUBM_get]
+  simp only [bind_assoc, interpErrUBM_pure, pure_bind]
+  congr; funext ρ; cases ρ[x]? <;> simp
+
 variable (fHole : Hole n → ITree OpaqueEff Unit)
 
 /--
@@ -386,14 +655,14 @@ Resolves the hole via `Hole.fromId` and `fHole`, then continues with `k ()`
 after one `tau` step (introduced by `interpLocalStackM`).
 -/
 @[simp, grind =]
-theorem interpAllM_vis_hole
-    (h : HoleId) (k : Unit → ITree OpaqueCtxEff α) :
+theorem interpAllM_vis_hole (h : HoleId) (k : Unit → ITree OpaqueCtxEff α) :
     interpAllM fHole (.vis (Sum.inl h : OpaqueCtxEff) k) = (do
-      interpLocalStackM (interpInst (Hole.fromId h >>= fHole).lift)
-      tau (interpAllM fHole (k ()))) := by
+      interpErrUBM (interpLocalStackM (interpInst (Hole.fromId h >>= fHole).lift))
+      tau (interpAllM fHole (k ())))  := by
   simp only [interpAllM, interpHoles, interpInst, interpLocalStackM,
     ITree.interpLeft, ITree.interp_vis, ITree.interp_bind, ITree.interp_tau,
-    ITree.interpM_bind, ITree.interpM_tau]
+    ITree.interpM_bind, ITree.interpM_tau, interpErrUBM_bind, interpErrUBM_tau,
+    StateT.tau_eq, StateT.exceptT_tau_eq]
 
 /--
 `vis`-case for an `InstEff`.
@@ -401,16 +670,16 @@ Delegates to `handleInst i`, then continues with `k ()` after two `tau` steps
 (one from `interpHoles` passing the effect through, one from `interpLocalStackM`).
 -/
 @[simp, grind =]
-theorem interpAllM_vis_inst
-    (i : Inst) (k : Unit → ITree OpaqueCtxEff α) :
+theorem interpAllM_vis_inst (i : Inst) (k : Unit → ITree OpaqueCtxEff α) :
     interpAllM fHole (.vis (Sum.inr (Sum.inl i) : OpaqueCtxEff) k) = (do
-      interpLocalStackM (handleInst i)
+      interpErrUBM (interpLocalStackM (handleInst i))
       tau (tau (interpAllM fHole (k ())))) := by
   simp only [interpAllM, interpHoles, interpInst, interpLocalStackM,
     ITree.interpLeft, ITree.interp_vis, ITree.interp_bind, ITree.interp_tau,
     ITree.interp_ret, ITree.interpM_bind, ITree.interpM_tau, ITree.interpM_ret,
     Effect.trigger, Subeffect.map_eq_self, ITree.tau_bind, bind_assoc,
-    ITree.pure_eq_ret, id_eq, pure_bind]
+    ITree.pure_eq_ret, id_eq, pure_bind, interpErrUBM_bind, interpErrUBM_tau,
+    StateT.tau_eq, StateT.exceptT_tau_eq]
 
 /--
 `vis`-case for a `LocalEff.read`.
@@ -418,14 +687,13 @@ Reads variable `x` from the local stack (raising an error if unbound), then
 continues with `k` after three `tau` steps (one from each interpretation layer).
 -/
 @[simp, grind =]
-theorem interpAllM_vis_local_read
-    (x : VarId) (k : Val → ITree OpaqueCtxEff α) :
+theorem interpAllM_vis_local_read (x : VarId) (k : Val → ITree OpaqueCtxEff α) :
     interpAllM fHole (.vis (Sum.inr (Sum.inr (Sum.inl (.read x))) : OpaqueCtxEff) k) = (do
-      let o ← (withErrorContext s!"Unknown variable: {x}" (LocalStackT.read? x)
-                  : LocalStackT (ITree BaseEff) Val)
+      let o ← interpErrUBM (withErrorContext s!"Unknown variable: {x}" (LocalStackT.read? x))
       tau (tau (tau (interpAllM fHole (k o))))) := by
   simp [interpAllM, interpHoles, interpInst, interpLocalStackM,
-    ITree.interpLeft, Effect.trigger, ITree.pure_eq_ret]
+    ITree.interpLeft, Effect.trigger, ITree.pure_eq_ret, interpErrUBM, interpErrUB]
+  sorry
 
 /--
 `vis`-case for a `LocalEff.push`.
@@ -433,13 +701,13 @@ Pushes `(x, val)` onto the local stack, then continues with `k ()`
 after three `tau` steps (one from each interpretation layer).
 -/
 @[simp, grind =]
-theorem interpAllM_vis_local_push
-    (x : VarId) (val : Val) (k : Unit → ITree OpaqueCtxEff α) :
+theorem interpAllM_vis_local_push (x : VarId) (val : Val) (k : Unit → ITree OpaqueCtxEff α) :
     interpAllM fHole (.vis (Sum.inr (Sum.inr (Sum.inl (.push x val))) : OpaqueCtxEff) k) = (do
-      (LocalStackT.push x val : LocalStackT (ITree BaseEff) Unit)
+      LocalStackT.push x val
       tau (tau (tau (interpAllM fHole (k ()))))) := by
   simp [interpAllM, interpHoles, interpInst, interpLocalStackM,
     ITree.interpLeft, Effect.trigger, ITree.pure_eq_ret]
+  rfl
 
 /--
 `vis`-case for a `BaseEff`.
@@ -447,19 +715,28 @@ The effect is passed through unchanged to the base ITree, and the continuation
 is invoked after three `tau` steps (one from each interpretation layer).
 -/
 @[simp, grind =]
-theorem interpAllM_vis_base
-    (b : BaseEff) (k : (Sum.rec SideEff.κ (fun _ : ErrUB => Empty) b)
-                          → ITree OpaqueCtxEff α) :
+theorem interpAllM_vis_base (b : BaseEff)
+    (k : (Sum.rec SideEff.κ (fun _ : ErrUB => Empty) b) → ITree OpaqueCtxEff α) :
     interpAllM fHole (.vis (Sum.inr (Sum.inr (Sum.inr b)) : OpaqueCtxEff) k) = (do
-      let o ← (liftM (ITree.vis b ITree.ret) : LocalStackT (ITree BaseEff) _)
+      let o ← interpErrUB (ITree.vis b ITree.ret)
       tau (tau (tau (interpAllM fHole (k o))))) := by
+  stop
   simp only [interpAllM, interpHoles, interpInst, interpLocalStackM,
     ITree.interpLeft, ITree.interp_vis, ITree.interp_bind, ITree.interp_tau,
     ITree.interp_ret, ITree.interpM_bind, ITree.interpM_tau, ITree.interpM_vis,
     ITree.interpM_ret, Effect.trigger, Subeffect.map_eq_self,
     ITree.pure_eq_ret, id_eq, pure_bind, ITree.tau_bind, bind_assoc,
-    StateT.tau_bind, liftM, monadLift, MonadLift.monadLift,
-    ITree.lift_baseEff_self, ITree.lift_baseEff_self_refl]
+    StateT.tau_eq, StateT.tau_bind, liftM, monadLift, MonadLift.monadLift,
+    ITree.lift_baseEff_self, ITree.lift_baseEff_self_refl, interpErrUBM_bind,
+    interpErrUBM_tau, StateT.exceptT_tau_eq]
+
+/-- Raised errors and UB abort the computation, discarding the continuation. -/
+@[simp, grind =]
+theorem interpAllM_vis_errUB (e : ErrUB) (k : Empty → ITree OpaqueCtxEff α) :
+    interpAllM fHole (.vis (Sum.inr (Sum.inr (Sum.inr (Sum.inr e))) : OpaqueCtxEff) k)
+      = throw e := by
+  rw [interpAllM_vis_base (b := .inr e) (k := k), interpErrUBM_liftM_vis_inr,
+    StateT.throw_bind]
 
 /--
 `vis`-case for an arbitrary effect, split into the individual cases via `match`.
@@ -478,21 +755,19 @@ theorem interpAllM_vis
     interpAllM fHole (.vis e k) =
       match e, k with
       | .inl h, k => (do
-          interpLocalStackM (interpInst (Hole.fromId h >>= fHole).lift)
+          interpErrUBM (interpLocalStackM (interpInst (Hole.fromId h >>= fHole).lift))
           tau (interpAllM fHole (k ())))
       | .inr (.inl i), k => (do
-          interpLocalStackM (handleInst i)
+          interpErrUBM (interpLocalStackM (handleInst i))
           tau (tau (interpAllM fHole (k ()))))
       | .inr (.inr (.inl (.read x))), k => (do
-          let o ← (withErrorContext s!"Unknown variable: {x}" (LocalStackT.read? x)
-                      : LocalStackT (ITree BaseEff) Val)
+          let o ← interpErrUBM (withErrorContext s!"Unknown variable: {x}" (LocalStackT.read? x))
           tau (tau (tau (interpAllM fHole (k o)))))
       | .inr (.inr (.inl (.push x val))), k => (do
-          (LocalStackT.push x val : LocalStackT (ITree BaseEff) Unit)
+          LocalStackT.push x val
           tau (tau (tau (interpAllM fHole (k ())))))
       | .inr (.inr (.inr b)), k => (do
-          let o ← (liftM (ITree.vis b .ret : ITree BaseEff _)
-                    : LocalStackT (ITree BaseEff) _)
+          let o ← interpErrUB (ITree.vis b .ret)
           tau (tau (tau (interpAllM fHole (k o))))) := by
   rcases e with h | i | (⟨x⟩ | ⟨x, val⟩) | b
   · exact interpAllM_vis_hole fHole h k

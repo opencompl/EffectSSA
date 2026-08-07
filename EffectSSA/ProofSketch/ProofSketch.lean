@@ -684,7 +684,7 @@ theorem Pattern.ctxRefine_of_denoteRefine (I J : Pattern n)
 
   intro ρ η hρη Γ hΓ Δ hΔ
 
-  let CH := fun (t u : ITree BaseEff ReturnVals) =>
+  let CH := fun (t u : ExceptT ErrUB (ITree SideEff) ReturnVals) =>
     ∃ v : ITree OpaqueCtxEff ReturnVals,
       t = (interpAllM fI v).run' ρ
       ∧ u = (interpAllM fJ v).run' η
@@ -693,7 +693,7 @@ theorem Pattern.ctxRefine_of_denoteRefine (I J : Pattern n)
   rintro _ _ ⟨v, rfl, rfl⟩
   cases v
   · simp; grind
-  · simp [CH]; grind
+  · simp only [CH, interpAllM_run'_tau]; grind
   case vis i k =>
     simp [CH]
     rcases i with h|i|ℓ|_

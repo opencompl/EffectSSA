@@ -49,6 +49,18 @@ instance [Refinement α] : Refinement (Option α) where
 
 end Option
 
+section ExceptT
+
+/-- `ExceptT` is a type synonym, so it inherits the refinement of its unfolding. -/
+instance [i : Refinement (m (Except ε α))] : Refinement (ExceptT ε m α) := i
+
+/-!
+Note, we don't define a generic refinement instance for `Except`,
+since it depends on the specific error type.
+-/
+
+end ExceptT
+
 section ITree
 open ITree
 variable {ε κ} [Effect ε κ]

@@ -113,7 +113,12 @@ instance {σ : Type u} {m : Type u → Type u} [Monad m] [LawfulMonad m]
     simp only [bind_map_left]
     congr 1; funext ⟨ba, s⟩; cases ba <;> rfl
 
-open LawfulMonadIter (tau) in
+open LawfulMonadIter (tau)
+
+@[simp, grind =]
+theorem StateT.tau_eq (x : StateT σ (ITree ε) β) :
+    tau x = ITree.tau ∘ x := by rfl
+
 /--
 `LawfulMonadIter.tau` distributes over bind in `StateT σ (ITree ε)`:
 folding a `tau` under a bind moves it out around the entire bind.
@@ -121,7 +126,7 @@ folding a `tau` under a bind moves it out around the entire bind.
 @[simp, grind =]
 theorem StateT.tau_bind {σ ε β γ} {κε : ε → Type} [Effect ε κε]
     (x : StateT σ (ITree ε) β) (f : β → StateT σ (ITree ε) γ) :
-    (tau x >>= f) = tau (x >>= f) := by
+    (ITree.tau ∘ x >>= f) = ITree.tau ∘ (x >>= f) := by
   funext s
   show ITree.tau (x s) >>= _ = ITree.tau _
   rw [ITree.tau_bind]
