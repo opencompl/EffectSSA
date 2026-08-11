@@ -39,7 +39,7 @@ bundles a pure environment with a global state.
 -/
 structure SEnv where
   /-- A partial map from variables (i.e, virtual registers) to values. -/
-  regs : VarId →Option Val := fun _ => none
+  regs : VarId → Option Val := fun _ => none
   /-- The global state, e.g, for memory and UB -/
   state : State := .initial
 
@@ -156,7 +156,7 @@ types is all that we need to compare.
 * their error field, and
 * the value assigned to each variable `v` for which `P v` holds
 -/
-def SEnv.EquivOn (P : VarId →Prop) : SEnv → SEnv → Prop := fun ρ η =>
+def SEnv.EquivOn (P : VarId → Prop) : SEnv → SEnv → Prop := fun ρ η =>
   ρ.state = η.state
   ∧ (∀ v, P v → ρ.regs v = η.regs v)
 
@@ -252,6 +252,8 @@ def Inst.EqnLemma (i : Inst) (x : VarId) (ρ : SEnv) : Prop :=
 
 @[grind] def Pattern.EqnLemma (I : Pattern n) (x : VarId) (ρ : SEnv) : Prop :=
   ∀ i ∈ I, i.EqnLemma x ρ
+
+-- TODO: HasEqn should probably be called WellBehaved or some such
 
 /--
 We say that an instruction `i` has a well-behaved equation lemma when:
@@ -439,9 +441,14 @@ in `I` and `J`.
 -/
 def Pattern.DenRefine (I J : Pattern n) : Prop :=
   ∀ h : Hole n, ∀ ρ η,
+    -- This should include ρ ⊒ η →
     I.EqnLemmaUpTo h ρ →
     J.EqnLemmaUpTo h η →
     ⟦ I[h] ⟧ ρ ⊒ ⟦ J[h] ⟧ η
+
+-- Sanity check: we should check/proof that denrefine is at least reflexive,
+-- but it likely should be a pre-order (not quite partial, because antisymmetry is
+-- probably broken, but that can be fixed w/ quotients)
 
 /--
 A pattern `I` is denotationally equivalent to pattern `J`,
