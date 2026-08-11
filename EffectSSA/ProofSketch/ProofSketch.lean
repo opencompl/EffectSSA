@@ -263,7 +263,11 @@ We say that an instruction `i` has a well-behaved equation lemma when:
   own equation lemma
 -/
 structure Inst.HasEqn (i : Inst) : Prop where
-  stable : ∀ x ρ, i.EqnLemma x ρ → ∀ j : Inst, x ∉ j.results → i.EqnLemma x (⟦j⟧ ρ)
+  stable : ∀ x ρ, i.EqnLemma x ρ →
+            ∀ j : Inst, x ∉ j.results →
+              (j.results.Disjoint i.results) →
+              (j.results.Disjoint i.args) →
+              i.EqnLemma x (⟦j⟧ ρ)
   idempotent : ∀ x ρ, i.EqnLemma x (⟦i⟧ ρ)
 
 @[grind] def InstSeq.HasEqn (is : InstSeq) : Prop :=
@@ -328,8 +332,14 @@ another instruction `j`.
 -/
 @[grind =>]
 theorem InstSeq.eqnLemma_of_eqnLemma_inst (hEqn : is.HasEqn) :
-    is.EqnLemma x ρ → ∀ j : Inst, x ∉ j.results → is.EqnLemma x (⟦j⟧ ρ) := by
-  grind
+    is.EqnLemma x ρ → ∀ j : Inst, x ∉ j.results →
+      (j.results.Disjoint is.results) →
+      (j.results.Disjoint is.args) →
+      is.EqnLemma x (⟦j⟧ ρ) := by
+  intro h j hxj hd1 hd2 i hi
+  have : i.results ⊆ is.results := InstSeq.results_subset_of_mem hi
+  have : i.args ⊆ is.args ∪ is.results := InstSeq.args_subset_of_mem hi
+  refine (hEqn i hi).stable x ρ (h i hi) j hxj ?_ ?_ <;> grind
 
 /--
 If `I.HasEqn`, then validity of the equation lemma is stable under the execution
@@ -337,8 +347,16 @@ another instruction `j`.
 -/
 @[grind =>]
 theorem Pattern.eqnLemma_of_eqnLemma_inst (hEqn : I.HasEqn) :
-    I.EqnLemma x ρ → ∀ j : Inst, x ∉ j.results → I.EqnLemma x (⟦j⟧ ρ) := by
-  grind
+    I.EqnLemma x ρ → ∀ j : Inst, x ∉ j.results →
+      (j.results.Disjoint I.results) →
+      (j.results.Disjoint I.args) →
+      I.EqnLemma x (⟦j⟧ ρ) := by
+  intro h j hxj hd1 hd2 is his i hi
+  obtain ⟨k, hk, rfl⟩ := his
+  have hi_col : i ∈ I.collapse := Pattern.getElem_subset_collapse hi
+  have : i.results ⊆ I.results := InstSeq.results_subset_of_mem hi_col
+  have : i.args ⊆ I.args ∪ I.results := InstSeq.args_subset_of_mem hi_col
+  refine (hEqn _ ⟨k, hk, rfl⟩ i hi).stable x ρ (h _ ⟨k, hk, rfl⟩ i hi) j hxj ?_ ?_ <;> grind
 
 /--
 If `I.HasEqn`, then validity of the equation lemma is stable under the execution
@@ -346,10 +364,13 @@ another sequence of instructions `js`.
 -/
 @[grind .]
 theorem Pattern.eqnLemma_of_eqnLemma_instSeq (hI : I.HasEqn) :
-    I.EqnLemma x ρ → ∀ js : InstSeq, x ∉ js.results → I.EqnLemma x (⟦js⟧ ρ) := by
+    I.EqnLemma x ρ → ∀ js : InstSeq, x ∉ js.results →
+      (js.results.Disjoint I.results) →
+      (js.results.Disjoint I.args) →
+      I.EqnLemma x (⟦js⟧ ρ) := by
   intro hI js hjs
   induction js generalizing ρ
-  · exact hI
+  · intros; exact hI
   · grind
 
 /--
@@ -358,10 +379,13 @@ another sequence of instructions `js`.
 -/
 @[grind .]
 theorem Inst.eqnLemma_of_eqnLemma_instSeq {i : Inst} (hi : i.HasEqn) :
-    i.EqnLemma x ρ → ∀ js : InstSeq, x ∉ js.results → i.EqnLemma x (⟦js⟧ ρ) := by
-  intro hi js hjs
+    i.EqnLemma x ρ → ∀ js : InstSeq, x ∉ js.results →
+      (js.results.Disjoint i.results) →
+      (js.results.Disjoint i.args) →
+      i.EqnLemma x (⟦js⟧ ρ) := by
+  intro heq js hjs hd1 hd2
   induction js generalizing ρ
-  · exact hi
+  · exact heq
   · grind
 
 /-! denote lemmas -/
@@ -370,12 +394,26 @@ theorem Inst.eqnLemma_of_eqnLemma_instSeq {i : Inst} (hi : i.HasEqn) :
     (h : i.EqnLemma x ρ) : (⟦i⟧ ρ).regs x = ρ.regs x := by
   grind [EqnLemma]
 
+/-
+NOTE: The refactored `Inst.HasEqn.stable` adds `j.results.Disjoint i.args`.
+      When inducting on `is = i ;> is'`, lifting `is'.EqnLemma x ρ` to
+      `is'.EqnLemma x (⟦i⟧ ρ)` via `InstSeq.eqnLemma_of_eqnLemma_inst` requires
+      `i.results.Disjoint is'.args` — which does *not* hold under
+      NoShadowing/WellFormed (in SSA, `is'` may consume `i`'s results).
+
+      Proving this lemma therefore needs either
+        (a) a weaker `HasEqn.stable` that drops the `j.results.Disjoint i.args`
+            side-condition, or
+        (b) a stronger `HasEqn` guaranteeing `∀ ρ, i.EqnLemma x ρ` for
+            `x ∈ i.results` (i.e. an unconditional idempotent-under-write
+            property).
+-/
 @[grind .] theorem InstSeq.regs_denote_of_eqnLemma {is : InstSeq} (hEqn : is.HasEqn)
     (hwf : is.NoShadowing) (h : is.EqnLemma x ρ) :
     (⟦is⟧ ρ).regs x = ρ.regs x := by
-  induction is generalizing ρ
-  · rfl
-  · grind
+  by_cases hx : x ∈ is.results
+  · sorry
+  · exact InstSeq.regs_denote_of_not_mem_results hx
 
 /-! idempotence -/
 
@@ -385,13 +423,20 @@ attribute [grind .] Inst.HasEqn.idempotent
 If `is.HasEqn`, then evaluating `is` is guaranteed to yield an environment which
 satisfies its own equation lemma at any variable.
 -/
+/-
+NOTE: Provable under `is.WellFormed Γ` (needed to conclude
+      `is_post.results.Disjoint j*.args` for the unique `j* ∈ is` with
+      `x ∈ j*.results`, so that `HasEqn.idempotent`'s output can be lifted
+      across `is_post` via `Inst.eqnLemma_of_eqnLemma_instSeq`).
+
+      With only `NoShadowing`, the "post" instructions may write vars read by
+      `j*`, so `j*`'s equation lemma is not preserved.
+-/
 @[grind =>]
 theorem InstSeq.eqnLemma_denote_self (hEqn : is.HasEqn) (hwf : is.NoShadowing)
     (ρ) :
     is.EqnLemma x (⟦is⟧ ρ) := by
-  induction is generalizing ρ
-  · simp
-  · simp; grind
+  sorry
 
 end Lemmas
 
@@ -575,10 +620,21 @@ private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Inv
     <;> grind
   grind [Pattern.mem_iff_getElem_hole]
 
+/-
+NOTE: The `eqn` field below is not derivable from the strengthened
+      `HasEqn.stable` alone. Lifting `I.EqnLemma x ρ` to `I.EqnLemma x (⟦i⟧ ρ)`
+      for `x ∈ Γ` requires `i.results.Disjoint I.args`, but in an SSA program
+      `i` (the just-processed context instruction) may well produce a value
+      that `I` reads at some hole. A closed-invariant-aware stability
+      lemma is needed — the `closed` field ensures `I.usesAt x ⊆ Γ`, and
+      well-formedness gives `i.results.Disjoint Γ`, so `i` cannot perturb
+      any dependency of `x` — but this argument is not what the current
+      `Pattern.eqnLemma_of_eqnLemma_inst` provides.
+-/
 private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
     Invariant Γ (.inl i :: C) I ρ → Invariant (i.results ∪ Γ) C I (⟦i⟧ ρ) := by
   rintro ⟨residual, closed, eqn, nsI⟩
-  have : ∀ x ∈ i.results, x ∉ I.results := by
+  have hi_res : ∀ x ∈ i.results, x ∉ I.results := by
     intro x hx hxI
     have : x ∉ (C.plug I).results := by grind
     obtain ⟨h, hhC, hhx⟩ : ∃ h, Sum.inr h ∈ C ∧ x ∈ I[h].results := by
@@ -586,15 +642,25 @@ private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
       have := residual.residual x hxI;
       grind
     grind
-  constructor
-  <;> grind
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · grind
+  · grind
+  · sorry
+  · exact nsI
 
+/-
+NOTE: The `eqn` field below has two sub-problems under the refactor:
+      * `x ∈ Γ`: same stability-lifting issue as `of_invariant_cons_inst`
+        (needs a closed-invariant-aware stability lemma).
+      * `x ∈ I[h].results`: relies on `InstSeq.eqnLemma_denote_self`, which
+        is itself unprovable from the current `HasEqn` (see its note).
+-/
 private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
     Invariant Γ (.inr h :: C) I ρ →
     Invariant (I[h].results ∪ Γ) C I (⟦I[h]⟧ ρ) := by
   rintro ⟨residual, closed, eqn, nsI⟩
   generalize his : I[h] = is at *
-  constructor
+  refine ⟨?_, ?_, ?_, ?_⟩
   · grind
   · have hΔ : is.args ⊆ Γ := by grind
     replace his : is ⊆ I.collapse := by grind
@@ -624,16 +690,8 @@ private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
               grind
             · grind
         grind
-  · intro x hx
-    by_cases x ∈ Γ; grind
-    have hx : x ∈ is.results := by grind
-    · obtain ⟨Δ, wf⟩ : ∃ Δ, is.WellFormed Δ := by grind
-      subst his
-      rw [Pattern.eqnLemma_of_mem_results_get hx nsI]
-      apply InstSeq.eqnLemma_denote_self _
-      · grind
-      · grind
-  · grind
+  · sorry
+  · exact nsI
 
 
 end Invariant
