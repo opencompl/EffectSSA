@@ -37,6 +37,8 @@ def WellFormed (i : Inst) :=
 ## Main Definitions
 -/
 
+-- TODO: the `SEnv.regs` field should be renamed to `SEnv.local`
+
 def EqnInv (i : Inst) (ρ : SEnv) : Prop :=
   ∀ x ∈ i.results,
     (⟦i⟧ ρ).regs x = ρ.regs x
