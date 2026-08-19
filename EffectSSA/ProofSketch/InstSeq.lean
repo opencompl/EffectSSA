@@ -47,7 +47,7 @@ end Cons
 
 namespace InstSeq
 
-variable {ε : Type} {κ : ε → Type} [Effect ε κ]
+variable {ι : Type} {ε : ι → Type}
 
 /-!
 ## Denotation

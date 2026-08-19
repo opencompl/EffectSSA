@@ -12,7 +12,7 @@ making it easier to prove properties about.
 
 @[expose] public section
 namespace ITree.ITree
-variable {ε} {κ} [Effect.{u} ε κ] {α : Type _}
+variable {ι : Type u} {ε : ι → Type u} {α : Type _}
 
 def iter {α β} (t : α → ITree ε (α ⊕ β)) (a : α) : ITree ε β :=
   (t a) >>= recurse t
@@ -62,7 +62,7 @@ attribute [grind .] IterReaches.refl IterReaches.step
 when some call `f a'` in the iteration chain from `a` carries the effect.
 -/
 @[simp, grind =]
-theorem hasEffect_iter {α β : Type u} {f : α → ITree ε (α ⊕ β)} {a : α} {e : ε} :
+theorem hasEffect_iter {α β : Type u} {f : α → ITree ε (α ⊕ β)} {a : α} {e : ι} :
     (iter f a).HasEffect e ↔ ∃ a', IterReaches f a a' ∧ (f a').HasEffect e := by
   constructor
   · suffices ∀ (x : ITree ε β), x.HasEffect e →

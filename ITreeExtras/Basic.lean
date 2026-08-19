@@ -7,8 +7,9 @@ public import ITreeExtras.Definition
 -/
 @[expose] public section
 namespace ITree
-variable {ε} {κ} [Effect.{u} ε κ]
-         {ε₁ ε₂ ε'} {κ₁ κ₂ κ'} [Effect.{u} ε₁ κ₁] [Effect.{u} ε₂ κ₂] [Effect ε' κ']
+variable {ι : Type u} {ε : ι → Type u}
+         {ι₁ ι₂ ι' : Type u}
+         {ε₁ : ι₁ → Type u} {ε₂ : ι₂ → Type u} {ε' : ι' → Type u}
          {α} {t : ITree ε α}
 
 namespace ITree
@@ -51,12 +52,12 @@ section NoConfusion
 @[simp, grind .] theorem tau_neq_ret {t : ITree ε α} {x : α} : tau t ≠ ret x := by
   intro h; have := congrArg unfold h; simp at this
 
-@[simp, grind .] theorem tau_neq_vis {t : ITree ε α} {i : ε}
-    {k : κ i → ITree ε α} : tau t ≠ vis i k := by
+@[simp, grind .] theorem tau_neq_vis {t : ITree ε α} {i : ι}
+    {k : ε i → ITree ε α} : tau t ≠ vis i k := by
   intro h; have := congrArg unfold h; simp at this
 
-@[simp, grind .] theorem ret_neq_vis {x : α} {i : ε}
-    {k : κ i → ITree ε α} : ret x ≠ vis i k := by
+@[simp, grind .] theorem ret_neq_vis {x : α} {i : ι}
+    {k : ε i → ITree ε α} : ret x ≠ vis i k := by
   intro h; have := congrArg unfold h; simp at this
 
 end NoConfusion
@@ -64,8 +65,8 @@ end NoConfusion
 /-! ### Injectivity lemmas -/
 section Inj
 
-@[simp, grind =] theorem vis_inj {i₁ i₂ : ε}
-    {k₁ : κ i₁ → ITree ε α} {k₂ : κ i₂ → ITree ε α} :
+@[simp, grind =] theorem vis_inj {i₁ i₂ : ι}
+    {k₁ : ε i₁ → ITree ε α} {k₂ : ε i₂ → ITree ε α} :
     vis i₁ k₁ = vis i₂ k₂ ↔ i₁ = i₂ ∧ k₁ ≍ k₂ := by
   constructor
   · intro h; have hu := congrArg unfold h; simpa only [unfold_vis, ITreeF.vis.injEq] using hu
