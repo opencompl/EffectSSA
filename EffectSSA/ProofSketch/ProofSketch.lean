@@ -702,9 +702,6 @@ private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
   have wf_cons : (MultiContext.plug (Sum.inl i :: C) I).WellFormed Γ := residual.wf
   rw [MultiContext.plug_cons_inst, InstSeq.wellFormed_cons] at wf_cons
   obtain ⟨_hi_args, hΓ_i, _hwf_rest⟩ := wf_cons
-  have hi_Γ : i.results.Disjoint Γ := VarSet.disjoint_symm.mp hΓ_i
-  have hi_I : i.results.Disjoint I.results :=
-    VarSet.disjoint_intro (fun y ⟨h1, h2⟩ => hi_res y h1 h2)
   refine ⟨?_, ?_, ?_, ?_⟩
   · grind
   · grind
@@ -715,7 +712,7 @@ private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
     · apply Pattern.eqnLemma_of_eqnLemma_inst_closed hI (eqn x hxΓ) i
       · exact VarSet.not_mem_of_disjoint hΓ_i hxΓ
       · grind only [→ VarSet.not_mem_of_disjoint]
-      · exact hi_I
+      · apply VarSet.disjoint_intro; grind only
   · exact nsI
 
 /--
