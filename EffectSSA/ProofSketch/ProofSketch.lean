@@ -388,32 +388,63 @@ theorem Inst.eqnLemma_of_eqnLemma_instSeq {i : Inst} (hi : i.HasEqn) :
   · exact heq
   · grind
 
+/-!
+### Closed-invariant-aware stability
+-/
+
+variable {I} in
+theorem Pattern.eqnLemma_of_eqnLemma_inst_closed
+    (hI : I.HasEqn) (heqn : I.EqnLemma x ρ)
+    (j : Inst)
+    (hx : x ∉ j.results)
+    (hd_Γ : ∀ y ∈ j.results, y ∉ I.collapse.usesAt x)
+    (hd_I : j.results.Disjoint I.results) :
+    I.EqnLemma x (⟦j⟧ ρ) := by
+  intro is' his' i' hi'
+  by_cases hxi : x ∈ i'.results
+  · obtain ⟨k, hk, rfl⟩ := his'
+    have hi_col : i' ∈ I.collapse := Pattern.getElem_subset_collapse hi'
+    have hi_res : i'.results ⊆ I.results := InstSeq.results_subset_of_mem hi_col
+    refine (hI _ ⟨k, hk, rfl⟩ i' hi').stable x ρ (heqn _ ⟨k, hk, rfl⟩ i' hi') j hx ?_ ?_
+    · grind
+    · apply VarSet.disjoint_intro
+      intro y ⟨hy_j, hy_i⟩
+      have hy_use : y ∈ I.collapse.usesAt x := by
+        simp only [InstSeq.mem_usesAt]
+        exact InstSeq.UsesAt.arg hi_col hxi hy_i
+      grind
+  · exact Inst.eqnLemma_of_not_mem_results hxi
+
+variable {I} in
+theorem Pattern.eqnLemma_of_eqnLemma_instSeq_closed
+    (hI : I.HasEqn) (heqn : I.EqnLemma x ρ)
+    (hclose : ∀ y ∈ I.collapse.usesAt x, y ∈ Γ) (js : InstSeq)
+    (hx : x ∉ js.results)
+    (hd_Γ : js.results.Disjoint Γ)
+    (hd_I : js.results.Disjoint I.results) :
+    I.EqnLemma x (⟦js⟧ ρ) := by
+  intro is' his' i' hi'
+  by_cases hxi : x ∈ i'.results
+  · obtain ⟨k, hk, rfl⟩ := his'
+    have hi_col : i' ∈ I.collapse := Pattern.getElem_subset_collapse hi'
+    have hi_res : i'.results ⊆ I.results := InstSeq.results_subset_of_mem hi_col
+    have hd_res : js.results.Disjoint i'.results := by grind
+    have hd_args : js.results.Disjoint i'.args := by
+      apply VarSet.disjoint_intro
+      intro y ⟨hy_j, hy_i⟩
+      have hy_use : y ∈ I.collapse.usesAt x := by
+        simp only [InstSeq.mem_usesAt]
+        exact InstSeq.UsesAt.arg hi_col hxi hy_i
+      grind
+    exact Inst.eqnLemma_of_eqnLemma_instSeq (hI _ ⟨k, hk, rfl⟩ i' hi')
+            (heqn _ ⟨k, hk, rfl⟩ i' hi') js hx hd_res hd_args
+  · exact Inst.eqnLemma_of_not_mem_results hxi
+
 /-! denote lemmas -/
 
 @[grind =] theorem Inst.regs_denote_of_eqnLemma {i : Inst}
     (h : i.EqnLemma x ρ) : (⟦i⟧ ρ).regs x = ρ.regs x := by
   grind [EqnLemma]
-
-/-
-NOTE: The refactored `Inst.HasEqn.stable` adds `j.results.Disjoint i.args`.
-      When inducting on `is = i ;> is'`, lifting `is'.EqnLemma x ρ` to
-      `is'.EqnLemma x (⟦i⟧ ρ)` via `InstSeq.eqnLemma_of_eqnLemma_inst` requires
-      `i.results.Disjoint is'.args` — which does *not* hold under
-      NoShadowing/WellFormed (in SSA, `is'` may consume `i`'s results).
-
-      Proving this lemma therefore needs either
-        (a) a weaker `HasEqn.stable` that drops the `j.results.Disjoint i.args`
-            side-condition, or
-        (b) a stronger `HasEqn` guaranteeing `∀ ρ, i.EqnLemma x ρ` for
-            `x ∈ i.results` (i.e. an unconditional idempotent-under-write
-            property).
--/
-@[grind .] theorem InstSeq.regs_denote_of_eqnLemma {is : InstSeq} (hEqn : is.HasEqn)
-    (hwf : is.NoShadowing) (h : is.EqnLemma x ρ) :
-    (⟦is⟧ ρ).regs x = ρ.regs x := by
-  by_cases hx : x ∈ is.results
-  · sorry
-  · exact InstSeq.regs_denote_of_not_mem_results hx
 
 /-! idempotence -/
 
@@ -422,21 +453,49 @@ attribute [grind .] Inst.HasEqn.idempotent
 /--
 If `is.HasEqn`, then evaluating `is` is guaranteed to yield an environment which
 satisfies its own equation lemma at any variable.
--/
-/-
-NOTE: Provable under `is.WellFormed Γ` (needed to conclude
-      `is_post.results.Disjoint j*.args` for the unique `j* ∈ is` with
-      `x ∈ j*.results`, so that `HasEqn.idempotent`'s output can be lifted
-      across `is_post` via `Inst.eqnLemma_of_eqnLemma_instSeq`).
 
-      With only `NoShadowing`, the "post" instructions may write vars read by
-      `j*`, so `j*`'s equation lemma is not preserved.
+The `is.WellFormed Γ` hypothesis is essential: for the unique defining
+instruction `i*` of `x`, we lift `HasEqn.idempotent`'s output across the
+post-`i*` instructions via `Inst.eqnLemma_of_eqnLemma_instSeq`, which needs
+`post.results.Disjoint i*.args`. Under bare `NoShadowing`, `post` may write
+variables read by `i*`; well-formedness gives `i*.args ⊆ Γ ∪ pre.results`,
+and both are disjoint from `post.results` under NoShadowing + WellFormed.
 -/
 @[grind =>]
-theorem InstSeq.eqnLemma_denote_self (hEqn : is.HasEqn) (hwf : is.NoShadowing)
-    (ρ) :
+theorem InstSeq.eqnLemma_denote_self {is : InstSeq} {x : VarId} {Γ : VarSet}
+    (hEqn : is.HasEqn) (hwf : is.WellFormed Γ) (ρ) :
     is.EqnLemma x (⟦is⟧ ρ) := by
-  sorry
+  induction is generalizing ρ Γ
+  case nil => grind
+  case cons i is' ih =>
+    have hEqn_i : i.HasEqn := hEqn i (by grind)
+    have hEqn' : is'.HasEqn := fun k hk => hEqn k (by grind)
+    obtain ⟨hi_args, hΓ_i, hwf'⟩ :
+        i.args ⊆ Γ ∧ Γ.Disjoint i.results ∧ is'.WellFormed (i.results ∪ Γ) := by
+      grind
+    -- First, establish the head case: i.EqnLemma x (⟦is'⟧ (⟦i⟧ ρ))
+    have hhead : i.EqnLemma x (⟦is'⟧ (⟦i⟧ ρ)) := by
+      by_cases hxi : x ∈ i.results
+      · have hres := hwf'.results
+        have hd_res : is'.results.Disjoint i.results := by grind
+        have hd_Γ : is'.results.Disjoint Γ := by grind
+        have hd_args : is'.results.Disjoint i.args := by
+          have hΓ_symm : Γ.Disjoint is'.results := by grind
+          have : i.args.Disjoint is'.results :=
+            VarSet.disjoint_of_supset_disjoint hi_args hΓ_symm
+          grind
+        have hx_notin : x ∉ is'.results :=
+          VarSet.not_mem_of_disjoint (VarSet.disjoint_symm.mp hd_res) hxi
+        have hidem : i.EqnLemma x (⟦i⟧ ρ) := hEqn_i.idempotent x ρ
+        exact Inst.eqnLemma_of_eqnLemma_instSeq hEqn_i hidem is' hx_notin hd_res hd_args
+      · exact Inst.eqnLemma_of_not_mem_results hxi
+    -- Now dispatch each element
+    intro j hj
+    show j.EqnLemma x (⟦is'⟧ (⟦i⟧ ρ))
+    rw [List.mem_cons] at hj
+    rcases hj with hji | hj
+    · rw [hji]; exact hhead
+    · exact ih hEqn' hwf' (⟦i⟧ ρ) j hj
 
 end Lemmas
 
@@ -620,16 +679,14 @@ private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Inv
     <;> grind
   grind [Pattern.mem_iff_getElem_hole]
 
-/-
-NOTE: The `eqn` field below is not derivable from the strengthened
-      `HasEqn.stable` alone. Lifting `I.EqnLemma x ρ` to `I.EqnLemma x (⟦i⟧ ρ)`
-      for `x ∈ Γ` requires `i.results.Disjoint I.args`, but in an SSA program
-      `i` (the just-processed context instruction) may well produce a value
-      that `I` reads at some hole. A closed-invariant-aware stability
-      lemma is needed — the `closed` field ensures `I.usesAt x ⊆ Γ`, and
-      well-formedness gives `i.results.Disjoint Γ`, so `i` cannot perturb
-      any dependency of `x` — but this argument is not what the current
-      `Pattern.eqnLemma_of_eqnLemma_inst` provides.
+/--
+Preservation of the `Invariant` when consuming a context instruction.
+
+The key step for `eqn` is lifting `I.EqnLemma x ρ` to `I.EqnLemma x (⟦i⟧ ρ)`
+for `x ∈ Γ`. We use `Pattern.eqnLemma_of_eqnLemma_inst_closed`, which
+requires `i.results.Disjoint Γ` (from well-formedness) rather than
+the SSA-incompatible `i.results.Disjoint I.args`; the `closed` invariant
+then supplies the arg-disjointness for whichever `i' ∈ I` defines `x`.
 -/
 private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
     Invariant Γ (.inl i :: C) I ρ → Invariant (i.results ∪ Γ) C I (⟦i⟧ ρ) := by
@@ -642,18 +699,37 @@ private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
       have := residual.residual x hxI;
       grind
     grind
+  have wf_cons : (MultiContext.plug (Sum.inl i :: C) I).WellFormed Γ := residual.wf
+  rw [MultiContext.plug_cons_inst, InstSeq.wellFormed_cons] at wf_cons
+  obtain ⟨_hi_args, hΓ_i, _hwf_rest⟩ := wf_cons
+  have hi_Γ : i.results.Disjoint Γ := VarSet.disjoint_symm.mp hΓ_i
+  have hi_I : i.results.Disjoint I.results :=
+    VarSet.disjoint_intro (fun y ⟨h1, h2⟩ => hi_res y h1 h2)
   refine ⟨?_, ?_, ?_, ?_⟩
   · grind
   · grind
-  · sorry
+  · intro x hx
+    rw [VarSet.mem_union] at hx
+    rcases hx with hxi | hxΓ
+    · exact Pattern.eqnLemma_of_not_mem_results (hi_res x hxi)
+    · apply Pattern.eqnLemma_of_eqnLemma_inst_closed hI (eqn x hxΓ) i
+      · exact VarSet.not_mem_of_disjoint hΓ_i hxΓ
+      · grind only [→ VarSet.not_mem_of_disjoint]
+      · exact hi_I
   · exact nsI
 
-/-
-NOTE: The `eqn` field below has two sub-problems under the refactor:
-      * `x ∈ Γ`: same stability-lifting issue as `of_invariant_cons_inst`
-        (needs a closed-invariant-aware stability lemma).
-      * `x ∈ I[h].results`: relies on `InstSeq.eqnLemma_denote_self`, which
-        is itself unprovable from the current `HasEqn` (see its note).
+/--
+Preservation of the `Invariant` when consuming a hole.
+
+The `eqn` field splits into two cases:
+* `x ∈ is.results`: reduces (via `Pattern.eqnLemma_of_mem_results_get` + NoShadowing)
+  to `is.EqnLemma x (⟦is⟧ ρ)`, which is exactly `InstSeq.eqnLemma_denote_self`.
+* `x ∈ Γ`: for each `i' ∈ I` defining `x` (unique by NoShadowing), we lift
+  `i'.EqnLemma x ρ` across `is` via `Inst.eqnLemma_of_eqnLemma_instSeq`.
+  The needed `is.results.Disjoint i'.args` follows from `closed` (giving
+  `i'.args ⊆ Γ`) together with `is.results.Disjoint Γ` (from `is.WellFormed Γ`).
+  The `is.results.Disjoint i'.results` follows from NoShadowing (if `i' ∈ is`
+  then `x ∈ i'.results ⊆ is.results` would contradict `x ∈ Γ`).
 -/
 private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
     Invariant Γ (.inr h :: C) I ρ →
@@ -690,7 +766,73 @@ private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
               grind
             · grind
         grind
-  · sorry
+  · -- eqn: ∀ x ∈ (is.results ∪ Γ), I.EqnLemma x (⟦is⟧ ρ)
+    -- Extract is.WellFormed Γ and is ∈ I from residual.wf.
+    have wf_all : (MultiContext.plug (Sum.inr h :: C) I).WellFormed Γ := residual.wf
+    rw [MultiContext.plug_cons_hole, his, InstSeq.wellFormed_append] at wf_all
+    obtain ⟨wf_is, _wf_rest⟩ := wf_all
+    have is_mem : is ∈ I := his ▸ ⟨h.val, h.isLt, rfl⟩
+    have his_col : ∀ j ∈ is, j ∈ I.collapse := by
+      intro j hj
+      rw [← his] at hj
+      exact Pattern.getElem_subset_collapse hj
+    have hEqn_is : is.HasEqn := hI is is_mem
+    have hself : ∀ x, is.EqnLemma x (⟦is⟧ ρ) :=
+      fun x => InstSeq.eqnLemma_denote_self hEqn_is wf_is ρ
+    have hΓ_is : Γ.Disjoint is.results := VarSet.disjoint_symm.mp wf_is.results
+    intro x hx
+    rw [VarSet.mem_union] at hx
+    rcases hx with hxis | hxΓ
+    · -- x ∈ is.results
+      rw [InstSeq.mem_results_iff] at hxis
+      obtain ⟨i_star, hi_star_is, hxi_star⟩ := hxis
+      have hi_star_col : i_star ∈ I.collapse := his_col _ hi_star_is
+      intro is'' his'' i' hi'
+      by_cases hxi : x ∈ i'.results
+      · obtain ⟨k, hk, rfl⟩ := his''
+        have hi_col : i' ∈ I.collapse := Pattern.getElem_subset_collapse hi'
+        have hne : ¬(i'.results.Disjoint i_star.results) := by
+          intro hd
+          exact (VarSet.not_mem_of_disjoint hd hxi) hxi_star
+        have h_eq : i' = i_star :=
+          InstSeq.eq_of_not_disjoint_results_of_noShadowing hi_col hi_star_col nsI hne
+        rw [h_eq]
+        exact hself x i_star hi_star_is
+      · exact Inst.eqnLemma_of_not_mem_results hxi
+    · -- x ∈ Γ
+      have hx_not_is : x ∉ is.results := VarSet.not_mem_of_disjoint hΓ_is hxΓ
+      intro is'' his'' i' hi'
+      by_cases hxi : x ∈ i'.results
+      · obtain ⟨k, hk, rfl⟩ := his''
+        have hi_col : i' ∈ I.collapse := Pattern.getElem_subset_collapse hi'
+        have hi_HasEqn : i'.HasEqn := hI _ ⟨k, hk, rfl⟩ i' hi'
+        have hi_EqnLemma_ρ : i'.EqnLemma x ρ := eqn x hxΓ _ ⟨k, hk, rfl⟩ i' hi'
+        have hi_args_in_Γ : ∀ y ∈ i'.args, y ∈ Γ := by
+          intro y hy
+          apply closed x hxΓ
+          show y ∈ I.usesAt x
+          simp only [Pattern.usesAt, InstSeq.mem_usesAt]
+          exact InstSeq.UsesAt.arg hi_col hxi hy
+        have hd_args : is.results.Disjoint i'.args := by
+          apply VarSet.disjoint_intro
+          intro y ⟨hy_is, hy_i⟩
+          exact VarSet.not_mem_of_disjoint hΓ_is (hi_args_in_Γ y hy_i) hy_is
+        have hd_res : is.results.Disjoint i'.results := by
+          apply VarSet.disjoint_intro
+          intro y ⟨hy_is, hy_i⟩
+          rw [InstSeq.mem_results_iff] at hy_is
+          obtain ⟨j, hj_is, hy_j⟩ := hy_is
+          have hj_col : j ∈ I.collapse := his_col _ hj_is
+          have hne : ¬(i'.results.Disjoint j.results) := by
+            intro hd
+            exact (VarSet.not_mem_of_disjoint hd hy_i) hy_j
+          have hij : i' = j :=
+            InstSeq.eq_of_not_disjoint_results_of_noShadowing hi_col hj_col nsI hne
+          apply hx_not_is
+          rw [InstSeq.mem_results_iff]
+          exact ⟨j, hj_is, hij ▸ hxi⟩
+        exact Inst.eqnLemma_of_eqnLemma_instSeq hi_HasEqn hi_EqnLemma_ρ is hx_not_is hd_res hd_args
+      · exact Inst.eqnLemma_of_not_mem_results hxi
   · exact nsI
 
 
