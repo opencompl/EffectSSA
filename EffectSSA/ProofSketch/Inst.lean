@@ -1,6 +1,7 @@
 module
 
 public import EffectSSA.ProofSketch.VarSet
+public import EffectSSA.ProofSketch.Assumptions
 
 /-!
 # Instructions
@@ -30,4 +31,10 @@ axiom args : Inst → VarSet
 axiom results : Inst → VarSet
 
 end Vars
+
+/-- `SSA` instance for the concrete `Inst` type. -/
+noncomputable instance : SSA Inst Unit where
+  args    := Inst.args
+  results := Inst.results
+
 end Inst

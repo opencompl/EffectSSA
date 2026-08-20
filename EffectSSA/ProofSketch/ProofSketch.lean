@@ -9,6 +9,7 @@ public import EffectSSA.ProofSketch.Pattern
 public import EffectSSA.ProofSketch.MultiContext
 public import EffectSSA.ProofSketch.Effect
 public import EffectSSA.ProofSketch.CFG
+public import EffectSSA.ProofSketch.Assumptions
 
 /-!
 # Contextual Equivalence Proof Sketch
@@ -54,7 +55,7 @@ An `InstSeq` is evaluated by evaluating each instruction in turn,
 threading the environment through.
 -/
 @[default_instance]
-instance : Denote InstSeq (SEnv → SEnv) where
+instance : Denote (InstSeq Inst) (SEnv → SEnv) where
   denote is := is.foldl (fun e i => ⟦i⟧ e)
 
 /--
@@ -67,7 +68,7 @@ instance : Denote (Pattern n) (SEnv → SEnv) where
 /-! ### Properties -/
 section Properties
 
-theorem InstSeq.denote_eq {is : InstSeq} :
+theorem InstSeq.denote_eq {is : InstSeq Inst} :
     ⟦is⟧ = is.foldl (fun e (i : Inst) => ⟦i⟧ e) := by rfl
 
 @[simp, grind =] theorem InstSeq.denote_nil : ⟦[]⟧ = id := by rfl
@@ -75,7 +76,7 @@ theorem InstSeq.denote_eq {is : InstSeq} :
 
 @[simp, grind =] theorem InstSeq.denote_cons : ⟦i ;> is⟧ = fun ρ => ⟦is⟧ (⟦i⟧ ρ) := by rfl
 
-@[simp, grind =] theorem InstSeq.denote_append (is js : InstSeq) :
+@[simp, grind =] theorem InstSeq.denote_append (is js : InstSeq Inst) :
     ⟦is ++ js⟧ = fun ρ => ⟦js⟧ (⟦is⟧ ρ) := by
   grind [InstSeq.denote_eq]
 
@@ -87,7 +88,7 @@ theorem InstSeq.denote_eq {is : InstSeq} :
   cases I; rfl
 
 @[simp, grind =]
-theorem Pattern.denote_cons  (is : InstSeq) (I : Pattern n) :
+theorem Pattern.denote_cons  (is : InstSeq Inst) (I : Pattern n) :
     ⟦cons is I⟧ = fun ρ => ⟦I⟧ (⟦is⟧ ρ) := by
   simp [Pattern.denote_eq]
 
@@ -96,7 +97,7 @@ variable {x : VarId}
 
 /-- Instructions only modify the registers in their `results` set. -/
 @[grind .] axiom Inst.regs_denote_of_not_mem_results (i : Inst) {x : VarId} {ρ : SEnv}
-    (h : x ∉ i.results) : (⟦i⟧ ρ).regs x = ρ.regs x
+    (h : x ∉ SSA.results i) : (⟦i⟧ ρ).regs x = ρ.regs x
 
 @[grind =] theorem InstSeq.regs_denote_of_not_mem_results (h : x ∉ is.results) :
     (⟦is⟧ ρ).regs x = ρ.regs x := by
@@ -225,7 +226,7 @@ In other words, the semantics are *monotone* w.r.t. the refinement relation.
 @[grind .] axiom Inst.denote_isRefinedBy_congr (hρ : ρ₁ ⊒ ρ₂) (i : Inst) :
     ⟦i⟧ ρ₁ ⊒ ⟦i⟧ ρ₂
 
-@[grind .] theorem InstSeq.denote_isRefinedBy_congr (hρ : ρ₁ ⊒ ρ₂) (is : InstSeq) :
+@[grind .] theorem InstSeq.denote_isRefinedBy_congr (hρ : ρ₁ ⊒ ρ₂) (is : InstSeq Inst) :
     ⟦is⟧ ρ₁ ⊒ ⟦is⟧ ρ₂ := by
   induction is generalizing ρ₁ ρ₂
   · simpa
@@ -245,9 +246,9 @@ end Refine
 section EqnLemma
 
 def Inst.EqnLemma (i : Inst) (x : VarId) (ρ : SEnv) : Prop :=
-  x ∈ i.results → (⟦i⟧ ρ).regs x = ρ.regs x
+  x ∈ SSA.results i → (⟦i⟧ ρ).regs x = ρ.regs x
 
-@[grind] def InstSeq.EqnLemma (is : InstSeq) (x : VarId) (ρ : SEnv) : Prop :=
+@[grind] def InstSeq.EqnLemma (is : InstSeq Inst) (x : VarId) (ρ : SEnv) : Prop :=
   ∀ i ∈ is, i.EqnLemma x ρ
 
 @[grind] def Pattern.EqnLemma (I : Pattern n) (x : VarId) (ρ : SEnv) : Prop :=
@@ -263,21 +264,21 @@ We say that an instruction `i` has a well-behaved equation lemma when:
   own equation lemma
 -/
 structure Inst.HasEqn (i : Inst) : Prop where
-  stable : ∀ x ρ, i.EqnLemma x ρ → ∀ j : Inst, x ∉ j.results → i.EqnLemma x (⟦j⟧ ρ)
+  stable : ∀ x ρ, i.EqnLemma x ρ → ∀ j : Inst, x ∉ SSA.results j → i.EqnLemma x (⟦j⟧ ρ)
   idempotent : ∀ x ρ, i.EqnLemma x (⟦i⟧ ρ)
 
-@[grind] def InstSeq.HasEqn (is : InstSeq) : Prop :=
+@[grind] def InstSeq.HasEqn (is : InstSeq Inst) : Prop :=
   ∀ i ∈ is, i.HasEqn
 
 @[grind] def Pattern.HasEqn (I : Pattern n) : Prop :=
   ∀ i ∈ I, i.HasEqn
 
 section Lemmas
-variable {i : Inst} {is : InstSeq} {I : Pattern n}
+variable {i : Inst} {is : InstSeq Inst} {I : Pattern n}
 
 /-! vacuous -/
 
-@[grind =>] theorem Inst.eqnLemma_of_not_mem_results (hx : x ∉ i.results) :
+@[grind =>] theorem Inst.eqnLemma_of_not_mem_results (hx : x ∉ SSA.results i) :
     i.EqnLemma x ρ := by
   grind [EqnLemma]
 
@@ -292,12 +293,12 @@ variable {i : Inst} {is : InstSeq} {I : Pattern n}
   grind
 
 /-! structural lemmas -/
-variable (I : Pattern n) (is : InstSeq)
+variable (I : Pattern n) (is : InstSeq Inst)
 
 @[simp, grind .] theorem InstSeq.EqnLemma_nil : InstSeq.EqnLemma [] x ρ := by
   grind [InstSeq.EqnLemma]
 
-@[simp, grind =] theorem InstSeq.EqnLemma_cons {i : Inst} {is : InstSeq} :
+@[simp, grind =] theorem InstSeq.EqnLemma_cons {i : Inst} {is : InstSeq Inst} :
     InstSeq.EqnLemma (i ;> is) x ρ ↔ i.EqnLemma x ρ ∧ is.EqnLemma x ρ := by
   grind [InstSeq.EqnLemma]
 
@@ -328,7 +329,7 @@ another instruction `j`.
 -/
 @[grind =>]
 theorem InstSeq.eqnLemma_of_eqnLemma_inst (hEqn : is.HasEqn) :
-    is.EqnLemma x ρ → ∀ j : Inst, x ∉ j.results → is.EqnLemma x (⟦j⟧ ρ) := by
+    is.EqnLemma x ρ → ∀ j : Inst, x ∉ SSA.results j → is.EqnLemma x (⟦j⟧ ρ) := by
   grind
 
 /--
@@ -337,7 +338,7 @@ another instruction `j`.
 -/
 @[grind =>]
 theorem Pattern.eqnLemma_of_eqnLemma_inst (hEqn : I.HasEqn) :
-    I.EqnLemma x ρ → ∀ j : Inst, x ∉ j.results → I.EqnLemma x (⟦j⟧ ρ) := by
+    I.EqnLemma x ρ → ∀ j : Inst, x ∉ SSA.results j → I.EqnLemma x (⟦j⟧ ρ) := by
   grind
 
 /--
@@ -346,7 +347,7 @@ another sequence of instructions `js`.
 -/
 @[grind .]
 theorem Pattern.eqnLemma_of_eqnLemma_instSeq (hI : I.HasEqn) :
-    I.EqnLemma x ρ → ∀ js : InstSeq, x ∉ js.results → I.EqnLemma x (⟦js⟧ ρ) := by
+    I.EqnLemma x ρ → ∀ js : InstSeq Inst, x ∉ js.results → I.EqnLemma x (⟦js⟧ ρ) := by
   intro hI js hjs
   induction js generalizing ρ
   · exact hI
@@ -358,7 +359,7 @@ another sequence of instructions `js`.
 -/
 @[grind .]
 theorem Inst.eqnLemma_of_eqnLemma_instSeq {i : Inst} (hi : i.HasEqn) :
-    i.EqnLemma x ρ → ∀ js : InstSeq, x ∉ js.results → i.EqnLemma x (⟦js⟧ ρ) := by
+    i.EqnLemma x ρ → ∀ js : InstSeq Inst, x ∉ js.results → i.EqnLemma x (⟦js⟧ ρ) := by
   intro hi js hjs
   induction js generalizing ρ
   · exact hi
@@ -370,7 +371,7 @@ theorem Inst.eqnLemma_of_eqnLemma_instSeq {i : Inst} (hi : i.HasEqn) :
     (h : i.EqnLemma x ρ) : (⟦i⟧ ρ).regs x = ρ.regs x := by
   grind [EqnLemma]
 
-@[grind .] theorem InstSeq.regs_denote_of_eqnLemma {is : InstSeq} (hEqn : is.HasEqn)
+@[grind .] theorem InstSeq.regs_denote_of_eqnLemma {is : InstSeq Inst} (hEqn : is.HasEqn)
     (hwf : is.NoShadowing) (h : is.EqnLemma x ρ) :
     (⟦is⟧ ρ).regs x = ρ.regs x := by
   induction is generalizing ρ
@@ -522,7 +523,7 @@ private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Res
   grind [Pattern.mem_iff_getElem_hole]
 
 @[grind →] private theorem of_cons_inst :
-    Residual Γ (.inl i :: C) I → Residual (i.results ∪ Γ) C I := by
+    Residual Γ (.inl i :: C) I → Residual (SSA.results i ∪ Γ) C I := by
   rintro ⟨wf, residual⟩; constructor
   · grind
   · intro x; have := residual x; grind
@@ -576,9 +577,9 @@ private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Inv
   grind [Pattern.mem_iff_getElem_hole]
 
 private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
-    Invariant Γ (.inl i :: C) I ρ → Invariant (i.results ∪ Γ) C I (⟦i⟧ ρ) := by
+    Invariant Γ (.inl i :: C) I ρ → Invariant (SSA.results i ∪ Γ) C I (⟦i⟧ ρ) := by
   rintro ⟨residual, closed, eqn, nsI⟩
-  have : ∀ x ∈ i.results, x ∉ I.results := by
+  have : ∀ x ∈ SSA.results i, x ∉ I.results := by
     intro x hx hxI
     have : x ∉ (C.plug I).results := by grind
     obtain ⟨h, hhC, hhx⟩ : ∃ h, Sum.inr h ∈ C ∧ x ∈ I[h].results := by
@@ -605,13 +606,13 @@ private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
     | nil => grind
     | cons i is ih =>
         have his : is ⊆ I.collapse := by grind
-        have hΔ' : is.args ⊆ i.results ∪ Δ := by grind
+        have hΔ' : is.args ⊆ SSA.results i ∪ Δ := by grind
         specialize ih his _ hΔ'
         specialize ih <| by -- prove closedness
           clear ih
           intro x hx y hy
           by_cases x ∈ Δ; grind
-          have : x ∈ i.results := by grind
+          have : x ∈ SSA.results i := by grind
           · rw [InstSeq.mem_usesAt'] at hy
             obtain ⟨j, hj, hxj, hy⟩ := hy
             obtain rfl : i = j := by
@@ -619,7 +620,7 @@ private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
               have hj : j ∈ I.collapse := by grind
               apply InstSeq.eq_of_not_disjoint_results_of_noShadowing hi hj nsI
               grind
-            rcases hy with ( (hy : y ∈ i.args) | ⟨z, hzi, hyz⟩ )
+            rcases hy with ( (hy : y ∈ SSA.args i) | ⟨z, hzi, hyz⟩ )
             · have : y ∈ Δ := by grind
               grind
             · grind

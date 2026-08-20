@@ -19,13 +19,13 @@ it is the counterpart of an `n`-ary context, which is to say that an
 `n`-ary pattern may be plugged into an `n`-ary context to form a complete
 instruction sequence.
 -/
-def Pattern (n : Nat) := Vector InstSeq n
+def Pattern (n : Nat) := Vector (InstSeq Inst) n
 
 namespace Pattern
 variable (v : Pattern n)
 
-@[grind =] def toVector (v : Pattern n) : Vector InstSeq n := v
-@[grind =] def ofVector (v : Vector InstSeq n) : Pattern n := v
+@[grind =] def toVector (v : Pattern n) : Vector (InstSeq Inst) n := v
+@[grind =] def ofVector (v : Vector (InstSeq Inst) n) : Pattern n := v
 
 /-! ### Ctors -/
 
@@ -45,20 +45,20 @@ instance : HAppend (Pattern n) (Pattern m) (Pattern (n + m)) where
 /-- The empty vector -/
 def nil : Pattern 0 := ofVector #v[]
 
-def cons (is : InstSeq) (I : Pattern n) : Pattern (n + 1) :=
+def cons (is : InstSeq Inst) (I : Pattern n) : Pattern (n + 1) :=
   (ofVector <| #v[is] ++ I.toVector).cast (by grind)
 
 /-! ### GetElem -/
 
-instance : GetElem (Pattern n) Nat InstSeq (fun _ i => i < n) where
+instance : GetElem (Pattern n) Nat (InstSeq Inst) (fun _ i => i < n) where
   getElem I i _ := I.toVector[i]
 
-instance : GetElem (Pattern n) (Hole n) InstSeq (fun _ _ => True) where
+instance : GetElem (Pattern n) (Hole n) (InstSeq Inst) (fun _ _ => True) where
   getElem I h _ := I[h.val]
 
 /-! ### Destructors -/
 
-@[grind] abbrev head [NeZero n] (I : Pattern n) : InstSeq := I[0]'(by grind)
+@[grind] abbrev head [NeZero n] (I : Pattern n) : InstSeq Inst := I[0]'(by grind)
 def tail [NeZero n] : Pattern n → Pattern (n - 1) := Vector.tail
 
 /-! ### Collapse -/
@@ -67,12 +67,12 @@ def tail [NeZero n] : Pattern n → Pattern (n - 1) := Vector.tail
 A vector `v` can be collapsed into a single instruction sequence,
 by concatenating each constituent sequence `vₖ`, in order.
 -/
-def collapse (xs : Pattern n) : InstSeq :=
+def collapse (xs : Pattern n) : InstSeq Inst :=
   Vector.foldl (· ++ ·) [] xs.toVector
 
 /-! ### Membership -/
 
-instance : Membership InstSeq (Pattern n) where
+instance : Membership (InstSeq Inst) (Pattern n) where
   mem I i := ∃ (k : Nat) (hk : k < n), i = I[k]
 
 /-! ### Variables -/
@@ -133,7 +133,7 @@ variable (i : Nat)
     (xs ++ ys)[i] = if hi : i < n then xs[i] else ys[i - n] := by
   simp; grind
 
-@[simp, grind =] theorem getElem_cons {x : InstSeq} {i : Nat} (hi : i < n + 1) :
+@[simp, grind =] theorem getElem_cons {x : InstSeq Inst} {i : Nat} (hi : i < n + 1) :
     (cons x xs)[i] = if h : i = 0 then x else xs[i - 1] := by
   simp [cons, Vector.getElem_append]
 
@@ -189,7 +189,7 @@ section Cases
 @[induction_eliminator, elab_as_elim]
 def consRec {motive : ∀ {n}, Pattern n → Sort u}
     (nil : motive nil)
-    (cons : ∀ {n}, (i : InstSeq) → (v : Pattern n) → motive v → motive (cons i v) ) :
+    (cons : ∀ {n}, (i : InstSeq Inst) → (v : Pattern n) → motive v → motive (cons i v) ) :
     ∀ {n} (v : Pattern n), motive v := @fun n v =>
   match n with
   | 0 => _root_.cast (by congr; ext; grind) nil
@@ -200,7 +200,7 @@ def consRec {motive : ∀ {n}, Pattern n → Sort u}
 @[cases_eliminator, elab_as_elim]
 def consCases {motive : ∀ {n}, Pattern n → Sort u}
     (nil : motive nil)
-    (cons : ∀ {n}, (i : InstSeq) → (v : Pattern n) → motive (cons i v) ) :
+    (cons : ∀ {n}, (i : InstSeq Inst) → (v : Pattern n) → motive (cons i v) ) :
     ∀ {n} (v : Pattern n), motive v :=
   consRec nil (fun i v _ => cons i v)
 
@@ -269,7 +269,7 @@ theorem mem_iff_getElem_hole : i ∈ I ↔ ∃ (h : Hole n), i = I[h] := by
 end Mem
 
 section Results
-variable {I : Pattern n} {is : InstSeq} {x : VarId}
+variable {I : Pattern n} {is : InstSeq Inst} {x : VarId}
 
 @[grind =] theorem mem_results_iff : x ∈ I.results ↔ ∃ is ∈ I, x ∈ is.results := by
   induction I <;> grind

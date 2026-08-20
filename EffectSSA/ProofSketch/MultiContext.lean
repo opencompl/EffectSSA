@@ -68,7 +68,7 @@ end MultiContext
 /--
 A `HoleEnv n` associates each hole variable `h : Hole n` with an instruction sequence.
 -/
-def HoleEnv n := Hole n → InstSeq
+def HoleEnv n := Hole n → InstSeq Inst
 
 namespace MultiContext
 variable (C : MultiContext n)
@@ -94,7 +94,7 @@ end Complete
 /-! ### Plugging -/
 section Plug
 
-def plug (C : MultiContext n) (I : Pattern n) : InstSeq :=
+def plug (C : MultiContext n) (I : Pattern n) : InstSeq Inst :=
   C.flatMap <| fun i =>
     match i with
     | .inl (i : Inst) => [i]
@@ -123,7 +123,7 @@ variable {C}
 
 @[grind =] theorem mem_results_plug_iff {I : Pattern n} :
     x ∈ (C.plug I).results ↔
-      (∃ i, .inl i ∈ C ∧ x ∈ i.results) ∨ (∃ h, .inr h ∈ C ∧ x ∈ (I[h]).results) := by
+      (∃ i, .inl i ∈ C ∧ x ∈ SSA.results i) ∨ (∃ h, .inr h ∈ C ∧ x ∈ (I[h]).results) := by
   grind
 
 /-! #### Completeness -/
@@ -223,16 +223,16 @@ section Conv
 /--
 A nullary context is just a sequence of instructions.
 -/
-def toSeq : MultiContext 0 → InstSeq :=
+def toSeq : MultiContext 0 → InstSeq Inst :=
   List.map (fun | .inl i => i)
-instance : Coe (MultiContext 0) InstSeq where coe := toSeq
+instance : Coe (MultiContext 0) (InstSeq Inst) where coe := toSeq
 
 /--
 `ofSeq is` interprets an instruction sequence `is` as a context,
 of arbitrary arity `n`, which happens to not have any holes.
 -/
-def ofSeq : InstSeq → MultiContext n :=
+def ofSeq : InstSeq Inst → MultiContext n :=
   List.map Sum.inl
-instance : Coe InstSeq (MultiContext n) where coe := ofSeq
+instance : Coe (InstSeq Inst) (MultiContext n) where coe := ofSeq
 
 end Conv
