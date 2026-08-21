@@ -34,8 +34,8 @@ A stateful environment `e : SEnv`
 bundles a pure environment with a global state.
 -/
 structure SEnv (ι) {σ ν} [ssa : SSA ι σ ν] : Type where
-  /-- A partial map from variables (i.e, virtual registers) to values. -/
-  regs : VarId → Option ν := fun _ => none
+  /-- A partial map from local variables (i.e, virtual registers) to values. -/
+  locals : VarId → Option ν := fun _ => none
   /-- The global state, e.g, for memory and UB -/
   state : σ := ssa.initialState
 
@@ -50,16 +50,16 @@ contained `opCode`, and updates the environment with the resulting values.
 instance : Denote (Inst ι) (SEnv ι → SEnv ι) where
   denote i ρ :=
     let ρ? : Option (SEnv ι) := do
-      let args ← i.args.mapM ρ.regs
+      let args ← i.args.mapM ρ.locals
       let results := ⟦i.opCode⟧ args
       if results.length != i.results.length then
         none
       else
         return { ρ with
-          regs x :=
+          locals x :=
             match i.results.idxOf? x with
             | some idx => results[idx]?
-            | none => ρ.regs x
+            | none => ρ.locals x
         }
     ρ?.getD ρ
 /--
@@ -109,13 +109,13 @@ theorem Pattern.denote_cons  (is : InstSeq ι) (I : Pattern ι n) :
 variable {x : VarId}
 
 /-- Instructions only modify the registers in their `results` set. -/
-@[grind .] axiom Inst.regs_denote_of_not_mem_results (i : Inst ι) {x : VarId} {ρ : SEnv ι}
-    (h : x ∉ i.results) : (⟦i⟧ ρ).regs x = ρ.regs x
+@[grind .] axiom Inst.locals_denote_of_not_mem_results (i : Inst ι) {x : VarId} {ρ : SEnv ι}
+    (h : x ∉ i.results) : (⟦i⟧ ρ).locals x = ρ.locals x
   -- TODO: ^^ this result should now be provable
 
-@[grind =] theorem InstSeq.regs_denote_of_not_mem_results {is : InstSeq ι} {ρ : SEnv ι}
+@[grind =] theorem InstSeq.locals_denote_of_not_mem_results {is : InstSeq ι} {ρ : SEnv ι}
     (h : x ∉ is.results) :
-    (⟦is⟧ ρ).regs x = ρ.regs x := by
+    (⟦is⟧ ρ).locals x = ρ.locals x := by
   induction is generalizing ρ <;> grind
 
 end Properties
@@ -180,15 +180,15 @@ types is all that we need to compare.
 -/
 def SEnv.EquivOn (P : VarId → Prop) : SEnv ι → SEnv ι → Prop := fun ρ η =>
   ρ.state = η.state
-  ∧ (∀ v, P v → ρ.regs v = η.regs v)
+  ∧ (∀ v, P v → ρ.locals v = η.locals v)
 
 /-- If two environments are equivalent on all variables, they are equal. -/
 theorem SEnv.eq_of_equivOn {ρ η : SEnv ι} : EquivOn (fun _ => True) ρ η → ρ = η := by
-  rcases ρ with ⟨ρ_regs, ρ_state⟩
-  rcases η with ⟨η_regs, η_state⟩
+  rcases ρ with ⟨ρ_locals, ρ_state⟩
+  rcases η with ⟨η_locals, η_state⟩
   simp only [EquivOn]
   intro h
-  have : ρ_regs = η_regs := by funext; simp_all
+  have : ρ_locals = η_locals := by funext; simp_all
   simp_all
 
 section Lemmas
@@ -225,7 +225,7 @@ We say that `ρ` is a sub-environment of `η`, written as `ρ ⊒ η`,
     the value `ρ v` is refined by `η v`.
 -/
 instance : Refinement (SEnv ι) where
-  IsRefinedBy ρ η := ρ.state ⊒ η.state ∧ (∀ v, ρ.regs v ⊒ η.regs v)
+  IsRefinedBy ρ η := ρ.state ⊒ η.state ∧ (∀ v, ρ.locals v ⊒ η.locals v)
   antisymm := by
     rintro ⟨s, ρ⟩ ⟨t, η⟩ hxy hyx
     suffices s = t ∧ ρ = η by grind
@@ -263,7 +263,7 @@ end Refine
 section EqnLemma
 
 def Inst.EqnLemma (i : Inst ι) (x : VarId) (ρ : SEnv ι) : Prop :=
-  x ∈ i.results → (⟦i⟧ ρ).regs x = ρ.regs x
+  x ∈ i.results → (⟦i⟧ ρ).locals x = ρ.locals x
 
 @[grind] def InstSeq.EqnLemma (is : InstSeq ι) (x : VarId) (ρ : SEnv ι) : Prop :=
   ∀ i ∈ is, Inst.EqnLemma i x ρ
@@ -385,14 +385,14 @@ theorem Inst.eqnLemma_of_eqnLemma_instSeq {i : Inst ι} {ρ : SEnv ι} (hi : Has
 
 /-! denote lemmas -/
 
-@[grind =] theorem Inst.regs_denote_of_eqnLemma {i : Inst ι} {ρ : SEnv ι}
-    (h : EqnLemma i x ρ) : (⟦i⟧ ρ).regs x = ρ.regs x := by
+@[grind =] theorem Inst.locals_denote_of_eqnLemma {i : Inst ι} {ρ : SEnv ι}
+    (h : EqnLemma i x ρ) : (⟦i⟧ ρ).locals x = ρ.locals x := by
   grind [EqnLemma]
 
-@[grind .] theorem InstSeq.regs_denote_of_eqnLemma {is : InstSeq ι} {ρ : SEnv ι}
+@[grind .] theorem InstSeq.locals_denote_of_eqnLemma {is : InstSeq ι} {ρ : SEnv ι}
     (hEqn : HasEqn is)
     (hwf : is.NoShadowing) (h : EqnLemma is x ρ) :
-    (⟦is⟧ ρ).regs x = ρ.regs x := by
+    (⟦is⟧ ρ).locals x = ρ.locals x := by
   induction is generalizing ρ
   · rfl
   · grind
