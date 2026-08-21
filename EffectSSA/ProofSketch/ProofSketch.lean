@@ -425,8 +425,7 @@ simple `⟦I⟧ ρ ⊒ ⟦J⟧ ρ` with some side-condition on the variables of 
 in `I` and `J`.
 -/
 def Pattern.DenRefine (I J : Pattern ι n) : Prop :=
-  ∀ h : Hole n, ∀ ρ η,
-    -- This should include ρ ⊒ η →
+  ∀ h : Hole n, ∀ ρ η, ρ ⊒ η →
     I.EqnLemmaUpTo h ρ →
     J.EqnLemmaUpTo h η →
     ⟦ I[h] ⟧ ρ ⊒ ⟦ J[h] ⟧ η
@@ -638,6 +637,7 @@ theorem Pattern.ctxRefine_of_denoteRefine (I J : Pattern ι n)
     | inr h =>
         apply ih (⟦I[h]⟧ ρ) (⟦J[h]⟧ η)
         · apply h_denoteRefine
+          · assumption
           · intro x (hx : x ∈ I[h].args) y hy
             have : I[h].args ⊆ Γ := by grind
             rcases hCI
