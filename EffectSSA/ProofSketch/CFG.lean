@@ -2,6 +2,7 @@ module
 
 public import EffectSSA.ProofSketch.MultiContext
 public import EffectSSA.ProofSketch.Effect
+public import EffectSSA.ProofSketch.Inst
 
 public import Std.Data.HashMap
 
@@ -32,7 +33,7 @@ axiom Term : Type
 
 structure Block (n : Nat) where
   args : List VarId
-  code : MultiContext n
+  code : MultiContext OpCode n
   term : Term
 
 /--
@@ -58,20 +59,20 @@ structure Branch where
 structure ReturnVals where
   toList : List Val
 
-axiom Term.denote : Term → ITree InterpEff (Branch ⊕ ReturnVals)
+axiom Term.denote : Term → ITree (InterpEff Val) (Branch ⊕ ReturnVals)
 
 noncomputable
 def Block.denote (b : Block n) (bId : BlockId) (args : List Val) :
-    ITree OpaqueCtxEff (Branch ⊕ ReturnVals) := do
+    ITree (OpaqueCtxEff OpCode) (Branch ⊕ ReturnVals) := do
   unless b.args.length = args.length do
     raiseError s!"Block {bId} expected {b.args.length} arguments, but got {args.length}"
-  (b.args.zip args).forM pushVar.uncurry
+  (b.args.zip args).forM (fun (var, val) => pushVar var val)
                 -- ^^ push block arguments to the local stack
   liftM <| b.code.denote -- denote the instructions that make up the block
   liftM <| b.term.denote -- denote the block terminator
 
 noncomputable
-def ContextCFG.denote (C : ContextCFG n) : ITree OpaqueCtxEff ReturnVals :=
+def ContextCFG.denote (C : ContextCFG n) : ITree (OpaqueCtxEff OpCode) ReturnVals :=
   ITree.iter step ⟨C.entryId, []⟩
 where
   step := fun (⟨bId, args⟩ : Branch) => do
@@ -79,9 +80,9 @@ where
     b.denote bId args
 
 noncomputable
-def ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ InstEff) Unit) :
+def ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ InstEff OpCode) Unit) :
     (ITree (SideEff ⊕ ErrUB)) ReturnVals := do
-  C.denote |> interpAll (f · |>.lift)
+  interpAll (f · |>.lift) C.denote
 
 noncomputable
 def ProgramCFG.interp (P : ProgramCFG) : (ITree (SideEff ⊕ ErrUB)) ReturnVals :=
@@ -98,7 +99,7 @@ attribute [simp, grind .] entryId_mem_blocks
 /-! ### Plug -/
 section Plug
 
-def plug (C : ContextCFG n) (I : Pattern n) : ProgramCFG :=
+def plug (C : ContextCFG n) (I : Pattern OpCode n) : ProgramCFG :=
   { C with
     blocks := C.blocks.map fun _ block => { block with
       code := MultiContext.ofSeq (block.code.plug I)

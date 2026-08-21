@@ -19,13 +19,13 @@ it is the counterpart of an `n`-ary context, which is to say that an
 `n`-ary pattern may be plugged into an `n`-ary context to form a complete
 instruction sequence.
 -/
-def Pattern (n : Nat) := Vector InstSeq n
+def Pattern (ι : Type) (n : Nat) := Vector (InstSeq ι) n
 
 namespace Pattern
-variable (v : Pattern n)
+variable {ι : Type} {n m : Nat}
 
-@[grind =] def toVector (v : Pattern n) : Vector InstSeq n := v
-@[grind =] def ofVector (v : Vector InstSeq n) : Pattern n := v
+@[grind =] def toVector (v : Pattern ι n) : Vector (InstSeq ι) n := v
+@[grind =] def ofVector (v : Vector (InstSeq ι) n) : Pattern ι n := v
 
 /-! ### Ctors -/
 
@@ -35,31 +35,31 @@ A vector of exactly `n` empty sequences.
 This serves as a canonical "junk", or padding, value for out-of-bound
 parameters, following the garbage-in-garbage-out principle.
 -/
-def junk (n : Nat) : Pattern n := Vector.replicate n []
+def junk (n : Nat) : Pattern ι n := Vector.replicate n []
 
-def cast (h : n = m) : Pattern n → Pattern m := Vector.cast h
+def cast (h : n = m) : Pattern ι n → Pattern ι m := Vector.cast h
 
-instance : HAppend (Pattern n) (Pattern m) (Pattern (n + m)) where
-  hAppend xs ys := ofVector <| xs.toVector ++ ys.toVector
+instance : HAppend (Pattern ι n) (Pattern ι m) (Pattern ι (n + m)) where
+  hAppend xs ys := ofVector (xs.toVector ++ ys.toVector)
 
 /-- The empty vector -/
-def nil : Pattern 0 := ofVector #v[]
+def nil : Pattern ι 0 := ofVector #v[]
 
-def cons (is : InstSeq) (I : Pattern n) : Pattern (n + 1) :=
-  (ofVector <| #v[is] ++ I.toVector).cast (by grind)
+def cons (is : InstSeq ι) (I : Pattern ι n) : Pattern ι (n + 1) :=
+  (ofVector (#v[is] ++ I.toVector)).cast (by grind)
 
 /-! ### GetElem -/
 
-instance : GetElem (Pattern n) Nat InstSeq (fun _ i => i < n) where
+instance : GetElem (Pattern ι n) Nat (InstSeq ι) (fun _ i => i < n) where
   getElem I i _ := I.toVector[i]
 
-instance : GetElem (Pattern n) (Hole n) InstSeq (fun _ _ => True) where
-  getElem I h _ := I[h.val]
+instance : GetElem (Pattern ι n) (Hole n) (InstSeq ι) (fun _ _ => True) where
+  getElem I h _ := I.toVector[h.val]
 
 /-! ### Destructors -/
 
-@[grind] abbrev head [NeZero n] (I : Pattern n) : InstSeq := I[0]'(by grind)
-def tail [NeZero n] : Pattern n → Pattern (n - 1) := Vector.tail
+@[grind] abbrev head [NeZero n] (I : Pattern ι n) : InstSeq ι := I[0]'(by grind)
+def tail [NeZero n] : Pattern ι n → Pattern ι (n - 1) := Vector.tail
 
 /-! ### Collapse -/
 
@@ -67,38 +67,37 @@ def tail [NeZero n] : Pattern n → Pattern (n - 1) := Vector.tail
 A vector `v` can be collapsed into a single instruction sequence,
 by concatenating each constituent sequence `vₖ`, in order.
 -/
-def collapse (xs : Pattern n) : InstSeq :=
+def collapse (xs : Pattern ι n) : InstSeq ι :=
   Vector.foldl (· ++ ·) [] xs.toVector
 
 /-! ### Membership -/
 
-instance : Membership InstSeq (Pattern n) where
+instance : Membership (InstSeq ι) (Pattern ι n) where
   mem I i := ∃ (k : Nat) (hk : k < n), i = I[k]
 
 /-! ### Variables -/
 
-noncomputable abbrev args (I : Pattern n) := I.collapse.args
-noncomputable abbrev results (I : Pattern n) := I.collapse.results
+noncomputable abbrev args (I : Pattern ι n) := I.collapse.args
+noncomputable abbrev results (I : Pattern ι n) := I.collapse.results
 
 /-! ### Pattern Lemmas -/
 section Lemmas
-variable (xs : Pattern n) (ys : Pattern m)
+variable (xs : Pattern ι n) (ys : Pattern ι m)
 
 /-! toVector -/
 section ToVector
 @[grind →]
-theorem eq_of_toVector_eq {v w : Pattern n} (h : v.toVector = w.toVector) : v = w := by
-  exact h
+theorem eq_of_toVector_eq {v w : Pattern ι n} (h : v.toVector = w.toVector) : v = w := h
 
-@[simp, grind =] theorem toVector_ofVector (v : Vector _ n) : toVector (ofVector v) = v := rfl
+@[simp, grind =] theorem toVector_ofVector (v : Vector (InstSeq ι) n) : toVector (ofVector v) = v := rfl
 
 @[simp, grind =] theorem toVector_append : toVector (xs ++ ys) = xs.toVector ++ ys.toVector := rfl
-@[simp, grind =] theorem toVector_cast : toVector (xs.cast h) = xs.toVector.cast h := rfl
+@[simp, grind =] theorem toVector_cast (h : n = m) : toVector (xs.cast h) = xs.toVector.cast h := rfl
 
-@[simp, grind =] theorem toVector_junk : toVector (junk n) = Vector.replicate n [] := rfl
-@[simp, grind =] theorem toVector_nil : toVector nil = #v[] := rfl
-@[simp, grind =] theorem toVector_cons :
-    toVector (cons x xs) = (#v[x] ++ xs.toVector).cast (by grind) := rfl
+@[simp, grind =] theorem toVector_junk : toVector (junk (ι := ι) n) = Vector.replicate n [] := rfl
+@[simp, grind =] theorem toVector_nil : toVector (nil (ι := ι)) = #v[] := rfl
+@[simp, grind =] theorem toVector_cons (is : InstSeq ι) (I : Pattern ι n) :
+    toVector (cons is I) = (#v[is] ++ I.toVector).cast (by grind) := rfl
 
 @[simp, grind =] theorem toVector_tail [NeZero n] :
     xs.tail.toVector = (xs.toVector.extract 1 n).cast (by grind) := by rfl
@@ -108,7 +107,7 @@ end ToVector
 /-! ext -/
 
 @[ext]
-theorem ext {v w : Pattern n} (h : ∀ i (hi : i < n), v[i] = w[i]) : v = w := by
+theorem ext {v w : Pattern ι n} (h : ∀ i (hi : i < n), v[i]'hi = w[i]'hi) : v = w := by
   have : ∀ i (hi : i < n), v.toVector[i] = w.toVector[i] := h
   suffices v.toVector = w.toVector by grind
   apply Vector.ext h
@@ -117,58 +116,65 @@ theorem ext {v w : Pattern n} (h : ∀ i (hi : i < n), v[i] = w[i]) : v = w := b
 section Get
 attribute [local grind ext] ext
 
-variable (i : Nat)
+variable (I : Pattern ι n) (hole : Hole n)
 
-@[local simp, local grind =] theorem getElem_eq_getElem_toVector (I : Pattern n)
+@[local simp, local grind =] theorem getElem_eq_getElem_toVector (I : Pattern ι n)
     (i : Nat) (hi : i < n) : I[i]'hi = I.toVector[i] := rfl
 
-@[simp, grind =, grind =_] theorem getElem_hole (I : Pattern n) (h : Hole n) :
+@[simp, grind =, grind =_] theorem getElem_hole (I : Pattern ι n) (h : Hole n) :
     I[h] = I[h.val] := by rfl
 
-@[simp, grind =] theorem getElem_ofVector (xs : Vector _ n) : (ofVector xs)[i]'hi = xs[i] := by rfl
-@[simp, grind =] theorem getElem_cast (h : n = m) :
-  (xs.cast h)[i]'hi = xs[i] := by rfl
+@[simp, grind =] theorem getElem_ofVector (xs : Vector (InstSeq ι) n) {k} (hk : k < n) :
+    (ofVector xs)[k] = xs[k] := by rfl
+@[simp, grind =] theorem getElem_cast (h : n = m) {k} (hk : k < m) :
+  (xs.cast h)[k]'hk = xs[k] := by rfl
 
-@[simp, grind =] theorem getElem_append {i : Nat} (hi : i < n + m) :
-    (xs ++ ys)[i] = if hi : i < n then xs[i] else ys[i - n] := by
+@[simp, grind =] theorem getElem_append {k} (hk : k < n + m) :
+    (xs ++ ys)[k] = if hk : k < n then xs[k] else ys[k - n] := by
   simp; grind
 
-@[simp, grind =] theorem getElem_cons {x : InstSeq} {i : Nat} (hi : i < n + 1) :
+@[simp, grind =] theorem getElem_cons {x : InstSeq ι} {i : Nat} (hi : i < n + 1) :
     (cons x xs)[i] = if h : i = 0 then x else xs[i - 1] := by
   simp [cons, Vector.getElem_append]
 
 @[simp, grind =] theorem getElem_junk {k : Nat} {i : Nat} (hi : i < k) :
-    (junk k)[i] = [] := by
+    (junk k : Pattern ι k)[i] = [] := by
   simp
 
-@[simp, grind =] theorem getElem_tail [NeZero n] (v : Pattern n) {i : Nat} (hi : i < (n - 1)) :
+@[simp, grind =] theorem getElem_tail [NeZero n] (v : Pattern ι n) {i : Nat} (hi : i < (n - 1)) :
     v.tail[i] = v[i + 1] := by
   simp; grind
 
 end Get
 
 /-! append -/
+section Append
 
-@[simp, grind =] theorem nil_append : nil ++ v = v.cast (by grind) := by
+@[simp, grind =] theorem nil_append (v : Pattern ι n) :
+    (nil : Pattern ι _) ++ v = v.cast (by grind) := by
   apply eq_of_toVector_eq; simp
-@[simp, grind =] theorem append_nil : v ++ nil = v := by rfl
+
+@[simp, grind =] theorem append_nil (v : Pattern ι n) : v ++ (nil : Pattern ι _) = v := by rfl
 
 @[simp, grind =]
-theorem cons_append : (cons x xs) ++ ys = (cons x (xs ++ ys)).cast (by grind) := by
+theorem cons_append (is : InstSeq ι) (xs : Pattern ι n) (ys : Pattern ι m) :
+    (cons is xs) ++ ys = (cons is (xs ++ ys)).cast (by grind) := by
   ext; grind
 
-/-! cast -/
+end Append
 
-@[simp, grind =] theorem cast_eq (h : n = n) : v.cast h = v := rfl
+/-! cast -/
+@[simp, grind =] theorem cast_eq (v : Pattern ι n) (h : n = n) : v.cast h = v := by
+  rfl
 
 /-! nil -/
 
-theorem eq_nil (v : Pattern 0) : v = nil := by ext; grind
+theorem eq_nil (v : Pattern ι 0) : v = nil := by ext; grind
 
 /-! cons -/
 
 @[simp, grind =]
-theorem cons_head_tail [NeZero n] (v : Pattern n) : cons v.head v.tail = v.cast (by grind) := by
+theorem cons_head_tail [NeZero n] (v : Pattern ι n) : cons v.head v.tail = v.cast (by grind) := by
   ext; grind
 
 theorem cons_eq_append : (cons x xs) = ((ofVector #v[x]) ++ xs).cast (by grind) := by
@@ -177,7 +183,7 @@ theorem cons_eq_append : (cons x xs) = ((ofVector #v[x]) ++ xs).cast (by grind) 
 /-! head / tail -/
 
 @[simp, grind =] theorem head_cons : (cons i is).head = i := by grind
-@[simp, grind =] theorem tail_cons {i} {is : Pattern n} :
+@[simp, grind =] theorem tail_cons {i} {is : Pattern ι n} :
     (cons i is).tail = is := by
   suffices ∀ j (hj : j < n), (cons i is).tail[j] = is[j] by
     apply ext this
@@ -187,10 +193,10 @@ theorem cons_eq_append : (cons x xs) = ((ofVector #v[x]) ++ xs).cast (by grind) 
 section Cases
 
 @[induction_eliminator, elab_as_elim]
-def consRec {motive : ∀ {n}, Pattern n → Sort u}
+def consRec {motive : ∀ {n}, Pattern ι n → Sort u}
     (nil : motive nil)
-    (cons : ∀ {n}, (i : InstSeq) → (v : Pattern n) → motive v → motive (cons i v) ) :
-    ∀ {n} (v : Pattern n), motive v := @fun n v =>
+    (cons : ∀ {n}, (i : InstSeq ι) → (v : Pattern ι n) → motive v → motive (cons i v) ) :
+    ∀ {n} (v : Pattern ι n), motive v := @fun n v =>
   match n with
   | 0 => _root_.cast (by congr; ext; grind) nil
   | _+1 =>
@@ -198,10 +204,10 @@ def consRec {motive : ∀ {n}, Pattern n → Sort u}
     _root_.cast (by congr 1; ext; grind) m
 
 @[cases_eliminator, elab_as_elim]
-def consCases {motive : ∀ {n}, Pattern n → Sort u}
+def consCases {motive : ∀ {n}, Pattern ι n → Sort u}
     (nil : motive nil)
-    (cons : ∀ {n}, (i : InstSeq) → (v : Pattern n) → motive (cons i v) ) :
-    ∀ {n} (v : Pattern n), motive v :=
+    (cons : ∀ {n}, (i : InstSeq ι) → (v : Pattern ι n) → motive (cons i v) ) :
+    ∀ {n} (v : Pattern ι n), motive v :=
   consRec nil (fun i v _ => cons i v)
 
 end Cases
@@ -209,7 +215,7 @@ end Cases
 /-! #### Collapse -/
 
 
-@[simp, grind =] theorem collapse_nil (I : Pattern 0) : I.collapse = [] := by cases I; rfl
+@[simp, grind =] theorem collapse_nil (I : Pattern ι 0) : I.collapse = [] := by cases I; rfl
 
 open Vector (foldl) in
 @[simp, grind =]
@@ -229,23 +235,23 @@ theorem collapse_append : (xs ++ ys).collapse = xs.collapse ++ ys.collapse := by
 
 @[simp, grind =] theorem collapse_cast (h : n = m) : (xs.cast h).collapse = xs.collapse := by rfl
 
-@[grind .] theorem getElem_subset_collapse {I : Pattern n} {k : Nat} {hk : k < n} : I[k]'hk ⊆ I.collapse := by
+@[grind .] theorem getElem_subset_collapse {I : Pattern ι n} {k : Nat} {hk : k < n} : I[k]'hk ⊆ I.collapse := by
   induction I generalizing k
   · grind
   · cases k <;> grind
 
-@[grind =] theorem length_collapse_tail {I : Pattern n} [NeZero n] :
+@[grind =] theorem length_collapse_tail {I : Pattern ι n} [NeZero n] :
     I.tail.collapse.length = I.collapse.length - I.head.length := by
   suffices I ≍ cons I.head I.tail by grind
   grind
 
-@[grind .] theorem length_getElem_le_length_collapse {I : Pattern n} {k : Nat} {hk : k < n} :
+@[grind .] theorem length_getElem_le_length_collapse {I : Pattern ι n} {k : Nat} {hk : k < n} :
     (I[k]'hk).length ≤ I.collapse.length := by
   induction I generalizing k <;> grind
 
 /-! ### Membership -/
 section Mem
-variable (I : Pattern n)
+variable (I : Pattern ι n)
 
 theorem mem_iff_getElem : i ∈ I ↔ ∃ k, ∃ (hk : k < n), i = I[k]'hk := by rfl
 grind_pattern mem_iff_getElem => i ∈ I, GetElem.getElem I
@@ -269,7 +275,7 @@ theorem mem_iff_getElem_hole : i ∈ I ↔ ∃ (h : Hole n), i = I[h] := by
 end Mem
 
 section Results
-variable {I : Pattern n} {is : InstSeq} {x : VarId}
+variable {I : Pattern ι n} {is : InstSeq ι} {x : VarId}
 
 @[grind =] theorem mem_results_iff : x ∈ I.results ↔ ∃ is ∈ I, x ∈ is.results := by
   induction I <;> grind
@@ -293,17 +299,17 @@ We then show a bijection between the pattern-PC and the PC of the collapsed
 instruction sequence.
 -/
 
-structure PC (I : Pattern n) where
+structure PC (I : Pattern ι n) where
   hole : Hole n
   pc : (I[hole]).PC
 
 namespace PC
-variable {I : Pattern n}
+variable {I : Pattern ι n}
 
 /-! ### Defs -/
 
 @[inherit_doc InstSeq.PC.get]
-abbrev get (p : I.PC) : Inst := p.pc.get
+abbrev get (p : I.PC) : Inst ι := p.pc.get
 
 def ofHeadPC [NeZero n] (p : I.head.PC) : I.PC :=
   ⟨(0 : Fin n), p⟩
@@ -312,7 +318,7 @@ def ofTailPC [NeZero n] : I.tail.PC → I.PC
   | ⟨h, p⟩ => ⟨⟨h.val + 1, by grind⟩, ⟨p.idx, by grind⟩⟩
 
 /-- Map a pattern PC into the sequence PC of the collapsed pattern. -/
-def collapse : {n : Nat} → {I : Pattern n} → (p : I.PC) → I.collapse.PC
+def collapse : {n : Nat} → {I : Pattern ι n} → (p : I.PC) → I.collapse.PC
   | n + 1, I, ⟨⟨0, _⟩, pc⟩ =>
       let pc : (I.head ++ I.tail.collapse).PC := pc.ofAppendLeft
       pc.cast <| by
@@ -326,7 +332,7 @@ def collapse : {n : Nat} → {I : Pattern n} → (p : I.PC) → I.collapse.PC
         grind
 
 /-- Map a sequence PC of a collapsed pattern back into the pattern PC. -/
-def ofCollapse {n} {I : Pattern n} (p : I.collapse.PC) : I.PC :=
+def ofCollapse {n} {I : Pattern ι n} (p : I.collapse.PC) : I.PC :=
   match n with
   | 0 => False.elim <| by grind
   | n + 1 =>
@@ -385,15 +391,16 @@ end CollapseLemmas
 end PC
 
 /-! ## Pattern WellFormedness -/
+section WellFormed
 
 @[inherit_doc InstSeq.NoShadowing]
-abbrev NoShadowing (I : Pattern n) := I.collapse.NoShadowing
+abbrev NoShadowing (I : Pattern ι n) := I.collapse.NoShadowing
 
 @[inherit_doc InstSeq.WellFormed]
-abbrev WellFormed (Γ : VarSet) (I : Pattern n) : Prop := I.collapse.WellFormed Γ
+abbrev WellFormed (Γ : VarSet) (I : Pattern ι n) : Prop := I.collapse.WellFormed Γ
 
 section Lemmas
-variable {I : Pattern n}
+variable {I : Pattern ι n}
 
 @[simp, grind =]
 theorem wellFormed_cons :
@@ -416,4 +423,5 @@ theorem results_disjoint_of_mem_of_noShadowing (hi : is ∈ I) (hj : js ∈ I) (
 -- grind_pattern results_disjoint_of_mem_of_wellFormed => is ∈ I, js ∈ I, I.WellFormed _
 
 end Lemmas
+end WellFormed
 end Pattern

@@ -11,16 +11,6 @@ namespace EffectSSA.ProofSketch
 info: 'EffectSSA.ProofSketch.Pattern.ctxRefine_of_denoteRefine' depends on axioms: [propext,
  Classical.choice,
  Quot.sound,
- Inst,
- State,
- Val,
- Inst.args,
- Inst.decideEq,
- Inst.denote,
- Inst.denote_isRefinedBy_congr,
- Inst.results,
- State.Refine,
- State.initial,
- Val.Refine]
+ Inst.denote_isRefinedBy_congr]
 -/
 #guard_msgs in #print axioms Pattern.ctxRefine_of_denoteRefine
