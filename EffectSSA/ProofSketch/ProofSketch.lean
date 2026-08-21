@@ -139,58 +139,6 @@ end MultiContext
 end Semantics
 
 /-!
-## Environment Equivalence
--/
-section Equiv
-
-/-!
-To simplify life, we assume that `Val` and `State` have already been quotiented
-by the relevant equivalence relations, such that equality (`· = ·`) on these
-types is all that we need to compare.
--/
-
-/--
-`EquivOn P ρ η` holds when environments `ρ` and `η` agree on:
-
-* their global state,
-* their error field, and
-* the value assigned to each variable `v` for which `P v` holds
--/
-def SEnv.EquivOn (P : VarId → Prop) : SEnv → SEnv → Prop := fun ρ η =>
-  ρ.state = η.state
-  ∧ (∀ v, P v → ρ.locals v = η.locals v)
-
-/-- If two environments are equivalent on all variables, they are equal. -/
-theorem SEnv.eq_of_equivOn {ρ η} : EquivOn (fun _ => True) ρ η → ρ = η := by
-  rcases ρ with ⟨ρ_locals, ρ_state⟩
-  rcases η with ⟨η_locals, η_state⟩
-  simp only [EquivOn]
-  intro h
-  have : ρ_locals = η_locals := by funext; simp_all
-  simp_all
-
-section Lemmas
-attribute [local grind] SEnv.EquivOn
-
-/-
-TODO: axiomatise the relevant properties of equivalence on states and values,
-      then use those axioms to prove the SEnv.equiv_foo assumptions below.
--/
-
-@[simp, grind ., refl]
-theorem SEnv.equivOn_refl (ρ : SEnv) : EquivOn P ρ ρ := by
-  grind
-
-theorem SEnv.equiv_trans {ρ₁ ρ₂ ρ₃ : SEnv} : EquivOn P ρ₁ ρ₂ → EquivOn P ρ₂ ρ₃ → EquivOn P ρ₁ ρ₃ := by
-  grind
-
-theorem SEnv.equiv_symm {ρ₁ ρ₂ : SEnv} : EquivOn P ρ₁ ρ₂ → EquivOn P ρ₂ ρ₁ := by grind
-grind_pattern SEnv.equiv_symm => SEnv.EquivOn P ρ₁ ρ₂
-
-end Lemmas
-end Equiv
-
-/-!
 ## Refinement
 -/
 section Refine
