@@ -35,7 +35,7 @@ bundles a pure environment with a global state.
 -/
 structure SEnv (ι) {σ ν} [ssa : SSA ι σ ν] : Type where
   /-- A partial map from variables (i.e, virtual registers) to values. -/
-  regs : VarId → Option ν := fun _ => none
+  locals : VarId → Option ν := fun _ => none
   /-- The global state, e.g, for memory and UB -/
   state : σ := ssa.initialState
 
@@ -109,13 +109,13 @@ theorem Pattern.denote_cons  (is : InstSeq ι) (I : Pattern ι n) :
 variable {x : VarId}
 
 /-- Instructions only modify the registers in their `results` set. -/
-@[grind .] axiom Inst.regs_denote_of_not_mem_results (i : Inst ι) {x : VarId} {ρ : SEnv ι}
-    (h : x ∉ i.results) : (⟦i⟧ ρ).regs x = ρ.regs x
+@[grind .] axiom Inst.locals_denote_of_not_mem_results (i : Inst ι) {x : VarId} {ρ : SEnv ι}
+    (h : x ∉ i.results) : (⟦i⟧ ρ).locals x = ρ.locals x
   -- TODO: ^^ this result should now be provable
 
-@[grind =] theorem InstSeq.regs_denote_of_not_mem_results {is : InstSeq ι} {ρ : SEnv ι}
+@[grind =] theorem InstSeq.locals_denote_of_not_mem_results {is : InstSeq ι} {ρ : SEnv ι}
     (h : x ∉ is.results) :
-    (⟦is⟧ ρ).regs x = ρ.regs x := by
+    (⟦is⟧ ρ).locals x = ρ.locals x := by
   induction is generalizing ρ <;> grind
 
 end Properties
@@ -161,58 +161,6 @@ end Semantics
 variable [SSA ι σ ν]
 
 /-!
-## Environment Equivalence
--/
-section Equiv
-
-/-!
-To simplify life, we assume that `Val` and `State` have already been quotiented
-by the relevant equivalence relations, such that equality (`· = ·`) on these
-types is all that we need to compare.
--/
-
-/--
-`EquivOn P ρ η` holds when environments `ρ` and `η` agree on:
-
-* their global state,
-* their error field, and
-* the value assigned to each variable `v` for which `P v` holds
--/
-def SEnv.EquivOn (P : VarId → Prop) : SEnv ι → SEnv ι → Prop := fun ρ η =>
-  ρ.state = η.state
-  ∧ (∀ v, P v → ρ.regs v = η.regs v)
-
-/-- If two environments are equivalent on all variables, they are equal. -/
-theorem SEnv.eq_of_equivOn {ρ η : SEnv ι} : EquivOn (fun _ => True) ρ η → ρ = η := by
-  rcases ρ with ⟨ρ_regs, ρ_state⟩
-  rcases η with ⟨η_regs, η_state⟩
-  simp only [EquivOn]
-  intro h
-  have : ρ_regs = η_regs := by funext; simp_all
-  simp_all
-
-section Lemmas
-attribute [local grind] SEnv.EquivOn
-
-/-
-TODO: axiomatise the relevant properties of equivalence on states and values,
-      then use those axioms to prove the SEnv.equiv_foo assumptions below.
--/
-
-@[simp, grind ., refl]
-theorem SEnv.equivOn_refl (ρ : SEnv ι) : EquivOn P ρ ρ := by
-  grind
-
-theorem SEnv.equiv_trans {ρ₁ ρ₂ ρ₃ : SEnv ι} : EquivOn P ρ₁ ρ₂ → EquivOn P ρ₂ ρ₃ → EquivOn P ρ₁ ρ₃ := by
-  grind
-
-theorem SEnv.equiv_symm {ρ₁ ρ₂ : SEnv ι} : EquivOn P ρ₁ ρ₂ → EquivOn P ρ₂ ρ₁ := by grind
-grind_pattern SEnv.equiv_symm => SEnv.EquivOn P ρ₁ ρ₂
-
-end Lemmas
-end Equiv
-
-/-!
 ## Refinement
 -/
 section Refine
@@ -226,10 +174,6 @@ We say that `ρ` is a sub-environment of `η`, written as `ρ ⊒ η`,
 -/
 instance : Refinement (SEnv ι) where
   IsRefinedBy ρ η := ρ.state ⊒ η.state ∧ (∀ v, ρ.regs v ⊒ η.regs v)
-  antisymm := by
-    rintro ⟨s, ρ⟩ ⟨t, η⟩ hxy hyx
-    suffices s = t ∧ ρ = η by grind
-    grind
 
 section RefineLemmas
 
@@ -263,7 +207,7 @@ end Refine
 section EqnLemma
 
 def Inst.EqnLemma (i : Inst ι) (x : VarId) (ρ : SEnv ι) : Prop :=
-  x ∈ i.results → (⟦i⟧ ρ).regs x = ρ.regs x
+  x ∈ i.results → (⟦i⟧ ρ).locals x = ρ.locals x
 
 @[grind] def InstSeq.EqnLemma (is : InstSeq ι) (x : VarId) (ρ : SEnv ι) : Prop :=
   ∀ i ∈ is, Inst.EqnLemma i x ρ
@@ -487,9 +431,8 @@ def Pattern.DenEquiv (I J : Pattern ι n) : Prop :=
 end Denotational
 
 /-!
-## Contextual Refinement & Equivalence
+## Contextual Refinement
 -/
-section Contextual
 
 /--
 A pattern `I` is contextually refined by pattern `J`,
@@ -502,22 +445,6 @@ def Pattern.CtxRefine (I J : Pattern ι n) : Prop :=
     let CJ := C.plug J;
     CI.WellFormed ∅ → CJ.WellFormed ∅ →
       ⟦CI⟧ {} ⊒ ⟦CJ⟧ {}
-
-/--
-Two patterns `I` and `J` are contextually equivalent,
-when for any complete context `C` such that `C[I]` and `C[J]` are both
-wellformed, `C[I]` is (denotationally) equivalent to `C[J]`.
--/
-def Pattern.CtxEquiv (I J : Pattern ι n) : Prop :=
-  ∀ (C : MultiContext ι n), C.Complete →
-    let CI := C.plug I;
-    let CJ := C.plug J;
-    CI.WellFormed ∅ → CJ.WellFormed ∅ →
-      ⟦CI⟧ {} = ⟦CJ⟧ {}
-
-end Contextual
-
-
 
 /-!
 ## Residual
@@ -701,15 +628,3 @@ theorem Pattern.ctxRefine_of_denoteRefine (I J : Pattern ι n)
             grind
         · apply Invariant.of_invariant_cons_hole hI hCI
         · apply Invariant.of_invariant_cons_hole hJ hCJ
-
-/--
-Proving denotational equivalence is sufficient for showing contextual equivalence.
--/
-theorem Pattern.ctxEquiv_of_denoteEquiv (I J : Pattern ι n)
-    (hI : I.HasEqn) (hJ : J.HasEqn) (h_denoteEquiv : I.DenEquiv J) :
-    I.CtxEquiv J := by
-  intro C hC CI CJ hCI hCJ
-  have : I.DenRefine J ∧ J.DenRefine I := by grind [DenRefine, DenEquiv]
-  apply Refinement.antisymm
-  <;> apply ctxRefine_of_denoteRefine
-  <;> grind
