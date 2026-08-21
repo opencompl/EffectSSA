@@ -155,10 +155,6 @@ We say that `ρ` is a sub-environment of `η`, written as `ρ ⊒ η`,
 -/
 instance : Refinement SEnv where
   IsRefinedBy ρ η := ρ.state ⊒ η.state ∧ (∀ v, ρ.locals v ⊒ η.locals v)
-  antisymm := by
-    rintro ⟨s, ρ⟩ ⟨t, η⟩ hxy hyx
-    suffices s = t ∧ ρ = η by grind
-    grind
 
 section RefineLemmas
 
@@ -414,9 +410,8 @@ def Pattern.DenEquiv (I J : Pattern n) : Prop :=
 end Denotational
 
 /-!
-## Contextual Refinement & Equivalence
+## Contextual Refinement
 -/
-section Contextual
 
 /--
 A pattern `I` is contextually refined by pattern `J`,
@@ -429,22 +424,6 @@ def Pattern.CtxRefine (I J : Pattern n) : Prop :=
     let CJ := C.plug J;
     CI.WellFormed ∅ → CJ.WellFormed ∅ →
       ⟦CI⟧ {} ⊒ ⟦CJ⟧ {}
-
-/--
-Two patterns `I` and `J` are contextually equivalent,
-when for any complete context `C` such that `C[I]` and `C[J]` are both
-wellformed, `C[I]` is (denotationally) equivalent to `C[J]`.
--/
-def Pattern.CtxEquiv (I J : Pattern n) : Prop :=
-  ∀ (C : MultiContext n), C.Complete →
-    let CI := C.plug I;
-    let CJ := C.plug J;
-    CI.WellFormed ∅ → CJ.WellFormed ∅ →
-      ⟦CI⟧ {} = ⟦CJ⟧ {}
-
-end Contextual
-
-
 
 /-!
 ## Residual
@@ -627,15 +606,3 @@ theorem Pattern.ctxRefine_of_denoteRefine (I J : Pattern n)
             grind
         · apply Invariant.of_invariant_cons_hole hI hCI
         · apply Invariant.of_invariant_cons_hole hJ hCJ
-
-/--
-Proving denotational equivalence is sufficient for showing contextual equivalence.
--/
-theorem Pattern.ctxEquiv_of_denoteEquiv (I J : Pattern n)
-    (hI : I.HasEqn) (hJ : J.HasEqn) (h_denoteEquiv : I.DenEquiv J) :
-    I.CtxEquiv J := by
-  intro C hC CI CJ hCI hCJ
-  have : I.DenRefine J ∧ J.DenRefine I := by grind [DenRefine, DenEquiv]
-  apply Refinement.antisymm
-  <;> apply ctxRefine_of_denoteRefine
-  <;> grind
