@@ -38,9 +38,26 @@ structure SEnv (ι) {σ ν} [ssa : SSA ι σ ν] : Type where
   locals : VarId → Option ν := fun _ => none
   /-- The global state, e.g, for memory and UB -/
   state : σ := ssa.initialState
+  /-- Whether an interpretation occurred (indicating a mallformed program). -/
+  error : Bool := false
 
 /-! ### Defs -/
 variable [SSA ι σ ν]
+
+/--
+`ρ.with? xs vs` returns the environment `ρ` with each variable `xs[i]`
+set to the corresponding value `vs[i]`,
+returining `none` if `xs` and `vs` are of different lengths.
+-/
+def SEnv.with? (ρ : SEnv ι) (xs : List VarId) (vs : List ν) : Option (SEnv ι) :=
+  if xs.length != vs.length then
+    none
+  else
+    some {ρ with locals x :=
+      match xs.idxOf? x with
+      | some idx => vs[idx]?
+      | none => ρ.locals x
+    }
 
 /--
 The denotation of an `Inst`struction looks up the values of the declared
@@ -52,16 +69,8 @@ instance : Denote (Inst ι) (SEnv ι → SEnv ι) where
     let ρ? : Option (SEnv ι) := do
       let args ← i.args.mapM ρ.locals
       let results := ⟦i.opCode⟧ args
-      if results.length != i.results.length then
-        none
-      else
-        return { ρ with
-          locals x :=
-            match i.results.idxOf? x with
-            | some idx => results[idx]?
-            | none => ρ.locals x
-        }
-    ρ?.getD ρ
+      ρ.with? i.results results
+    ρ?.getD { ρ with error := true }
 /--
 An `InstSeq` is evaluated by evaluating each instruction in turn,
 threading the environment through.
@@ -225,13 +234,21 @@ We say that `ρ` is a sub-environment of `η`, written as `ρ ⊒ η`,
     the value `ρ v` is refined by `η v`.
 -/
 instance : Refinement (SEnv ι) where
-  IsRefinedBy ρ η := ρ.state ⊒ η.state ∧ (∀ v, ρ.locals v ⊒ η.locals v)
-  antisymm := by
-    rintro ⟨s, ρ⟩ ⟨t, η⟩ hxy hyx
-    suffices s = t ∧ ρ = η by grind
-    grind
+  IsRefinedBy ρ η := !ρ.error →
+    !η.error ∧ ρ.state ⊒ η.state ∧ (∀ v, ρ.locals v ⊒ η.locals v)
+  antisymm := sorry
 
 section RefineLemmas
+
+@[simp, grind =>]
+theorem SEnv.isRefinedBy_of_error {ρ η : SEnv ι} :
+    ρ.error → ρ ⊒ η := by
+  simp [(· ⊒ ·)]; grind
+
+@[simp, grind =>]
+theorem SEnv.isRefinedBy_iff_of_error_right {ρ η : SEnv ι} :
+    η.error → (ρ ⊒ η ↔ ρ.error) := by
+  simp [(· ⊒ ·)]; grind
 
 /-! #### Congruence Lemmas -/
 section RefineCongr
@@ -240,8 +257,20 @@ section RefineCongr
 Each instruction's semantics preserves refinement.
 In other words, the semantics are *monotone* w.r.t. the refinement relation.
 -/
-@[grind .] axiom Inst.denote_isRefinedBy_congr {ρ₁ ρ₂ : SEnv ι} (hρ : ρ₁ ⊒ ρ₂) (i : Inst ι) :
-    ⟦i⟧ ρ₁ ⊒ ⟦i⟧ ρ₂
+@[grind .] theorem Inst.denote_isRefinedBy_congr {ρ₁ ρ₂ : SEnv ι} (hρ : ρ₁ ⊒ ρ₂) (i : Inst ι) :
+    ⟦i⟧ ρ₁ ⊒ ⟦i⟧ ρ₂ := by
+  rcases i with ⟨opCode, args, results⟩
+  simp only [Denote.denote, Option.bind_eq_bind]
+  generalize h₁ : List.mapM ρ₁.locals args = args₁
+  generalize h₂ : List.mapM ρ₂.locals args = args₂
+  cases args₁
+  case none => simp
+  case some args₁ =>
+    cases args₂;
+    · simp;
+      grind
+    · simp
+      sorry
 
 @[grind .] theorem InstSeq.denote_isRefinedBy_congr {ρ₁ ρ₂ : SEnv ι} (hρ : ρ₁ ⊒ ρ₂) (is : InstSeq ι) :
     ⟦is⟧ ρ₁ ⊒ ⟦is⟧ ρ₂ := by
