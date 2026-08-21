@@ -32,9 +32,17 @@ axiom results : Inst → VarSet
 
 end Vars
 
+/-!
+## SSA Instance
+-/
+
+/-- The type of runtime values. -/
+axiom Val : Type
+
+/-- The type of global runtime state (e.g., memory). -/
+axiom State : Type
+
 /-- `SSA` instance for the concrete `Inst` type. -/
-noncomputable instance : SSA Inst Unit where
-  args    := Inst.args
-  results := Inst.results
+@[instance] axiom instSSA : SSA Inst State Val
 
 end Inst

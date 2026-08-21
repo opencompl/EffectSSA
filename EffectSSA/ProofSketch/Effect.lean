@@ -138,37 +138,37 @@ abbrev interpHoles'  : (f : HoleId → ITree δ Unit) →
 --------------------------------------------------------------------------------
 -/
 
-inductive LocalEff
+inductive LocalEff (ν : Type)
   | read (var : VarId)
-  | push (var : VarId) (value : Val)
+  | push (var : VarId) (value : ν)
 
-instance : Effect LocalEff (fun
-    | .read _ => Val
+instance : Effect (LocalEff ν) (fun
+    | .read _ => ν
     | .push _ _ => Unit) := ⟨⟩
 
 /-! ### Helpers -/
 
-def readVar [LocalEff -< ε] (var : VarId) : ITree ε Val :=
-  trigger LocalEff <| .read var
+def readVar [LocalEff ν -< ε] (var : VarId) : ITree ε ν :=
+  trigger (LocalEff ν) <| .read var
 
-def pushVar [LocalEff -< ε] (var : VarId) (value : Val) : ITree ε Unit :=
-  trigger LocalEff <| .push var value
+def pushVar [LocalEff ν -< ε] (var : VarId) (value : ν) : ITree ε Unit :=
+  trigger (LocalEff ν) <| .push var value
 
 section Lemmas
-variable [LocalEff -< ε]
+variable [LocalEff ν -< ε]
 open Subeffect (map)
 
 @[simp, grind =]
 theorem hasEffect_pushVar {e : ε} :
-    (pushVar (ε:=ε) var value).HasEffect e ↔ (Subeffect.map (.push var value : LocalEff)).fst = e := by
+    (pushVar (ε:=ε) var value).HasEffect e ↔ (Subeffect.map (LocalEff.push var value : LocalEff ν)).fst = e := by
   simp [pushVar, Effect.trigger]
 
 end Lemmas
 
 /-! ### Interpretation -/
 
-def interpLocalStackM [ErrUB -< ε] :
-    (x : ITree (LocalEff ⊕ ε) α) → StateT LocalStack (ITree ε) α :=
+def interpLocalStackM {ν} [ErrUB -< ε] :
+    (x : ITree (LocalEff ν ⊕ ε) α) → StateT (LocalStack ν) (ITree ε) α :=
   ITree.interpM fun
     | .inr e => liftM <| ITree.vis e .ret
     | .inl (.read x) => do
@@ -180,8 +180,8 @@ def interpLocalStackM [ErrUB -< ε] :
 
 
 /-- Interpret local stack effects starting from an empty initial stack. -/
-def interpLocalStack [ErrUB -< ε] (x : ITree (LocalEff ⊕ ε) α) : ITree ε α :=
-  (interpLocalStackM x).run' { }
+def interpLocalStack {ν} [ErrUB -< ε] (x : ITree (LocalEff ν ⊕ ε) α) : ITree ε α :=
+  (interpLocalStackM x).run' LocalStack.empty
 
 /-!
 ## Instructions
@@ -198,9 +198,9 @@ structure right away.
 -/
 
 /-- In `InstEff`, each instruction is a unique effect. -/
-abbrev InstEff := Inst
+abbrev InstEff (ι : Type) := ι
 
-instance : Effect InstEff (fun _ => Unit) := ⟨⟩
+instance : Effect (InstEff ι) (fun _ => Unit) := ⟨⟩
 
 /-!
 ## Effect Aliasses
@@ -215,10 +215,10 @@ abbrev BaseEff := SideEff ⊕ ErrUB
 
 /--
 `InterpEff` gives the effects into which instructions and terminators are
-interpreted.
+interpreted. Uses the concrete value type from Inst's SSA instance.
 -/
 noncomputable
-abbrev InterpEff := LocalEff ⊕ SideEff ⊕ ErrUB
+abbrev InterpEff ν := LocalEff ν ⊕ SideEff ⊕ ErrUB
 
 /--
 `OpaqueEff` is the totality of effects resulting from unrolling a (closed) CFG
@@ -228,7 +228,7 @@ abbrev InterpEff := LocalEff ⊕ SideEff ⊕ ErrUB
 That is, each instruction is still an "opaque" effect.
 -/
 noncomputable
-abbrev OpaqueEff := InstEff ⊕ InterpEff
+abbrev OpaqueEff ι [SSA ι σ ν] := (InstEff ι) ⊕ (InterpEff ν)
 
 /--
 `OpaqueCtxEff` is the totality of effects resulting from unrolling a CFG with
@@ -240,7 +240,7 @@ That is, each instruction is still an "opaque" effect.
 See also `OpaqueEff`, which omits the holes.
 -/
 noncomputable
-abbrev OpaqueCtxEff := HoleEff ⊕ OpaqueEff
+abbrev OpaqueCtxEff ι [SSA ι σ ν] := HoleEff ⊕ (OpaqueEff ι)
 
 /-!
 ## Handlers
@@ -248,11 +248,12 @@ abbrev OpaqueCtxEff := HoleEff ⊕ OpaqueEff
 -/
 
 /-! ### Instruction -/
+variable [SSA ι σ ν]
 
-axiom handleInst : (i : Inst) → ITree InterpEff Unit
+axiom handleInst : (i : ι) → ITree (InterpEff ν) Unit
 
 noncomputable
-def interpInst : ITree OpaqueEff α → ITree InterpEff α :=
+def interpInst : ITree (OpaqueEff ι) α → ITree (InterpEff ν) α :=
   ITree.interpLeft handleInst
 
 /-! ### Combined -/
@@ -268,8 +269,8 @@ def Hole.fromId {n} [ErrUB -< ε] (h : HoleId) : ITree ε (Hole n) :=
 
 noncomputable
 def interpAll
-    (fHole : Hole n → ITree OpaqueEff Unit)
-    (t : ITree OpaqueCtxEff α) : ITree BaseEff α :=
+    (fHole : Hole n → ITree (OpaqueEff ι) Unit)
+    (t : ITree (OpaqueCtxEff ι) α) : ITree BaseEff α :=
   t
   |> interpHoles (Hole.fromId · >>= fHole)
   |> interpInst

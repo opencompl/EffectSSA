@@ -20,12 +20,12 @@ open Effect (trigger)
 variable {ε : Type} {κε : ε → Type} [Effect ε κε]
 
 /--
-A `MultiContext n` is a sequence of instructions, interspersed by (named) holes, such that:
+A `MultiContext ι n` is a sequence of instructions, interspersed by (named) holes, such that:
 
 * Each hole may occur any number of times (including zero),
 * There are at most `n` distinct holes
 -/
-abbrev MultiContext (n : Nat) := List (Inst ⊕ Hole n)
+abbrev MultiContext (ι) (n : Nat) := List (ι ⊕ Hole n)
 
 /-! ### Denote -/
 namespace MultiContext
@@ -35,27 +35,26 @@ namespace MultiContext
 is represented as an `InstEff`, and each hole as a `HoleEff`.
 -/
 @[grind]
-def denote : MultiContext n → ITree (HoleEff ⊕ InstEff) Unit
-  | .inl i :: is => trigger InstEff i    *> denote is
+def denote : MultiContext ι n → ITree (HoleEff ⊕ InstEff ι) Unit
+  | .inl i :: is => trigger (InstEff ι) i    *> denote is
   | .inr h :: is => trigger HoleEff h.id *> denote is
   | [] => .ret ()
 
 section DenoteLemmas
 
 @[simp, grind =]
-theorem denote_nil :
-    denote (n := n) [] = .ret () := rfl
+theorem denote_nil : denote ([] : MultiContext ι n) = .ret () := rfl
 
 @[simp, grind =]
-theorem denote_cons_inst (i : Inst) (C : MultiContext n) :
-    denote (Sum.inl i :: C) = trigger InstEff i *> denote C := rfl
+theorem denote_cons_inst (i : ι) (C : MultiContext ι n) :
+    denote (Sum.inl i :: C) = trigger (InstEff _) i *> denote C := rfl
 
 @[simp, grind =]
-theorem denote_cons_hole (h : Hole n) (C : MultiContext n) :
+theorem denote_cons_hole (h : Hole n) (C : MultiContext ι n) :
     denote (Sum.inr h :: C) = trigger HoleEff h.id *> denote C := rfl
 
 @[simp, grind =]
-theorem denote_append (C₁ C₂ : MultiContext n) :
+theorem denote_append (C₁ C₂ : MultiContext ι n) :
     denote (C₁ ++ C₂) = C₁.denote *> C₂.denote := by
   induction C₁
   case nil => simp
@@ -65,13 +64,8 @@ theorem denote_append (C₁ C₂ : MultiContext n) :
 end DenoteLemmas
 end MultiContext
 
-/--
-A `HoleEnv n` associates each hole variable `h : Hole n` with an instruction sequence.
--/
-def HoleEnv n := Hole n → InstSeq Inst
-
 namespace MultiContext
-variable (C : MultiContext n)
+variable (C : MultiContext ι n)
 
 /-! ### Completeness -/
 section Complete
@@ -80,7 +74,7 @@ section Complete
 An `n`-ary context `C` is considered *complete* when each possible named hole `h : Hole n`
 occurs at least once in `C`.
 -/
-abbrev Complete (C : MultiContext n) : Prop :=
+abbrev Complete (C : MultiContext ι n) : Prop :=
   ∀ (h : Hole n), (.inr h) ∈ C
 
 section Lemmas
@@ -93,26 +87,34 @@ end Complete
 
 /-! ### Plugging -/
 section Plug
+variable {C : MultiContext ι n} {I : Pattern ι n}
 
-def plug (C : MultiContext n) (I : Pattern n) : InstSeq Inst :=
+/--
+Plug an `n`-ary pattern `I` into an `n`-ary context `C`, replacing each hole `h`
+in `C` with the instruction sequence `I[h]`.
+-/
+def plug (C : MultiContext ι n) (I : Pattern ι n) : InstSeq ι :=
   C.flatMap <| fun i =>
     match i with
-    | .inl (i : Inst) => [i]
+    | .inl (i : ι) => [i]
     | .inr (h : Hole n) => I[h]
 
 section Lemmas
-variable {C}
+variable {C C₁ C₂ : MultiContext ι n}
 
 @[simp, grind =] theorem plug_nil : plug [] I = [] := rfl
 
-@[simp, grind =] theorem plug_cons_inst (i : Inst) :
-    plug (.inl i :: C) I = i ;> plug C I := by rfl
+@[simp, grind =] theorem plug_cons_inst (i : ι) :
+    plug (.inl i :: C) I = i :: plug C I := rfl
 
 @[simp, grind =] theorem plug_cons_hole (h : Hole n) :
-    plug (.inr h :: C) I = I[h] ++ plug C I := by rfl
+    plug (.inr h :: C) I = I[h] ++ plug C I := rfl
 
+@[simp, grind =] theorem plug_append :
+    plug (C₁ ++ C₂) I = plug C₁ I ++ plug C₂ I := by
+  simp [plug, List.flatMap_append]
 
-@[grind =] theorem mem_plug_iff (i : Inst) :
+@[grind =] theorem mem_plug_iff (i : ι) :
     i ∈ (C.plug I) ↔ (.inl i) ∈ C ∨ ∃ h, .inr h ∈ C ∧ i ∈ I[h] := by
   simp only [plug, List.mem_flatMap]
   constructor
@@ -121,14 +123,14 @@ variable {C}
     · grind
     · refine ⟨.inr h, ?_⟩; grind
 
-@[grind =] theorem mem_results_plug_iff {I : Pattern n} :
+@[grind =] theorem mem_results_plug_iff [SSA ι σ ν] {I : Pattern ι n} :
     x ∈ (C.plug I).results ↔
       (∃ i, .inl i ∈ C ∧ x ∈ SSA.results i) ∨ (∃ h, .inr h ∈ C ∧ x ∈ (I[h]).results) := by
   grind
 
 /-! #### Completeness -/
 
-@[grind =] theorem mem_plug_iff_of_complete (hC : C.Complete) (i : Inst) :
+@[grind =] theorem mem_plug_iff_of_complete (hC : C.Complete) (i : ι) :
     i ∈ (C.plug I) ↔ (.inl i) ∈ C ∨ ∃ (h : Hole n), i ∈ I[h] := by
   grind
 
@@ -136,14 +138,14 @@ variable {C}
 If context `C` is complete, then the results of pattern `I` are a subset of the
 results of `C.plug I`.
 -/
-theorem results_subset_results_plug (hC : C.Complete) :
+theorem results_subset_results_plug [SSA ι σ ν] (hC : C.Complete) :
     I.results ⊆ (C.plug I).results := by
   grind [Pattern.mem_iff_getElem_hole]
 grind_pattern results_subset_results_plug => (C.plug I).results
 
 /-! #### WellFormedness -/
 
-def embedPlugAux (p : I.PC) (C : MultiContext n) (hC : .inr p.hole ∈ C) : (C.plug I).PC :=
+def embedPlugAux (p : I.PC) (C : MultiContext ι n) (hC : .inr p.hole ∈ C) : (C.plug I).PC :=
   match C with
   | .inl i :: C => (embedPlugAux p C (by grind)).succ
   | .inr h :: C =>
@@ -153,7 +155,7 @@ def embedPlugAux (p : I.PC) (C : MultiContext n) (hC : .inr p.hole ∈ C) : (C.p
         (embedPlugAux p C (by grind)).appendRight
 
 open InstSeq (PC) in
-def embedPlug (I : Pattern n) (C : MultiContext n) (hC : C.Complete) :
+def embedPlug [SSA ι σ ν] (I : Pattern ι n) (C : MultiContext ι n) (hC : C.Complete) :
     I.collapse.EmbedIn (C.plug I) where
   map p :=
     let p : I.PC := .ofCollapse p
@@ -203,7 +205,7 @@ def embedPlug (I : Pattern n) (C : MultiContext n) (hC : C.Complete) :
             apply PC.appendLeft_neq_appendRight _ _ h.symm
           · grind
 
-def noShadowing_pattern_of_plug_noShadowing {n} {C : MultiContext n} {I : Pattern n}
+def noShadowing_pattern_of_plug_noShadowing [SSA ι σ ν] {n} {C : MultiContext ι n} {I : Pattern ι n}
     (hC : C.Complete) :
     (C.plug I).NoShadowing → I.NoShadowing := by
   simp only [InstSeq.noShadowing_iff, ne_eq]
@@ -223,16 +225,16 @@ section Conv
 /--
 A nullary context is just a sequence of instructions.
 -/
-def toSeq : MultiContext 0 → InstSeq Inst :=
+def toSeq : MultiContext ι 0 → InstSeq ι :=
   List.map (fun | .inl i => i)
-instance : Coe (MultiContext 0) (InstSeq Inst) where coe := toSeq
+instance : Coe (MultiContext ι 0) (InstSeq ι) where coe := toSeq
 
 /--
 `ofSeq is` interprets an instruction sequence `is` as a context,
 of arbitrary arity `n`, which happens to not have any holes.
 -/
-def ofSeq : InstSeq Inst → MultiContext n :=
+def ofSeq : InstSeq ι → MultiContext ι n :=
   List.map Sum.inl
-instance : Coe (InstSeq Inst) (MultiContext n) where coe := ofSeq
+instance : Coe (InstSeq ι) (MultiContext ι n) where coe := ofSeq
 
 end Conv
