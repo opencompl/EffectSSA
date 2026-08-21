@@ -198,7 +198,7 @@ structure right away.
 -/
 
 /-- In `InstEff`, each instruction is a unique effect. -/
-abbrev InstEff (ι : Type) := ι
+abbrev InstEff (ι : Type) := Inst ι
 
 instance : Effect (InstEff ι) (fun _ => Unit) := ⟨⟩
 

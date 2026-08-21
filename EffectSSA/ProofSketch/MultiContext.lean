@@ -25,7 +25,7 @@ A `MultiContext ι n` is a sequence of instructions, interspersed by (named) hol
 * Each hole may occur any number of times (including zero),
 * There are at most `n` distinct holes
 -/
-abbrev MultiContext (ι) (n : Nat) := List (ι ⊕ Hole n)
+abbrev MultiContext (ι) (n : Nat) := List (Inst ι ⊕ Hole n)
 
 /-! ### Denote -/
 namespace MultiContext
@@ -36,7 +36,7 @@ is represented as an `InstEff`, and each hole as a `HoleEff`.
 -/
 @[grind]
 def denote : MultiContext ι n → ITree (HoleEff ⊕ InstEff ι) Unit
-  | .inl i :: is => trigger (InstEff ι) i    *> denote is
+  | .inl i :: is => trigger (InstEff ι) i *> denote is
   | .inr h :: is => trigger HoleEff h.id *> denote is
   | [] => .ret ()
 
@@ -46,7 +46,7 @@ section DenoteLemmas
 theorem denote_nil : denote ([] : MultiContext ι n) = .ret () := rfl
 
 @[simp, grind =]
-theorem denote_cons_inst (i : ι) (C : MultiContext ι n) :
+theorem denote_cons_inst (i : Inst ι) (C : MultiContext ι n) :
     denote (Sum.inl i :: C) = trigger (InstEff _) i *> denote C := rfl
 
 @[simp, grind =]
@@ -96,7 +96,7 @@ in `C` with the instruction sequence `I[h]`.
 def plug (C : MultiContext ι n) (I : Pattern ι n) : InstSeq ι :=
   C.flatMap <| fun i =>
     match i with
-    | .inl (i : ι) => [i]
+    | .inl (i : Inst ι) => [i]
     | .inr (h : Hole n) => I[h]
 
 section Lemmas
@@ -104,7 +104,7 @@ variable {C C₁ C₂ : MultiContext ι n}
 
 @[simp, grind =] theorem plug_nil : plug [] I = [] := rfl
 
-@[simp, grind =] theorem plug_cons_inst (i : ι) :
+@[simp, grind =] theorem plug_cons_inst (i : Inst ι) :
     plug (.inl i :: C) I = i :: plug C I := rfl
 
 @[simp, grind =] theorem plug_cons_hole (h : Hole n) :
@@ -114,7 +114,7 @@ variable {C C₁ C₂ : MultiContext ι n}
     plug (C₁ ++ C₂) I = plug C₁ I ++ plug C₂ I := by
   simp [plug, List.flatMap_append]
 
-@[grind =] theorem mem_plug_iff (i : ι) :
+@[grind =] theorem mem_plug_iff (i : Inst ι) :
     i ∈ (C.plug I) ↔ (.inl i) ∈ C ∨ ∃ h, .inr h ∈ C ∧ i ∈ I[h] := by
   simp only [plug, List.mem_flatMap]
   constructor
@@ -123,14 +123,14 @@ variable {C C₁ C₂ : MultiContext ι n}
     · grind
     · refine ⟨.inr h, ?_⟩; grind
 
-@[grind =] theorem mem_results_plug_iff [SSA ι σ ν] {I : Pattern ι n} :
+@[grind =] theorem mem_results_plug_iff {I : Pattern ι n} :
     x ∈ (C.plug I).results ↔
-      (∃ i, .inl i ∈ C ∧ x ∈ SSA.results i) ∨ (∃ h, .inr h ∈ C ∧ x ∈ (I[h]).results) := by
+      (∃ i, .inl i ∈ C ∧ x ∈ i.resultsSet) ∨ (∃ h, .inr h ∈ C ∧ x ∈ (I[h]).results) := by
   grind
 
 /-! #### Completeness -/
 
-@[grind =] theorem mem_plug_iff_of_complete (hC : C.Complete) (i : ι) :
+@[grind =] theorem mem_plug_iff_of_complete (hC : C.Complete) (i : Inst ι) :
     i ∈ (C.plug I) ↔ (.inl i) ∈ C ∨ ∃ (h : Hole n), i ∈ I[h] := by
   grind
 
@@ -138,7 +138,7 @@ variable {C C₁ C₂ : MultiContext ι n}
 If context `C` is complete, then the results of pattern `I` are a subset of the
 results of `C.plug I`.
 -/
-theorem results_subset_results_plug [SSA ι σ ν] (hC : C.Complete) :
+theorem results_subset_results_plug (hC : C.Complete) :
     I.results ⊆ (C.plug I).results := by
   grind [Pattern.mem_iff_getElem_hole]
 grind_pattern results_subset_results_plug => (C.plug I).results
@@ -155,7 +155,7 @@ def embedPlugAux (p : I.PC) (C : MultiContext ι n) (hC : .inr p.hole ∈ C) : (
         (embedPlugAux p C (by grind)).appendRight
 
 open InstSeq (PC) in
-def embedPlug [SSA ι σ ν] (I : Pattern ι n) (C : MultiContext ι n) (hC : C.Complete) :
+def embedPlug (I : Pattern ι n) (C : MultiContext ι n) (hC : C.Complete) :
     I.collapse.EmbedIn (C.plug I) where
   map p :=
     let p : I.PC := .ofCollapse p
@@ -205,7 +205,7 @@ def embedPlug [SSA ι σ ν] (I : Pattern ι n) (C : MultiContext ι n) (hC : C.
             apply PC.appendLeft_neq_appendRight _ _ h.symm
           · grind
 
-def noShadowing_pattern_of_plug_noShadowing [SSA ι σ ν] {n} {C : MultiContext ι n} {I : Pattern ι n}
+def noShadowing_pattern_of_plug_noShadowing {n} {C : MultiContext ι n} {I : Pattern ι n}
     (hC : C.Complete) :
     (C.plug I).NoShadowing → I.NoShadowing := by
   simp only [InstSeq.noShadowing_iff, ne_eq]

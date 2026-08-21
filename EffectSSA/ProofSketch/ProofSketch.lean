@@ -40,14 +40,28 @@ structure SEnv (ι) {σ ν} [ssa : SSA ι σ ν] : Type where
   state : σ := ssa.initialState
 
 /-! ### Defs -/
+variable [SSA ι σ ν]
 
-class SSADenote (ι : Type) (σ ν : outParam Type) extends SSA ι σ ν where
-  [instDenote : Denote ι (SEnv ι → SEnv ι)]
-
-attribute [implicit_reducible, instance] SSADenote.instDenote
-
-variable [SSADenote ι σ ν]
-
+/--
+The denotation of an `Inst`struction looks up the values of the declared
+arguments from the context `ρ`, then passes it to the denotation of the
+contained `opCode`, and updates the environment with the resulting values.
+-/
+instance : Denote (Inst ι) (SEnv ι → SEnv ι) where
+  denote i ρ :=
+    let ρ? : Option (SEnv ι) := do
+      let args ← i.args.mapM ρ.regs
+      let results := ⟦i.opCode⟧ args
+      if results.length != i.results.length then
+        none
+      else
+        return { ρ with
+          regs x :=
+            match i.results.idxOf? x with
+            | some idx => results[idx]?
+            | none => ρ.regs x
+        }
+    ρ?.getD ρ
 /--
 An `InstSeq` is evaluated by evaluating each instruction in turn,
 threading the environment through.
@@ -72,7 +86,7 @@ theorem InstSeq.denote_eq {is : InstSeq ι} :
 @[simp, grind =] theorem InstSeq.denote_nil : ⟦([] : InstSeq ι)⟧ = (id : SEnv ι → SEnv ι) := by rfl
 @[simp, grind =] theorem InstSeq.denote_nil_apply (ρ : SEnv ι) : ⟦([] : InstSeq ι)⟧ ρ = ρ := by rfl
 
-@[simp, grind =] theorem InstSeq.denote_cons {i : ι} {is : InstSeq ι} :
+@[simp, grind =] theorem InstSeq.denote_cons {i : Inst ι} {is : InstSeq ι} :
     ⟦i ;> is⟧ = fun (ρ : SEnv ι) => ⟦is⟧ (⟦i⟧ ρ) := by rfl
 
 @[simp, grind =] theorem InstSeq.denote_append (is js : InstSeq ι) :
@@ -95,8 +109,9 @@ theorem Pattern.denote_cons  (is : InstSeq ι) (I : Pattern ι n) :
 variable {x : VarId}
 
 /-- Instructions only modify the registers in their `results` set. -/
-@[grind .] axiom Inst.regs_denote_of_not_mem_results (i : ι) {x : VarId} {ρ : SEnv ι}
-    (h : x ∉ SSA.results i) : (⟦i⟧ ρ).regs x = ρ.regs x
+@[grind .] axiom Inst.regs_denote_of_not_mem_results (i : Inst ι) {x : VarId} {ρ : SEnv ι}
+    (h : x ∉ i.results) : (⟦i⟧ ρ).regs x = ρ.regs x
+  -- TODO: ^^ this result should now be provable
 
 @[grind =] theorem InstSeq.regs_denote_of_not_mem_results {is : InstSeq ι} {ρ : SEnv ι}
     (h : x ∉ is.results) :
@@ -116,18 +131,18 @@ variable (C : MultiContext ι n)
 instance : Denote (MultiContext ι n) (HoleEnv ι n → SEnv ι → SEnv ι) where
   denote C η := C.foldl <| fun (ρ : SEnv ι) i =>
                   match i with
-                  | .inl (i : ι) => ⟦i⟧ ρ
+                  | .inl (i : Inst ι) => ⟦i⟧ ρ
                   | .inr (h : Hole n) => ⟦η h⟧ ρ
 
 theorem denote_eq : ⟦C⟧ = fun (η : HoleEnv ι n) => C.foldl (fun (ρ : SEnv ι) i =>
                                       match i with
-                                      | .inl (i : ι) => ⟦i⟧ ρ
+                                      | .inl (i : Inst ι) => ⟦i⟧ ρ
                                       | .inr (h : Hole n) => ⟦η h⟧ ρ) := rfl
 
 @[simp, grind =]
 theorem denote_nil' : ⟦([] : MultiContext ι n)⟧ η = (id : SEnv ι → SEnv ι) := rfl
 
-@[simp, grind =] theorem denote_cons_inst' (i : ι) :
+@[simp, grind =] theorem denote_cons_inst' (i : Inst ι) :
     ⟦(Sum.inl i :: C : MultiContext ι n)⟧ = fun η ρ => ⟦C⟧ η (⟦i⟧ ρ) := by rfl
 
 @[simp, grind =] theorem denote_cons_hole' (h : Hole n) :
@@ -143,7 +158,7 @@ theorem denote_plug : ⟦C.plug I⟧ = ⟦C⟧ (I[·]) := by
 end MultiContext
 end Semantics
 
-variable [SSADenote ι σ ν]
+variable [SSA ι σ ν]
 
 /-!
 ## Environment Equivalence
@@ -225,7 +240,7 @@ section RefineCongr
 Each instruction's semantics preserves refinement.
 In other words, the semantics are *monotone* w.r.t. the refinement relation.
 -/
-@[grind .] axiom Inst.denote_isRefinedBy_congr {ρ₁ ρ₂ : SEnv ι} (hρ : ρ₁ ⊒ ρ₂) (i : ι) :
+@[grind .] axiom Inst.denote_isRefinedBy_congr {ρ₁ ρ₂ : SEnv ι} (hρ : ρ₁ ⊒ ρ₂) (i : Inst ι) :
     ⟦i⟧ ρ₁ ⊒ ⟦i⟧ ρ₂
 
 @[grind .] theorem InstSeq.denote_isRefinedBy_congr {ρ₁ ρ₂ : SEnv ι} (hρ : ρ₁ ⊒ ρ₂) (is : InstSeq ι) :
@@ -247,8 +262,8 @@ end Refine
 -/
 section EqnLemma
 
-def Inst.EqnLemma (i : ι) (x : VarId) (ρ : SEnv ι) : Prop :=
-  x ∈ SSA.results i → (⟦i⟧ ρ).regs x = ρ.regs x
+def Inst.EqnLemma (i : Inst ι) (x : VarId) (ρ : SEnv ι) : Prop :=
+  x ∈ i.results → (⟦i⟧ ρ).regs x = ρ.regs x
 
 @[grind] def InstSeq.EqnLemma (is : InstSeq ι) (x : VarId) (ρ : SEnv ι) : Prop :=
   ∀ i ∈ is, Inst.EqnLemma i x ρ
@@ -265,8 +280,8 @@ We say that an instruction `i` has a well-behaved equation lemma when:
 * executing `i` is guaranteed to yield an environment that satisfies its
   own equation lemma
 -/
-structure Inst.HasEqn (i : ι) : Prop where
-  stable : ∀ x ρ, Inst.EqnLemma i x ρ → ∀ j : ι, x ∉ SSA.results j → Inst.EqnLemma i x (⟦j⟧ ρ)
+structure Inst.HasEqn (i : Inst ι) : Prop where
+  stable : ∀ x ρ, Inst.EqnLemma i x ρ → ∀ j : Inst ι, x ∉ j.results → Inst.EqnLemma i x (⟦j⟧ ρ)
   idempotent : ∀ x ρ, Inst.EqnLemma i x (⟦i⟧ ρ)
 
 @[grind] def InstSeq.HasEqn (is : InstSeq ι) : Prop :=
@@ -276,11 +291,11 @@ structure Inst.HasEqn (i : ι) : Prop where
   ∀ i ∈ I, InstSeq.HasEqn i
 
 section Lemmas
-variable {i : ι} {is : InstSeq ι} {I : Pattern ι n}
+variable {i : Inst ι} {is : InstSeq ι} {I : Pattern ι n}
 
 /-! vacuous -/
 
-@[grind =>] theorem Inst.eqnLemma_of_not_mem_results {ρ : SEnv ι} (hx : x ∉ SSA.results i) :
+@[grind =>] theorem Inst.eqnLemma_of_not_mem_results {ρ : SEnv ι} (hx : x ∉ i.results) :
     EqnLemma i x ρ := by
   grind [EqnLemma]
 
@@ -301,7 +316,7 @@ variable (I : Pattern ι n) (is : InstSeq ι)
     InstSeq.EqnLemma ([] : InstSeq ι) x ρ := by
   grind [InstSeq.EqnLemma]
 
-@[simp, grind =] theorem InstSeq.EqnLemma_cons {i : ι} {is : InstSeq ι} {ρ : SEnv ι} :
+@[simp, grind =] theorem InstSeq.EqnLemma_cons {i : Inst ι} {is : InstSeq ι} {ρ : SEnv ι} :
     InstSeq.EqnLemma (i ;> is) x ρ ↔ Inst.EqnLemma i x ρ ∧ InstSeq.EqnLemma is x ρ := by
   grind [InstSeq.EqnLemma]
 
@@ -332,7 +347,7 @@ another instruction `j`.
 -/
 @[grind =>]
 theorem InstSeq.eqnLemma_of_eqnLemma_inst {ρ : SEnv ι} (hEqn : HasEqn is) :
-    EqnLemma is x ρ → ∀ j : ι, x ∉ SSA.results j → EqnLemma is x (⟦j⟧ ρ) := by
+    EqnLemma is x ρ → ∀ j : Inst ι, x ∉ j.results → EqnLemma is x (⟦j⟧ ρ) := by
   grind
 
 /--
@@ -341,7 +356,7 @@ another instruction `j`.
 -/
 @[grind =>]
 theorem Pattern.eqnLemma_of_eqnLemma_inst {ρ : SEnv ι} (hEqn : HasEqn I) :
-    EqnLemma I x ρ → ∀ j : ι, x ∉ SSA.results j → EqnLemma I x (⟦j⟧ ρ) := by
+    EqnLemma I x ρ → ∀ j : Inst ι, x ∉ j.results → EqnLemma I x (⟦j⟧ ρ) := by
   grind
 
 /--
@@ -361,7 +376,7 @@ If `i.HasEqn`, then validity of the equation lemma is stable under the execution
 another sequence of instructions `js`.
 -/
 @[grind .]
-theorem Inst.eqnLemma_of_eqnLemma_instSeq {i : ι} {ρ : SEnv ι} (hi : HasEqn i) :
+theorem Inst.eqnLemma_of_eqnLemma_instSeq {i : Inst ι} {ρ : SEnv ι} (hi : HasEqn i) :
     EqnLemma i x ρ → ∀ js : InstSeq ι, x ∉ js.results → EqnLemma i x (⟦js⟧ ρ) := by
   intro heqn js hjs
   induction js generalizing ρ
@@ -370,7 +385,7 @@ theorem Inst.eqnLemma_of_eqnLemma_instSeq {i : ι} {ρ : SEnv ι} (hi : HasEqn i
 
 /-! denote lemmas -/
 
-@[grind =] theorem Inst.regs_denote_of_eqnLemma {i : ι} {ρ : SEnv ι}
+@[grind =] theorem Inst.regs_denote_of_eqnLemma {i : Inst ι} {ρ : SEnv ι}
     (h : EqnLemma i x ρ) : (⟦i⟧ ρ).regs x = ρ.regs x := by
   grind [EqnLemma]
 
@@ -414,7 +429,8 @@ abbrev Pattern.usesAt (v : VarId) (I : Pattern ι n) := I.collapse.usesAt v
 
 See `InstSeq.getDef?` for details.
 -/
-abbrev Pattern.getDef? (v : VarId) (I : Pattern ι n) : Option ι :=  I.collapse.getDef? v
+abbrev Pattern.getDef? (v : VarId) (I : Pattern ι n) :=
+  I.collapse.getDef? v
 
 /--
 `I.EqnLemmaUpTo h ρ` holds when `ρ` satisfies the equation lemma for all
@@ -520,7 +536,7 @@ private structure Residual (Γ : VarSet) (C : MultiContext ι n) (I : Pattern ι
   residual : ∀ x ∈ I.results, x ∉ Γ → (∃ h, .inr h ∈ C ∧ x ∈ I[h].results)
 
 namespace Residual
-variable {Γ : VarSet} {C : MultiContext ι n} {I : Pattern ι n} {i : ι} {h : Hole n}
+variable {Γ : VarSet} {C : MultiContext ι n} {I : Pattern ι n} {i : Inst ι} {h : Hole n}
 
 /-! invariants -/
 
@@ -528,7 +544,7 @@ private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Res
   grind [Pattern.mem_iff_getElem_hole]
 
 @[grind →] private theorem of_cons_inst :
-    Residual Γ (.inl i :: C) I → Residual (SSA.results i ∪ Γ) C I := by
+    Residual Γ (.inl i :: C) I → Residual (i.resultsSet ∪ Γ) C I := by
   rintro ⟨wf, residual⟩; constructor
   · grind
   · intro x; have := residual x; grind
@@ -573,7 +589,7 @@ induction, thus we keep the following invariant about `Γ`.
 
 
 namespace Invariant
-variable {Γ} {C : MultiContext ι n} {I : Pattern ι n} {ρ : SEnv ι} {i : ι}
+variable {Γ} {C : MultiContext ι n} {I : Pattern ι n} {ρ : SEnv ι} {i : Inst ι}
 
 private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Invariant ∅ C I { } := by
   have nsI : I.NoShadowing := by
@@ -582,9 +598,9 @@ private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Inv
   grind [Pattern.mem_iff_getElem_hole]
 
 private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
-    Invariant Γ (.inl i :: C) I ρ → Invariant (SSA.results i ∪ Γ) C I (⟦i⟧ ρ) := by
+    Invariant Γ (.inl i :: C) I ρ → Invariant (i.resultsSet ∪ Γ) C I (⟦i⟧ ρ) := by
   rintro ⟨residual, closed, eqn, nsI⟩
-  have : ∀ x ∈ SSA.results i, x ∉ I.results := by
+  have : ∀ x ∈ i.resultsSet, x ∉ I.results := by
     intro x hx hxI
     have : x ∉ (C.plug I).results := by grind
     obtain ⟨h, hhC, hhx⟩ : ∃ h, Sum.inr h ∈ C ∧ x ∈ I[h].results := by
@@ -611,13 +627,13 @@ private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
     | nil => grind
     | cons i is ih =>
         have his : is ⊆ I.collapse := by grind
-        have hΔ' : is.args ⊆ SSA.results i ∪ Δ := by grind
+        have hΔ' : is.args ⊆ i.resultsSet ∪ Δ := by grind
         specialize ih his _ hΔ'
         specialize ih <| by -- prove closedness
           clear ih
           intro x hx y hy
           by_cases x ∈ Δ; grind
-          have : x ∈ SSA.results i := by grind
+          have : x ∈ i.resultsSet := by grind
           · rw [InstSeq.mem_usesAt'] at hy
             obtain ⟨j, hj, hxj, hy⟩ := hy
             obtain rfl : i = j := by
@@ -625,7 +641,7 @@ private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
               have hj : j ∈ I.collapse := by grind
               apply InstSeq.eq_of_not_disjoint_results_of_noShadowing hi hj nsI
               grind
-            rcases hy with ( (hy : y ∈ SSA.args i) | ⟨z, hzi, hyz⟩ )
+            rcases hy with ( (hy : y ∈ i.argsSet) | ⟨z, hzi, hyz⟩ )
             · have : y ∈ Δ := by grind
               grind
             · grind

@@ -11,7 +11,7 @@ namespace EffectSSA.ProofSketch
 open VarSet
 open ITree
 
-public abbrev InstSeq ι := List ι
+public abbrev InstSeq ι := List (Inst ι)
 
 
 /-!
@@ -22,7 +22,7 @@ We then also include custom induction & cases principle for the same purpose.
 -/
 section Cons
 
-@[grind, match_pattern] public abbrev InstSeq.cons : ι → InstSeq ι → InstSeq ι :=
+@[grind, match_pattern] public abbrev InstSeq.cons : Inst ι → InstSeq ι → InstSeq ι :=
   (· :: ·)
 
 scoped infixl:67 " ;> " => InstSeq.cons
@@ -32,13 +32,13 @@ namespace InstSeq
 @[induction_eliminator, elab_as_elim]
 public noncomputable def rec {motive : InstSeq ι → Sort u} :
     (nil : motive []) →
-    (cons : (head : ι) → (tail : InstSeq ι) → motive tail → motive (head ;> tail)) →
+    (cons : (head : Inst ι) → (tail : InstSeq ι) → motive tail → motive (head ;> tail)) →
     ∀ is, motive is := List.rec
 
 @[cases_eliminator, elab_as_elim]
 public noncomputable def cases {motive : InstSeq ι → Sort u}
     (nil : motive [])
-    (cons : (head : ι) → (tail : InstSeq ι) → motive (head ;> tail)) :
+    (cons : (head : Inst ι) → (tail : InstSeq ι) → motive (head ;> tail)) :
     ∀ is, motive is :=
   (List.casesOn · nil cons)
 
@@ -47,7 +47,7 @@ end Cons
 
 namespace InstSeq
 
-variable {ι σ ν} [SSA ι σ ν]
+variable {ι : Type}
 variable {ε : Type} {κ : ε → Type} [Effect ε κ]
 
 /-!
@@ -66,15 +66,14 @@ public def denote : (is : InstSeq ι) → ITree (InstEff ι) Unit
 ## Variables
 -/
 noncomputable section Vars
-open SSA (args results)
 
 @[grind]
 def argsResults : InstSeq ι → VarSet × VarSet := go ∅ ∅
 where go (A R : VarSet)
   | [] => (A, R)
   | i ;> is =>
-    let A := A ∪ (args i - R)
-    let R := R ∪ results i
+    let A := A ∪ (i.argsSet - R)
+    let R := R ∪ i.resultsSet
     go A R is
 
 /--
@@ -91,7 +90,7 @@ public def results (is : InstSeq ι) : VarSet :=
   is.argsResults.2
 
 section Lemmas
-variable {i : ι} {is : InstSeq ι}
+variable {i : Inst ι} {is : InstSeq ι}
 attribute [local grind] results args argsResults argsResults.go
 
 @[grind =] theorem argsResults_go_fst (A R : VarSet) :
@@ -103,7 +102,7 @@ attribute [local grind] results args argsResults argsResults.go
 
 @[simp, grind =] public theorem args_nil : args ([] : InstSeq ι) = ∅ := by rfl
 @[simp, grind =] public theorem args_cons :
-    args (i ;> is) = SSA.args i ∪ (args is - SSA.results i) := by
+    args (i ;> is) = i.argsSet ∪ (args is - i.resultsSet) := by
   show (argsResults.go ..).fst = _; grind
 
 @[grind =] theorem argsResults_go_snd : (argsResults.go A R is).2 = R ∪ is.results := by
@@ -113,21 +112,21 @@ attribute [local grind] results args argsResults argsResults.go
   induction is generalizing A R <;> grind
 
 @[simp, grind =] public theorem results_nil  : results ([] : InstSeq ι) = ∅ := by rfl
-@[simp, grind =] public theorem results_cons : results (i ;> is) = SSA.results i ∪ is.results := by
+@[simp, grind =] public theorem results_cons : results (i ;> is) = i.resultsSet ∪ is.results := by
   show (argsResults.go ..).snd = _; grind
 
 @[simp, grind =] public theorem results_append {xs ys : InstSeq ι} :
     results (xs ++ ys) = xs.results ∪ ys.results := by
   induction xs <;> grind
 
-@[grind =] public theorem mem_results_iff : x ∈ is.results ↔ ∃ i ∈ is, x ∈ SSA.results i := by
+@[grind =] public theorem mem_results_iff : x ∈ is.results ↔ ∃ i ∈ is, x ∈ i.resultsSet := by
   induction is <;> grind
 
-@[grind →] public theorem mem_results_of_mem_inst {x : VarId} (hi : i ∈ is) (hx : x ∈ SSA.results i) :
+@[grind →] public theorem mem_results_of_mem_inst {x : VarId} (hi : i ∈ is) (hx : x ∈ i.resultsSet) :
     x ∈ is.results := by
   grind
 
-@[grind →] public theorem results_subset_of_mem (h : i ∈ is) : SSA.results i ⊆ is.results := by
+@[grind →] public theorem results_subset_of_mem (h : i ∈ is) : i.resultsSet ⊆ is.results := by
   grind
 
 /--
@@ -137,7 +136,7 @@ free (thus in `is.args`), or might refer to the result of an earlier instruction
 the latter we over-approximate by the results of all instructions (`is.results`)
 -/
 @[grind →] public theorem args_subset_of_mem (h : i ∈ is) :
-    SSA.args i ⊆ is.args ∪ is.results := by
+    i.argsSet ⊆ is.args ∪ is.results := by
   induction is <;> grind
 
 end Lemmas
@@ -145,14 +144,14 @@ end Lemmas
 /-! ### getDef / usesAt  -/
 
 /--
-`is.getDef? v` returns an instruction `i ∈ is` s.t. `v ∈ i.results`,
+`is.getDef? v` returns an instruction `i ∈ is` s.t. `v ∈ i.resultsSet`,
 or `none` if no such instruction exists
 -/
 public noncomputable def getDef? (v : VarId) : (is : InstSeq ι) → Option { i // i ∈ is ∧ v ∈ is.results }
   | [] => none
   | i ;> is =>
       open Classical in
-      if hi : v ∈ SSA.results i then
+      if hi : v ∈ i.resultsSet then
         some ⟨i, by grind⟩
       else
         (getDef? v is).map (fun ⟨i, hi⟩ => ⟨i, by grind⟩)
@@ -160,8 +159,8 @@ public noncomputable def getDef? (v : VarId) : (is : InstSeq ι) → Option { i 
 /-- `is.UsesAt y x` is true when `y` is a (transitive) dependency of `x`. -/
 @[grind cases]
 public inductive UsesAt (is : InstSeq ι) (y : VarId) : VarId → Prop
-  | arg  : i ∈ is → x ∈ SSA.results i → y ∈ SSA.args i → UsesAt is y x
-  | trans : i ∈ is → x ∈ SSA.results i → z ∈ SSA.args i → UsesAt is y z → UsesAt is y x
+  | arg  : i ∈ is → x ∈ i.resultsSet → y ∈ i.argsSet → UsesAt is y x
+  | trans : i ∈ is → x ∈ i.resultsSet → z ∈ i.argsSet → UsesAt is y z → UsesAt is y x
 
 /--
 `is.usesAt v` is the set of all transitive arguments that are used to compute
@@ -183,7 +182,7 @@ variable {is : InstSeq ι}
   simp [usesAt]
 
 public theorem mem_usesAt' :
-    y ∈ is.usesAt x ↔ ∃ i ∈ is, x ∈ SSA.results i ∧ (y ∈ SSA.args i ∨ ∃ z ∈ SSA.args i, y ∈ is.usesAt z) := by
+    y ∈ is.usesAt x ↔ ∃ i ∈ is, x ∈ i.resultsSet ∧ (y ∈ i.argsSet ∨ ∃ z ∈ i.argsSet, y ∈ is.usesAt z) := by
   constructor
   · grind
   · simp only [mem_usesAt, forall_exists_index, and_imp]
@@ -233,7 +232,7 @@ structure PC (is : InstSeq ι) : Type where
   isLt := i.isLt
 
 /-- Get the instruction at the specified location. -/
-@[expose] def PC.get (pc : is.PC) : ι := is[pc.idx]'pc.isLt
+@[expose] def PC.get (pc : is.PC) : Inst ι := is[pc.idx]'pc.isLt
 
 section Lemmas
 
@@ -260,8 +259,8 @@ namespace PC
 
 /-! cases principle -/
 
-@[grind] def zero {i : ι} {is : InstSeq ι} : PC (i ;> is) where idx := 0
-@[grind] def succ {i : ι} {is : InstSeq ι} (p : PC is) : PC (i ;> is) where idx := p.idx + 1
+@[grind] def zero {i : Inst ι} {is : InstSeq ι} : PC (i ;> is) where idx := 0
+@[grind] def succ {i : Inst ι} {is : InstSeq ι} (p : PC is) : PC (i ;> is) where idx := p.idx + 1
 
 @[grind =, simp] theorem get_zero : (@zero _ i is).get = i := by rfl
 @[grind =, simp] theorem get_succ (p : PC is) :
@@ -358,7 +357,7 @@ public section Embed
 structure EmbedIn (is js : InstSeq ι) where
   map : is.PC → js.PC
   get_map : ∀ i, (map i).get = i.get
-  inj : ∀ i j : is.PC, i ≠ j → SSA.results i.get ≠ ∅ → SSA.results j.get ≠ ∅ → map i ≠ map j
+  inj : ∀ i j : is.PC, i ≠ j → i.get.resultsSet ≠ ∅ → j.get.resultsSet ≠ ∅ → map i ≠ map j
 
 -- `f : is.EmbedIn js` can be used a function
 instance {is js : InstSeq ι} : CoeFun (is.EmbedIn js) (fun _ => is.PC → js.PC) where
@@ -395,8 +394,8 @@ resulting variable.
 -/
 inductive NoShadowing : InstSeq ι → Prop
   | nil : NoShadowing []
-  | cons {i : ι} {is : InstSeq ι} :
-      (SSA.results i).Disjoint is.results → NoShadowing is
+  | cons {i : Inst ι} {is : InstSeq ι} :
+      i.resultsSet.Disjoint is.results → NoShadowing is
       → NoShadowing (i ;> is)
 
 /--
@@ -430,7 +429,7 @@ attribute [local grind] WellFormed NoShadowing
 
 @[grind ., simp] theorem noShadowing_nil : NoShadowing ([] : InstSeq ι) := by grind
 @[grind =, simp] theorem noShadowing_cons :
-    NoShadowing (i ;> is) ↔ (SSA.results i).Disjoint is.results ∧ NoShadowing is := by grind
+    NoShadowing (i ;> is) ↔ i.resultsSet.Disjoint is.results ∧ NoShadowing is := by grind
 
 @[grind =, simp] theorem noShadowing_append :
     NoShadowing (is ++ js) ↔ is.results.Disjoint js.results ∧ is.NoShadowing ∧ js.NoShadowing := by
@@ -439,7 +438,7 @@ attribute [local grind] WellFormed NoShadowing
 @[grind ., simp] theorem wellFormed_nil : WellFormed Γ ([] : InstSeq ι) := by grind
 @[grind =, simp] theorem wellFormed_cons :
     WellFormed Γ (i ;> is) ↔
-      SSA.args i ⊆ Γ ∧ Γ.Disjoint (SSA.results i) ∧ is.WellFormed (SSA.results i ∪ Γ) := by
+      i.argsSet ⊆ Γ ∧ Γ.Disjoint (i.resultsSet) ∧ is.WellFormed (i.resultsSet ∪ Γ) := by
   constructor
   · rintro ⟨⟩
     and_intros
@@ -464,7 +463,7 @@ section PC
 
 theorem noShadowing_iff :
     is.NoShadowing ↔ ∀ (i j : is.PC), i ≠ j →
-      (SSA.results i.get).Disjoint (SSA.results j.get) := by
+      i.get.resultsSet.Disjoint j.get.resultsSet := by
   induction is
   case nil => grind
   case cons i is ih =>
@@ -476,11 +475,11 @@ theorem noShadowing_iff :
       cases j <;> cases k <;> grind
     · intro h
       and_intros
-      · suffices ∀ j ∈ is, (SSA.results i).Disjoint (SSA.results j) by grind
-        suffices ∀ j : is.PC, (SSA.results i).Disjoint (SSA.results j.get) by grind
+      · suffices ∀ j ∈ is, i.resultsSet.Disjoint j.resultsSet by grind
+        suffices ∀ j : is.PC, i.resultsSet.Disjoint j.get.resultsSet by grind
         intro j
         simpa using h .zero j.succ (by grind)
-      · suffices ∀ (i j : is.PC), i ≠ j → (SSA.results i.get).Disjoint (SSA.results j.get) by grind
+      · suffices ∀ (i j : is.PC), i ≠ j → i.get.resultsSet.Disjoint j.get.resultsSet by grind
         intro j k hjk
         simpa using h j.succ k.succ (by grind)
 
@@ -491,15 +490,15 @@ section ResultLemmas
 
 @[grind <=]
 theorem results_disjoint_of_mem_of_noShadowing (hi : i ∈ is) (hj : j ∈ is) (wf : is.NoShadowing) :
-    i ≠ j → (SSA.results i).Disjoint (SSA.results j) := by
+    i ≠ j → i.resultsSet.Disjoint j.resultsSet := by
   induction is <;> grind
 
-theorem eq_of_not_disjoint_results_of_noShadowing {i j : ι}
+theorem eq_of_not_disjoint_results_of_noShadowing {i j : Inst ι}
     (hi : i ∈ is) (hj : j ∈ is) (wf : is.NoShadowing) :
-    ¬((SSA.results i).Disjoint (SSA.results j)) → i = j := by
+    ¬(i.resultsSet.Disjoint j.resultsSet) → i = j := by
   induction is <;> grind
 grind_pattern eq_of_not_disjoint_results_of_noShadowing =>
-  (SSA.results i).Disjoint (SSA.results j), i ∈ is, j ∈ is, is.NoShadowing
+  (i.resultsSet).Disjoint (j.resultsSet), i ∈ is, j ∈ is, is.NoShadowing
   -- ^^ TODO: this pattern seems overly specific, maybe I could drop the Disjoint pattern
 
 end ResultLemmas

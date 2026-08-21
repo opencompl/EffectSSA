@@ -12,37 +12,24 @@ We assume some type `Inst` of instructions.
 public section
 namespace EffectSSA.ProofSketch
 
-/-- `Inst` is the type of instructions. -/
-axiom Inst : Type
+/-- `Inst` is the type of instructions, with arguments and resulting variable binders. -/
+structure Inst (ι : Type) where
+  opCode : ι
+  args : List VarId
+  results : List VarId
+  deriving DecidableEq
 
 namespace Inst
 
-@[instance] axiom decideEq : DecidableEq Inst
+/-! ### VarSet Views -/
 
-/-!
-## Variables
--/
-section Vars
+noncomputable def argsSet (i : Inst ι) : VarSet := VarSet.setOf (· ∈ i.args)
+noncomputable def resultsSet (i : Inst ι) : VarSet := VarSet.setOf (· ∈ i.results)
 
-/-- `i.args` is the set of arguments of instruction `i`. -/
-axiom args : Inst → VarSet
+@[simp, grind =] theorem mem_argsSet {v : VarId} {i : Inst ι} :
+    v ∈ i.argsSet ↔ v ∈ i.args := VarSet.mem_setOf
 
-/-- `i.results` is the set of results of instruction `i`. -/
-axiom results : Inst → VarSet
-
-end Vars
-
-/-!
-## SSA Instance
--/
-
-/-- The type of runtime values. -/
-axiom Val : Type
-
-/-- The type of global runtime state (e.g., memory). -/
-axiom State : Type
-
-/-- `SSA` instance for the concrete `Inst` type. -/
-@[instance] axiom instSSA : SSA Inst State Val
+@[simp, grind =] theorem mem_resultsSet {v : VarId} {i : Inst ι} :
+    v ∈ i.resultsSet ↔ v ∈ i.results := VarSet.mem_setOf
 
 end Inst

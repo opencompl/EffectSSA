@@ -77,8 +77,8 @@ instance : Membership (InstSeq ι) (Pattern ι n) where
 
 /-! ### Variables -/
 
-noncomputable abbrev args [SSA ι σ ν] (I : Pattern ι n) := I.collapse.args
-noncomputable abbrev results [SSA ι σ ν] (I : Pattern ι n) := I.collapse.results
+noncomputable abbrev args (I : Pattern ι n) := I.collapse.args
+noncomputable abbrev results (I : Pattern ι n) := I.collapse.results
 
 /-! ### Pattern Lemmas -/
 section Lemmas
@@ -275,7 +275,7 @@ theorem mem_iff_getElem_hole : i ∈ I ↔ ∃ (h : Hole n), i = I[h] := by
 end Mem
 
 section Results
-variable {I : Pattern ι n} {is : InstSeq ι} {x : VarId} [SSA ι σ ν]
+variable {I : Pattern ι n} {is : InstSeq ι} {x : VarId}
 
 @[grind =] theorem mem_results_iff : x ∈ I.results ↔ ∃ is ∈ I, x ∈ is.results := by
   induction I <;> grind
@@ -309,7 +309,7 @@ variable {I : Pattern ι n}
 /-! ### Defs -/
 
 @[inherit_doc InstSeq.PC.get]
-abbrev get (p : I.PC) : ι := p.pc.get
+abbrev get (p : I.PC) : Inst ι := p.pc.get
 
 def ofHeadPC [NeZero n] (p : I.head.PC) : I.PC :=
   ⟨(0 : Fin n), p⟩
@@ -392,7 +392,6 @@ end PC
 
 /-! ## Pattern WellFormedness -/
 section WellFormed
-variable [SSA ι σ ν]
 
 @[inherit_doc InstSeq.NoShadowing]
 abbrev NoShadowing (I : Pattern ι n) := I.collapse.NoShadowing

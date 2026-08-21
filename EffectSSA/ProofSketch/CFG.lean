@@ -33,7 +33,7 @@ axiom Term : Type
 
 structure Block (n : Nat) where
   args : List VarId
-  code : MultiContext Inst n
+  code : MultiContext OpCode n
   term : Term
 
 /--
@@ -54,16 +54,16 @@ end Types
 
 structure Branch where
   target : BlockId
-  args : List Inst.Val
+  args : List Val
 
 structure ReturnVals where
-  toList : List Inst.Val
+  toList : List Val
 
-axiom Term.denote : Term → ITree (InterpEff Inst.Val) (Branch ⊕ ReturnVals)
+axiom Term.denote : Term → ITree (InterpEff Val) (Branch ⊕ ReturnVals)
 
 noncomputable
-def Block.denote (b : Block n) (bId : BlockId) (args : List Inst.Val) :
-    ITree (OpaqueCtxEff Inst) (Branch ⊕ ReturnVals) := do
+def Block.denote (b : Block n) (bId : BlockId) (args : List Val) :
+    ITree (OpaqueCtxEff OpCode) (Branch ⊕ ReturnVals) := do
   unless b.args.length = args.length do
     raiseError s!"Block {bId} expected {b.args.length} arguments, but got {args.length}"
   (b.args.zip args).forM (fun (var, val) => pushVar var val)
@@ -72,7 +72,7 @@ def Block.denote (b : Block n) (bId : BlockId) (args : List Inst.Val) :
   liftM <| b.term.denote -- denote the block terminator
 
 noncomputable
-def ContextCFG.denote (C : ContextCFG n) : ITree (OpaqueCtxEff Inst) ReturnVals :=
+def ContextCFG.denote (C : ContextCFG n) : ITree (OpaqueCtxEff OpCode) ReturnVals :=
   ITree.iter step ⟨C.entryId, []⟩
 where
   step := fun (⟨bId, args⟩ : Branch) => do
@@ -80,7 +80,7 @@ where
     b.denote bId args
 
 noncomputable
-def ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ InstEff Inst) Unit) :
+def ContextCFG.interp (C : ContextCFG n) (f : Hole n → ITree (ErrUB ⊕ InstEff OpCode) Unit) :
     (ITree (SideEff ⊕ ErrUB)) ReturnVals := do
   interpAll (f · |>.lift) C.denote
 
@@ -99,7 +99,7 @@ attribute [simp, grind .] entryId_mem_blocks
 /-! ### Plug -/
 section Plug
 
-def plug (C : ContextCFG n) (I : Pattern Inst n) : ProgramCFG :=
+def plug (C : ContextCFG n) (I : Pattern OpCode n) : ProgramCFG :=
   { C with
     blocks := C.blocks.map fun _ block => { block with
       code := MultiContext.ofSeq (block.code.plug I)
