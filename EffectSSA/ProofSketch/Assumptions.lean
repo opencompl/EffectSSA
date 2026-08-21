@@ -9,7 +9,7 @@ public section
 
 class SSA (ι : Type) (σ : outParam Type) (ν : outParam Type) : Type where
   [decidableEq : DecidableEq ι]
-  [instDenote : Denote ι (List ν → List ν)]
+  [instDenote : Denote ι (σ → List ν → σ × List ν)]
   initialState : σ
   [stateRefine : Refinement σ]
   [valRefine : Refinement ν]
