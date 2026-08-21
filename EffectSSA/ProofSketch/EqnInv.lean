@@ -5,6 +5,8 @@ public import EffectSSA.ProofSketch.ProofSketch
 namespace EffectSSA.ProofSketch
 public section
 
+variable [SSA ι σ ν]
+
 namespace Inst
 
 /-!
@@ -16,8 +18,8 @@ section Axioms
 The semantics of an instruction may depend only on those variable declared
 as arguments.
 -/
-axiom denote_eq_of_args : ∀ i : Inst, ∀ ρ η : SEnv,
-  ρ.state = η.state → (∀ x ∈ i.args, ρ.regs x = η.regs x)
+axiom denote_eq_of_args : ∀ i : Inst ι, ∀ ρ η : SEnv ι,
+  ρ.state = η.state → (∀ x ∈ i.args, ρ.locals x = η.locals x)
   → ⟦i⟧ ρ = ⟦i⟧ η
 
 end Axioms
@@ -30,24 +32,22 @@ end Axioms
 An individual instruction is well-formed, when it doesn't use its own result
 as an argument.
 -/
-def WellFormed (i : Inst) :=
-  i.args.Disjoint i.results
+def WellFormed (i : Inst ι) :=
+  ∀ x ∈ i.args, x ∉ i.results
 
 /-!
 ## Main Definitions
 -/
 
--- TODO: the `SEnv.regs` field should be renamed to `SEnv.local`
-
-def EqnInv (i : Inst) (ρ : SEnv) : Prop :=
+def EqnInv (i : Inst ι) (ρ : SEnv ι) : Prop :=
   ∀ x ∈ i.results,
-    (⟦i⟧ ρ).regs x = ρ.regs x
+    (⟦i⟧ ρ).locals x = ρ.locals x
 
-structure WellBehaved (i : Inst) where
+structure WellBehaved (i : Inst ι) where
   stable :
-    ∀ ρ, ∀ j : Inst,
-      i.results.Disjoint j.results
-      → i.args.Disjoint j.results
+    ∀ ρ, ∀ j : Inst ι,
+      (∀ x ∈ i.results, x ∉ j.results)
+      → (∀ x ∈ i.args, x ∉ j.results)
       → EqnInv i ρ → EqnInv i (⟦j⟧ ρ)
   idempotent: ∀ ρ, EqnInv i (⟦i⟧ ρ)
 
@@ -57,23 +57,23 @@ structure WellBehaved (i : Inst) where
 An instruction is *purely determined*, when it's effect on local registers
 as well how the state is modified, is determined purely from the local registers.
 -/
-def PurelyDet (i : Inst) : Prop :=
-  ∀ ρ η, ρ.regs = η.regs →
-    (⟦i⟧ ρ).regs = (⟦i⟧ η).regs
+def PurelyDet (i : Inst ι) : Prop :=
+  ∀ ρ η, ρ.locals = η.locals →
+    (⟦i⟧ ρ).locals = (⟦i⟧ η).locals
 
-theorem purelyDet_imp (i : Inst) :
-    i.PurelyDet → ∀ ρ η : SEnv, (∀ y ∈ i.args, ρ.regs y = η.regs y) →
-      ∀ x ∈ i.results, (⟦i⟧ ρ).regs x = (⟦i⟧ η).regs x := by
+theorem purelyDet_imp (i : Inst ι) :
+    i.PurelyDet → ∀ ρ η : SEnv ι, (∀ y ∈ i.args, ρ.locals y = η.locals y) →
+      ∀ x ∈ i.results, (⟦i⟧ ρ).locals x = (⟦i⟧ η).locals x := by
   intro pu ρ η hy x hx
-  let η' : SEnv := ⟨η.regs, ρ.state⟩
-  calc (⟦i⟧ ρ).regs x
-    _ = (⟦i⟧ η').regs x := by grind [denote_eq_of_args]
-    _ = (⟦i⟧ η).regs x := by grind [PurelyDet]
+  let η' : SEnv ι := { ρ with locals := η.locals }
+  calc (⟦i⟧ ρ).locals x
+    _ = (⟦i⟧ η').locals x := by grind [denote_eq_of_args]
+    _ = (⟦i⟧ η).locals x := by grind [PurelyDet]
 
 /--
 Every purely determined instruction, is well-behaved.
 -/
-theorem wellBehaved_of_purelyDet {i : Inst}
+theorem wellBehaved_of_purelyDet {i : Inst ι}
     (wf : i.WellFormed)
     (pu : i.PurelyDet) :
     i.WellBehaved := by
@@ -82,18 +82,18 @@ theorem wellBehaved_of_purelyDet {i : Inst}
     intro ρ j hres harg hρ
     intro x hx
     let η := ⟦j⟧ ρ
-    show (⟦i⟧ η).regs x = η.regs x
-    suffices (⟦i⟧ η).regs x = (⟦i⟧ ρ).regs x by
+    show (⟦i⟧ η).locals x = η.locals x
+    suffices (⟦i⟧ η).locals x = (⟦i⟧ ρ).locals x by
       have : x ∉ j.results := by grind
-      have : η.regs x = ρ.regs x := by grind
-      have : ρ.regs x = (⟦i⟧ ρ).regs x := by grind [EqnInv]
+      have : η.locals x = ρ.locals x := by grind
+      have : ρ.locals x = (⟦i⟧ ρ).locals x := by grind [EqnInv]
       grind
-    have : ∀ y ∈ i.args, η.regs y = ρ.regs y := by grind
+    have : ∀ y ∈ i.args, η.locals y = ρ.locals y := by grind
     apply purelyDet_imp <;> assumption
   · -- Idempotency
     intro ρ
     intro x hx
     let η := ⟦i⟧ ρ
-    show (⟦i⟧ η).regs x = (⟦i⟧ ρ).regs x
-    have : ∀ y ∈ i.args, η.regs y = ρ.regs y := by grind [WellFormed]
+    show (⟦i⟧ η).locals x = (⟦i⟧ ρ).locals x
+    have : ∀ y ∈ i.args, η.locals y = ρ.locals y := by grind [WellFormed]
     apply purelyDet_imp <;> assumption
