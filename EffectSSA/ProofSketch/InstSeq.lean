@@ -1,5 +1,6 @@
 module
 
+public import EffectSSA.ProofSketch.Inst
 public import EffectSSA.ProofSketch.VarSet
 public import EffectSSA.ProofSketch.Effect
 public import EffectSSA.ProofSketch.Assumptions
