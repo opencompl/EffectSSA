@@ -29,13 +29,19 @@ section Semantics
 
 /-! ### Definition -/
 
+structure LocalEnv (ι) {σ ν} [SSA ι σ ν] : Type where
+  get? : VarId → Option ν := fun _ => none
+
+instance [SSA ι σ ν] : CoeFun (LocalEnv ι) (fun _ => VarId → Option ν) where
+  coe := LocalEnv.get?
+
 /--
 A stateful environment `e : SEnv`
 bundles a pure environment with a global state.
 -/
 structure SEnv (ι) {σ ν} [ssa : SSA ι σ ν] : Type where
   /-- A partial map from local variables (i.e, virtual registers) to values. -/
-  locals : VarId → Option ν := fun _ => none
+  locals : LocalEnv ι := { }
   /-- The global state, e.g, for memory and UB -/
   state : σ := ssa.initialState
   /-- Whether an interpretation occurred (indicating a mallformed program). -/
@@ -45,18 +51,18 @@ structure SEnv (ι) {σ ν} [ssa : SSA ι σ ν] : Type where
 variable [SSA ι σ ν]
 
 /--
-`ρ.with? xs vs` returns the environment `ρ` with each variable `xs[i]`
+`ℓ.with? xs vs` returns the local environment `ℓ` with each variable `xs[i]`
 set to the corresponding value `vs[i]`,
 returining `none` if `xs` and `vs` are of different lengths.
 -/
-def SEnv.with? (ρ : SEnv ι) (xs : List VarId) (vs : List ν) : Option (SEnv ι) :=
+def LocalEnv.with? (ℓ : LocalEnv ι) (xs : List VarId) (vs : List ν) : Option (LocalEnv ι) :=
   if xs.length != vs.length then
     none
   else
-    some {ρ with locals x :=
+    some { get? x :=
       match xs.idxOf? x with
       | some idx => vs[idx]?
-      | none => ρ.locals x
+      | none => ℓ x
     }
 
 /--
@@ -68,9 +74,10 @@ instance : Denote (Inst ι) (SEnv ι → SEnv ι) where
   denote i ρ :=
     let ρ? : Option (SEnv ι) := do
       let args ← i.args.mapM ρ.locals
-      let results := ⟦i.opCode⟧ args
-      ρ.with? i.results results
-    ρ?.getD { ρ with error := true }
+      let (state, results) := ⟦i.opCode⟧ ρ.state args
+      let locals ← ρ.locals.with? i.results results
+      return { ρ with locals, state }
+    ρ?.getD { error := true }
 /--
 An `InstSeq` is evaluated by evaluating each instruction in turn,
 threading the environment through.
@@ -88,6 +95,15 @@ instance : Denote (Pattern ι n) (SEnv ι → SEnv ι) where
 
 /-! ### Properties -/
 section Properties
+
+theorem Inst.denote_eq {i : Inst ι} :
+    ⟦i⟧ ρ =
+      let ρ? : Option (SEnv ι) := do
+        let args ← i.args.mapM ρ.locals
+        let (state, results) := ⟦i.opCode⟧ ρ.state args
+        let locals ← ρ.locals.with? i.results results
+        return { ρ with locals, state }
+      ρ?.getD { error := true } := by rfl
 
 theorem InstSeq.denote_eq {is : InstSeq ι} :
     ⟦is⟧ = is.foldl (fun (ρ : SEnv ι) i => ⟦i⟧ ρ) := by rfl
