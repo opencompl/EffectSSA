@@ -502,6 +502,15 @@ grind_pattern eq_of_not_disjoint_results_of_noShadowing =>
   (i.resultsSet).Disjoint (j.resultsSet), i ∈ is, j ∈ is, is.NoShadowing
   -- ^^ TODO: this pattern seems overly specific, maybe I could drop the Disjoint pattern
 
+/-- corollary of `eq_of_not_disjoint_results_of_noShadowing` -/
+theorem eq_of_results_eq {i j : Inst ι}
+    (hi : i ∈ is) (hj : j ∈ is) (wf : is.NoShadowing) :
+    i.results = j.results → i.results ≠ [] → i = j := by
+  intro heq hne
+  apply eq_of_not_disjoint_results_of_noShadowing hi hj wf
+  simp only [Inst.resultsSet, heq, disjoint_self]
+  sorry
+
 end ResultLemmas
 
 /-! ### Sublist -/

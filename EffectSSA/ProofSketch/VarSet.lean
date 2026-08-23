@@ -65,6 +65,9 @@ instance : EmptyCollection VarSet where emptyCollection := empty
 def singleton (v : VarId) : VarSet := ofSet { v }
 instance : Singleton VarId VarSet where singleton := singleton
 
+def insert (v : VarId) (V : VarSet) : VarSet := ofSet (Set.insert v V.toSet)
+instance : Insert VarId VarSet where insert := insert
+
 def Mem (A : VarSet) (v : VarId) := v ∈ A.toSet
 instance : Membership VarId VarSet where mem := Mem
 
@@ -88,6 +91,11 @@ theorem ext (h : ∀ x, x ∈ A ↔ x ∈ B) : A = B := by
   show A.toSet = B.toSet
   ext x
   simpa using h x
+
+/-! ### mem -/
+
+@[simp, grind =] theorem mem_singleton : x ∈ ({ y } : VarSet) ↔ x = y := by rfl
+@[simp, grind =] theorem mem_insert : x ∈ (Insert.insert y A) ↔ x = y ∨ x ∈ A := by rfl
 
 /-! ### empty -/
 section Empty
