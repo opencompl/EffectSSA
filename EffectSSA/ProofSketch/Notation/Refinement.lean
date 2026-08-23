@@ -67,8 +67,7 @@ instance : Refinement (List α) where
     induction h₁ generalizing zs
     <;> cases h₂ <;> grind
 
-/-! ### Unit
--/
+/-! ### Unit -/
 
 /-- Trivial refinement instance on the unit type. -/
 instance : Refinement PUnit.{u} where
@@ -76,5 +75,16 @@ instance : Refinement PUnit.{u} where
 
 @[simp, grind .]
 theorem unit_isRefinedBy (u u' : PUnit.{u}) : u ⊒ u' := by grind
+
+/-! ### Fallback -/
+
+/--
+Default refinement instance for any type, where `x` is only refined by itself.
+
+Marked low-priority such that specific types may provide a better refinement
+instance, if available.
+-/
+instance (priority := low) : Refinement α where
+  IsRefinedBy x y := x = y
 
 end Instances
