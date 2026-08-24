@@ -547,7 +547,7 @@ variable {Γ : VarSet} {C : MultiContext ι n} {I : Pattern ι n} {i : Inst ι} 
 /-! invariants -/
 
 private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Residual ∅ C I := by
-  grind [Pattern.mem_iff_getElem_hole]
+  grind [Pattern.mem_iff_getElem_hole, MultiContext.Complete]
 
 @[grind →] private theorem of_cons_inst :
     Residual Γ (.inl i :: C) I → Residual (i.resultsSet ∪ Γ) C I := by
@@ -601,7 +601,7 @@ private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Inv
   have nsI : I.NoShadowing := by
     apply C.noShadowing_pattern_of_plug_noShadowing
     <;> grind
-  grind [Pattern.mem_iff_getElem_hole]
+  grind [Pattern.mem_iff_getElem_hole, MultiContext.Complete]
 
 private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
     Invariant Γ (.inl i :: C) I ρ → Invariant (i.resultsSet ∪ Γ) C I (⟦i⟧ ρ) := by

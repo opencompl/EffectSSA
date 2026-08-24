@@ -74,12 +74,13 @@ section Complete
 An `n`-ary context `C` is considered *complete* when each possible named hole `h : Hole n`
 occurs at least once in `C`.
 -/
-abbrev Complete (C : MultiContext ι n) : Prop :=
+def Complete (C : MultiContext ι n) : Prop :=
   ∀ (h : Hole n), (.inr h) ∈ C
 
 section Lemmas
 
-@[simp] theorem complete_cons_inst : Complete (.inl i :: C) ↔ Complete C := by grind
+@[simp] theorem complete_cons_inst : Complete (.inl i :: C) ↔ Complete C := by
+  grind [Complete]
 
 end Lemmas
 end Complete
@@ -132,7 +133,7 @@ variable {C C₁ C₂ : MultiContext ι n}
 
 @[grind =] theorem mem_plug_iff_of_complete (hC : C.Complete) (i : Inst ι) :
     i ∈ (C.plug I) ↔ (.inl i) ∈ C ∨ ∃ (h : Hole n), i ∈ I[h] := by
-  grind
+  grind [Complete]
 
 /--
 If context `C` is complete, then the results of pattern `I` are a subset of the
@@ -159,10 +160,10 @@ def embedPlug (I : Pattern ι n) (C : MultiContext ι n) (hC : C.Complete) :
     I.collapse.EmbedIn (C.plug I) where
   map p :=
     let p : I.PC := .ofCollapse p
-    embedPlugAux p C (by grind)
+    embedPlugAux p C (by grind [Complete])
   get_map p := by
     let p' : I.PC := .ofCollapse p
-    have hC' : .inr p'.hole ∈ C := by grind
+    have hC' : .inr p'.hole ∈ C := by grind [Complete]
     show (embedPlugAux p' C hC').get = p.get
     clear hC
     fun_induction embedPlugAux p' C hC'
@@ -177,8 +178,8 @@ def embedPlug (I : Pattern ι n) (C : MultiContext ι n) (hC : C.Complete) :
     let p' : I.PC := .ofCollapse p
     let q' : I.PC := .ofCollapse q
     have : p' ≠ q' := by grind
-    have hCp : .inr p'.hole ∈ C := by grind
-    have hCq : .inr q'.hole ∈ C := by grind
+    have hCp : .inr p'.hole ∈ C := by grind [Complete]
+    have hCq : .inr q'.hole ∈ C := by grind [Complete]
     show (embedPlugAux p' C hCp) ≠ (embedPlugAux q' C hCq)
     clear hC
     induction C
