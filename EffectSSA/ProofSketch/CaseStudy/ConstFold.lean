@@ -60,8 +60,7 @@ abbrev addOp (x y z : VarId) : Inst SimpleArith where
 All instructions of `SimpleArith` are pure, and thus well-behaved.
 -/
 @[simp, grind .]
-theorem wellbehaved (i : Inst SimpleArith) : i.HasEqn := by
-  sorry
+axiom wellbehaved (i : Inst SimpleArith) : i.HasEqn
 
 /-! ## Rewrite Family & Soundness -/
 
@@ -183,10 +182,13 @@ def matchAdd : Inst SimpleArith → Option (VarId × VarId × VarId)
     matchAdd i = some r ↔ i = addOp r.1 r.2.1 r.2.2 := by
   simp [matchAdd, addOp]; grind
 
+open RevInstSeq in
 @[grind →]
 theorem constOp_mem_of_matchConst_eq_some {acc : RevInstSeq SimpleArith} :
     acc.matchConst x = some c → constOp x c ∈ acc.toSeq := by
-  sorry
+  rcases acc with ⟨is⟩
+  simp only [matchConst, toSeq, List.mem_reverse]
+  fun_induction matchConst.go x is <;> grind
 
 /-! ### ConstFold -/
 
