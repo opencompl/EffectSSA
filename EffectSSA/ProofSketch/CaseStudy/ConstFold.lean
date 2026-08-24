@@ -151,7 +151,22 @@ theorem constFoldRw.isSound : (constFoldRw x y z c₁ c₂).IsSound := by
     grind
 
 @[simp, grind .]
-axiom constFoldRwAlt.isSound : (constFoldRwAlt x z c₁).IsSound
+theorem constFoldRwAlt.isSound : (constFoldRwAlt x z c₁).IsSound := by
+  simp only [Rewrite.IsSound, Pattern.DenRefine, Pattern.getElem_hole]
+  rintro ⟨_|_⟩ ρ η hρη
+  · suffices ⟦constOp x c₁⟧ ρ ⊒ ⟦constOp x c₁⟧ η by
+      rintro - -; simpa [constFoldRw]
+    grind
+  · rintro h -
+    have hx : ρ.locals x = some c₁ := by
+      replace h : (constFoldRwAlt x z c₁).src.EqnLemma x ρ := by
+        simp [constFoldRwAlt, Pattern.EqnLemmaUpTo] at h
+        grind [constFoldRwAlt]
+      simp only [Pattern.EqnLemma] at h
+      specialize h [constOp x c₁] (by simp [constFoldRwAlt])
+      grind [Inst.EqnLemma]
+    suffices ⟦addOp z x x⟧ ρ ⊒ ⟦constOp z (c₁ + c₁)⟧ η by simpa [constFoldRwAlt]
+    grind
 
 /-! ## Implementation -/
 
