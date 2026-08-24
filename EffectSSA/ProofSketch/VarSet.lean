@@ -183,6 +183,9 @@ attribute [local grind] Disjoint
 @[simp, grind .] theorem disjoint_empty : Disjoint A ∅ := by grind
 @[simp, grind =] theorem disjoint_self : A.Disjoint A ↔ A = ∅ := by grind
 
+@[simp, grind =] theorem singleton_disjoint_iff : ({ x } : VarSet).Disjoint A ↔ x ∉ A := by
+  simp [Disjoint, eq_empty_iff]
+
 @[simp, grind =] theorem union_disjoint :
     Disjoint (A ∪ B) C ↔ Disjoint A C ∧ Disjoint B C := by
   grind

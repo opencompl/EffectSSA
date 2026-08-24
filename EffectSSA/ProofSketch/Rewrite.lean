@@ -111,13 +111,14 @@ variable {xs : List (List VarId)} [NeZero xs.length]
 @[simp, grind =] theorem toContext_singleton (i : Inst ι) :
     toContext xs [i] = [i.toHole xs] := rfl
 
+variable (xs) in
 /--
 A context derived from sequence `is` via result variables `xs` is complete iff:
 * `xs` contains no duplicate elements, and
 * for each list of results `x ∈ xs`, there is some instruction `i ∈ is`
   which defines those variables.
 -/
-theorem complete_toContext_iff (is : InstSeq ι) :
+@[simp] theorem complete_toContext_iff (is : InstSeq ι) :
     (is.toContext xs).Complete ↔
       xs.Pairwise (· ≠ ·)
       ∧ ∀ x ∈ xs, ∃ i ∈ is, i.results = x := by
