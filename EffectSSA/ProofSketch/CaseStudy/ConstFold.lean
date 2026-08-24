@@ -53,6 +53,21 @@ abbrev addOp (x y z : VarId) : Inst SimpleArith where
 @[simp] theorem argsSet_addOp : (addOp x y z).argsSet = {y, z} := by
   ext; simp
 
+/-! ## Semantics Simplification -/
+
+@[simp, grind =] theorem denote_constOp :
+    ⟦constOp x c⟧ ρ = { ρ with locals := ρ.locals.with x c } := by
+  simp [(⟦·⟧)]
+
+@[simp, grind =] theorem denote_addOp :
+    ⟦addOp x y z⟧ ρ = (SEnv.getD <| do
+      let y ← ρ.locals y
+      let z ← ρ.locals z
+      return { ρ with locals := ρ.locals.with x (y + z) }) := by
+  simp only [Denote.denote, List.mapM_cons, List.mapM_nil, Option.pure_def, Option.bind_eq_bind,
+    Option.bind_some]
+  cases ρ.locals y; simp
+  cases ρ.locals z <;> simp
 
 /-! ## WellBehavedness -/
 
@@ -121,14 +136,24 @@ theorem constFoldRw.isSound : (constFoldRw x y z c₁ c₂).IsSound := by
   · suffices ⟦constOp y c₂⟧ ρ ⊒ ⟦constOp y c₂⟧ η by
       rintro - -; simpa [constFoldRw]
     grind
-  · simp [constFoldRw]
-    rintro h -
-    have hx : ρ.locals x = some c₁ := by sorry
-    have hy : ρ.locals y = some c₂ := by sorry
-    suffices ⟦addOp z x y⟧ ρ ⊒ ⟦constOp z (c₁ + c₂)⟧ η by
-      sorry
-    simp [Inst.denote_eq]
-    sorry
+  · rintro h -
+    suffices ⟦addOp z x y⟧ ρ ⊒ ⟦constOp z (c₁ + c₂)⟧ η by simpa [constFoldRw]
+    replace h :
+        let S := (constFoldRw x y z c₁ c₂).src
+        S.EqnLemma x ρ
+        ∧ S.EqnLemma y ρ := by
+      simp [constFoldRw, Pattern.EqnLemmaUpTo] at h
+      grind [constFoldRw]
+    replace h :
+        (constOp x c₁).EqnLemma x ρ
+        ∧ (constOp y c₂).EqnLemma y ρ := by
+      simp only [Pattern.EqnLemma] at h
+      have := h.1 [constOp x c₁] (by simp [constFoldRw])
+      have := h.2 [constOp y c₂] (by simp [constFoldRw])
+      grind
+    have hx : ρ.locals x = some c₁ := by grind [Inst.EqnLemma]
+    have hy : ρ.locals y = some c₂ := by grind [Inst.EqnLemma]
+    grind
 
 @[simp, grind .]
 axiom constFoldRwAlt.isSound : (constFoldRwAlt x z c₁).IsSound

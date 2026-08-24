@@ -189,6 +189,13 @@ theorem cons_eq_append : (cons x xs) = ((ofVector #v[x]) ++ xs).cast (by grind) 
     apply ext this
   grind
 
+/-! membership -/
+
+@[simp, grind =]
+theorem mem_ofVector : is ∈ Pattern.ofVector v ↔ is ∈ v := by
+  show (∃ k h, is = v[k]) ↔ is ∈ v
+  grind [Vector.mem_iff_getElem]
+
 /-! #### Cases -/
 section Cases
 
