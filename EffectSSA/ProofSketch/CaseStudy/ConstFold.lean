@@ -316,8 +316,7 @@ theorem constFold_sound (wf : is.WellFormed ∅) :
         simpa
       by_cases hyz : y = z
       case' pos =>
-        subst hyz
-        obtain rfl : c₁ = c₂ := by grind
+        obtain ⟨rfl, rfl⟩ : y = z ∧ c₁ = c₂ := by grind
         let rw := constFoldRwAlt y x c₁
         apply rw.isRefinedBy_of_contextual_isRefinedBy
         · exact constFoldRwAlt.isSound
@@ -332,7 +331,7 @@ theorem constFold_sound (wf : is.WellFormed ∅) :
           · exists constOp y c₁; grind
           · exists i; grind
         · subst js
-          rw [InstSeq.plug_toContext_eq_self_of ([[y], [x]])]
+          rw [InstSeq.plug_toContext_eq_self_of]
           intro j hj idx hidx hres
           match idx with
           | 0 | 1 =>
@@ -345,7 +344,7 @@ theorem constFold_sound (wf : is.WellFormed ∅) :
               simp [List.idxOf?_eq_some_iff]
               grind
             simp [← hacc', ← hjs, this, toHole_i, hi']
-          rw [InstSeq.plug_toContext_eq_self_of ([[y], [x]])]
+          rw [InstSeq.plug_toContext_eq_self_of]
           intro j hj idx hidx hres
           match idx with
           | 0 =>
