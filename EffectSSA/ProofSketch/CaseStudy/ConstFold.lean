@@ -2,6 +2,7 @@ module
 
 public import EffectSSA.ProofSketch.ProofSketch
 public import EffectSSA.ProofSketch.Rewrite
+public import EffectSSA.ProofSketch.InstArr
 public import EffectSSA.ProofSketch.Tactic
 
 namespace EffectSSA.ProofSketch
@@ -170,34 +171,16 @@ theorem constFoldRwAlt.isSound : (constFoldRwAlt x z c₁).IsSound := by
 
 /-! ## Implementation -/
 
-structure RevInstSeq (ι) [SSA ι σ ν] where
-  toList : List (Inst ι)
-
-namespace RevInstSeq
-variable [SSA ι σ ν]
-
-def snoc (is : RevInstSeq ι) (i : Inst ι) : RevInstSeq ι :=
-  ⟨i :: is.toList⟩
-
-def toSeq (is : RevInstSeq ι) : InstSeq ι :=
-  is.toList.reverse
-
-section Lemmas
-
-@[grind =, simp] theorem toSeq_nil : toSeq (⟨[]⟩ : RevInstSeq ι) = [] := by rfl
-@[grind =, simp] theorem toSeq_snoc (is : RevInstSeq ι) (i : Inst ι) :
-  toSeq (is.snoc i) = is.toSeq ++ [i] := by simp [snoc, toSeq]
-
-end Lemmas
-end RevInstSeq
+abbrev Program := InstArr SimpleArith
 
 /-! ### Matchers -/
 
-/-- `is.matchConst x` returns `some n` if the instruction that defines
-variable `x` in the (reverse) instruction sequence `is` is a
-constant with value `n` (i.e, `constOp x n`). -/
-def RevInstSeq.matchConst (is : RevInstSeq SimpleArith) (x : VarId) : Option Nat :=
-  go is.toList
+/--
+`is.matchConst x` returns `some n` if the instruction that defines
+variable `x` in `is` is a constant with value `n` (i.e, `constOp x n`).
+-/
+def Program.matchConst (is : Program) (x : VarId) : Option Nat :=
+  go is.toSeq
 where go : List (Inst SimpleArith) → Option Nat
   | [] => none
   | { opCode := .const n, args := [], results := [x'] } :: is =>
@@ -215,12 +198,12 @@ def matchAdd : Inst SimpleArith → Option (VarId × VarId × VarId)
     matchAdd i = some r ↔ i = addOp r.1 r.2.1 r.2.2 := by
   simp [matchAdd, addOp]; grind
 
-open RevInstSeq in
+open Program in
 @[grind →]
-theorem constOp_mem_of_matchConst_eq_some {acc : RevInstSeq SimpleArith} :
+theorem constOp_mem_of_matchConst_eq_some {acc : Program} :
     acc.matchConst x = some c → constOp x c ∈ acc.toSeq := by
-  rcases acc with ⟨is⟩
-  simp only [matchConst, toSeq, List.mem_reverse]
+  rcases acc with ⟨⟨is⟩⟩
+  simp only [matchConst, InstArr.toSeq]
   fun_induction matchConst.go x is <;> grind
 
 /-! ### ConstFold -/
@@ -229,24 +212,27 @@ theorem constOp_mem_of_matchConst_eq_some {acc : RevInstSeq SimpleArith} :
 `constFold is` returns an equivalent program, after a constant-folding pass.
 -/
 @[expose]
-def constFold : InstSeq SimpleArith → InstSeq SimpleArith :=
-  go ⟨[]⟩
+def constFold (is : Program) : Program :=
+  go (.emptyWithCapacity is.size) is.toSubarray
 where
   /--
   `foldInst? acc i` attempts to constant fold instruction `i` (referring to
   `acc` for the instructions that define `i`'s arguments), or returns `none`
   if `i` is not a well-formed, constant-foldable `add` instruction.
   -/
-  foldInst? (acc : RevInstSeq SimpleArith) (i : Inst SimpleArith) : Option (Inst SimpleArith) := do
+  foldInst? (acc : Program) (i : Inst SimpleArith) : Option (Inst SimpleArith) := do
     let (x, y, z) ← matchAdd i
     let c₁ ← acc.matchConst y
     let c₂ ← acc.matchConst z
     return constOp x (c₁ + c₂)
-  go (acc : RevInstSeq SimpleArith) : InstSeq SimpleArith → InstSeq SimpleArith
-    | i :: is =>
-        let i := (foldInst? acc i).getD i
-        go (acc.snoc i) is
-    | [] => acc.toSeq
+  go (acc : Program) (is : InstSubarray SimpleArith) : Program :=
+    if _ : is.size = 0 then
+      acc
+    else
+      let i := is[0]
+      let i := (foldInst? acc i).getD i
+      go (acc.push i) is.popFront
+  termination_by is.size
 
 @[simp, grind =]
 theorem constFold.foldInst?_eq_some_iff :
@@ -265,42 +251,44 @@ Any semantic reasoning has already been done in
 `Rewrite.isRefinedBy_of_contextual_isRefinedBy` and
 in the proofs that the rewrites are (locally) sound.
 -/
-theorem constFold_sound (wf : is.WellFormed ∅) :
+theorem constFold_sound {is : Program}
+    (wf : is.toSeq.WellFormed ∅) :
     ⟦is⟧ {} ⊒ ⟦constFold is⟧ {} := by
-  suffices ∀ acc, (acc.toSeq ++ is).WellFormed ∅ →
-      ⟦acc.toSeq ++ is⟧ {} ⊒ ⟦constFold.go acc is⟧ {} by
-    specialize this ⟨[]⟩ wf; simpa
+  let is := is.toSubarray
+  suffices ∀ acc, (acc.toSeq ++ is.toSeq).WellFormed ∅ →
+      ⟦acc.toSeq ++ is.toSeq⟧ {} ⊒ ⟦constFold.go acc is⟧ {} by
+    specialize this .empty (by grind); simpa [is]
   clear wf
-  induction is
-  case nil => grind [constFold.go]
-  case cons i is ih =>
-    intro acc wf
-    let i? := constFold.foldInst? acc i
-    let i' := i?.getD i
-    suffices ⟦ (acc.snoc i).toSeq ++ is ⟧ {} ⊒ ⟦ constFold.go (acc.snoc i') is ⟧ {} by
-      simpa
-    cases hi : i?
+  intro acc
+  fun_induction constFold.go acc is
+  case case1 => grind
+  case case2 acc is hsize i i' ih =>
+    intro wf
+    have his : is.toSeq = i :: is.popFront.toSeq := by grind
+    suffices ⟦ (acc.push i).toSeq ++ is.popFront.toSeq ⟧ {} ⊒ ⟦ constFold.go (acc.push i') is.popFront ⟧ {} by
+      simpa [his]
+    cases hi : constFold.foldInst? acc i
     case none =>
       -- There was no match, thus `i'` and `i` are actually equal
       grind
     case some j =>
       -- There *was* a match, so now we show that there is a context `C` and
-      -- rewrite `rw` s.t. `(acc.snoc i).toSeq` is `C[rw.srw]` and
-      -- `(acc.snoc i').toSeq` is `C[rw.tgt]`
+      -- rewrite `rw` s.t. `(acc.push i).toSeq` is `C[rw.srw]` and
+      -- `(acc.push i').toSeq` is `C[rw.tgt]`
       obtain rfl : i' = j := by grind
       obtain ⟨x, y, z, hi, c₁, hy, c₂, hz, hi'⟩ : ∃ x y z,
           i = addOp x y z
           ∧ ∃ c₁, acc.matchConst y = some c₁
           ∧ ∃ c₂, acc.matchConst z = some c₂
           ∧ i' = constOp x (c₁ + c₂) := by
-        simpa [i?] using hi
+        simpa using hi
 
-      generalize hjs : (acc.snoc i).toSeq = js
       -- The next accumulator is still well-formed
-      generalize hacc' : acc.snoc i' = acc'
+      generalize hjs : (acc.push i).toSeq = js at *
+      generalize hacc' : acc.push i' = acc' at *
       have wf_acc' : acc'.toSeq.WellFormed ∅ := by
         simp_all [← hacc']
-      specialize ih acc' <| by
+      specialize ih <| by
         suffices acc'.toSeq.results = acc.toSeq.results ∪ i.resultsSet by grind
         simp [← hacc', hi, hi']
 
