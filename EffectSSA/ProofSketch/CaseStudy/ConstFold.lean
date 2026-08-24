@@ -220,36 +220,178 @@ where
   `acc` for the instructions that define `i`'s arguments), or returns `none`
   if `i` is not a well-formed, constant-foldable `add` instruction.
   -/
-  foldInst? (acc : Program) (i : Inst SimpleArith) : Option (Inst SimpleArith) := do
+  foldInst? (acc : Program) (i : Inst SimpleArith) : Option (Inst SimpleArith) :=
+    do
     let (x, y, z) ← matchAdd i
     let c₁ ← acc.matchConst y
     let c₂ ← acc.matchConst z
     return constOp x (c₁ + c₂)
+  /--
+  `foldInst acc i` attempts to constant fold instruction `i` with `foldInst?`,
+  returning the original instruction unchanged if constant folding failed
+  for any reason.
+  -/
+  foldInst acc i := (foldInst? acc i).getD i
   go (acc : Program) (is : InstSubarray SimpleArith) : Program :=
     if _ : is.size = 0 then
       acc
     else
-      let i := is[0]
-      let i := (foldInst? acc i).getD i
+      let i := foldInst acc is[0]
       go (acc.push i) is.popFront
   termination_by is.size
 
+section FoldInstLemmas
+variable {acc : Program} {i : Inst SimpleArith}
+
 @[simp, grind =]
 theorem constFold.foldInst?_eq_some_iff :
-    constFold.foldInst? acc i = some i' ↔ ∃ x y z,
+    foldInst? acc i = some i' ↔ ∃ x y z,
       i = addOp x y z
       ∧ ∃ c₁, acc.matchConst y = some c₁
       ∧ ∃ c₂, acc.matchConst z = some c₂
       ∧ i' = constOp x (c₁ + c₂) := by
   simp [foldInst?, Option.bind_eq_some_iff]; grind
 
+@[simp] theorem constFold.argsSet_foldInst : (foldInst acc i).argsSet ⊆ i.argsSet := by
+  unfold foldInst; cases hi : foldInst? acc i <;> grind
+grind_pattern constFold.argsSet_foldInst => (constFold.foldInst acc i).argsSet
+
+@[simp, grind .] theorem constFold.results_foldInst : (foldInst acc i).results = i.results := by
+  unfold foldInst; cases hi : foldInst? acc i <;> grind
+@[simp, grind .] theorem constFold.resultsSet_foldInst : (foldInst acc i).resultsSet = i.resultsSet := by
+  simp [Inst.resultsSet]
+
+@[grind ←]
+theorem constFold.wellFormed_foldInst :
+    (acc.push i).toSeq.WellFormed ∅ → (acc.push <| foldInst acc i).toSeq.WellFormed ∅ := by
+  grind
+
 /--
-Prove that the rewriter is sound.
+Prove that a single step of the constant folder is sound.
 
 This proof is still somewhat long, but it is *purely syntactical*.
 Any semantic reasoning has already been done in
 `Rewrite.isRefinedBy_of_contextual_isRefinedBy` and
 in the proofs that the rewrites are (locally) sound.
+-/
+theorem constFold.foldInst_sound (wf : (acc.push i).toSeq.WellFormed ∅) :
+    ⟦acc.push i⟧ {} ⊒ ⟦acc.push <| foldInst acc i⟧ {} := by
+  have wf' : (acc.push <| foldInst acc i).toSeq.WellFormed ∅ := by grind
+  unfold foldInst at *
+  cases hi? : foldInst? acc i
+  case none =>
+    -- There was no match, thus `foldInst` was a no-op
+    grind
+  case some i' =>
+    -- There *was* a match, so now we show that there is a context `C` and
+    -- rewrite `rw` s.t. `(acc.push i).toSeq` is `C[rw.srw]` and
+    -- `(acc.push i').toSeq` is `C[rw.tgt]`
+    obtain ⟨x, y, z, hi, c₁, hy, c₂, hz, hi'⟩ : ∃ x y z,
+          i = addOp x y z
+          ∧ ∃ c₁, acc.matchConst y = some c₁
+          ∧ ∃ c₂, acc.matchConst z = some c₂
+          ∧ i' = constOp x (c₁ + c₂) := by
+        simpa using hi?
+    have wf' := by simpa only [hi?, Option.getD_some] using wf'
+    simp only [Option.getD_some]
+
+    -- It suffices to show the constant-folder is equivalent to a local rewrite
+    have : x ≠ y := by
+      have : (addOp x y z).resultsSet.Disjoint (constOp y c₁).resultsSet := by grind
+      simpa
+    have : x ≠ z := by
+      have : (addOp x y z).resultsSet.Disjoint (constOp z c₂).resultsSet := by grind
+      simpa
+    by_cases hyz : y = z
+    case' pos =>
+      obtain ⟨rfl, rfl⟩ : y = z ∧ c₁ = c₂ := by grind
+      let rw := constFoldRwAlt y x c₁
+      apply rw.isRefinedBy_of_contextual_isRefinedBy
+      · exact constFoldRwAlt.isSound
+      · grind
+      · assumption
+
+      -- The witness context:
+      exists (acc.push i).toSeq.toContext [[y], [x]]
+      and_intros
+      · simp only [reduceCompleteToContext]
+        and_intros; grind
+        · exists constOp y c₁; grind
+        · exists i; grind
+      · rw [InstSeq.plug_toContext_eq_self_of]
+        intro j hj idx hidx hres
+        match idx with
+        | 0 | 1 =>
+          simpa using (by apply InstSeq.eq_of_results_eq _ hj <;> grind)
+        | _+2 => contradiction
+
+      · suffices (InstSeq.toContext [[y], [x]] acc.toSeq).plug rw.tgt = acc.toSeq by
+          have toHole_i : i.toHole [[y], [x]] = .inr ⟨1, by grind⟩ := by
+            rw [Inst.toHole_eq_inr_iff, hi]
+            simp [List.idxOf?_eq_some_iff]
+            grind
+          simp [this, toHole_i, hi']
+        rw [InstSeq.plug_toContext_eq_self_of]
+        intro j hj idx hidx hres
+        match idx with
+        | 0 =>
+          simpa using (by apply InstSeq.eq_of_results_eq _ hj <;> grind)
+        | 1 =>
+          exfalso
+          have hjr : j.results = [x] := by grind
+          have : i.resultsSet.Disjoint j.resultsSet := by grind
+          simp [Inst.resultsSet, hjr, hi, VarSet.eq_empty_iff] at this
+        | _+2 => contradiction
+
+
+    case' neg =>
+      replace hyz : y ≠ z := hyz
+      -- Since y ≠ z, we use the full rewrite
+      let rw := constFoldRw y z x c₁ c₂
+      apply rw.isRefinedBy_of_contextual_isRefinedBy
+      · exact constFoldRw.isSound
+      · grind
+      · assumption
+      -- The witness context:
+      exists (acc.push i).toSeq.toContext [[y], [z], [x]]
+      and_intros
+      · simp only [reduceCompleteToContext]
+        refine ⟨by grind, ?_⟩
+        and_intros
+        · exists constOp y c₁; grind
+        · exists constOp z c₂; grind
+        · exists i; grind
+
+      · rw [InstSeq.plug_toContext_eq_self_of]
+        intro j hj idx hidx hres
+        match idx with
+        | 0 | 1 | 2 =>
+          simpa using (by
+            apply InstSeq.eq_of_results_eq _ hj
+            <;> simp -failIfUnchanged <;> grind)
+        | _+3 => contradiction
+
+      · suffices (InstSeq.toContext [[y], [z], [x]] acc.toSeq).plug rw.tgt = acc.toSeq by
+          have toHole_i : i.toHole [[y], [z], [x]] = .inr ⟨2, by grind⟩ := by
+            simp only [Inst.toHole_eq_inr_iff]; grind
+          simp [this, toHole_i, hi']
+        rw [InstSeq.plug_toContext_eq_self_of]
+        intro j hj idx hidx hres
+        match idx with
+        | 0 | 1 =>
+          simpa using (by apply InstSeq.eq_of_results_eq _ hj <;> grind)
+        | 2 =>
+          exfalso
+          have hjr : j.results = [x] := by grind
+          have : i.resultsSet.Disjoint j.resultsSet := by grind
+          simp [Inst.resultsSet, hjr, hi, VarSet.eq_empty_iff] at this
+        | _+3 => contradiction
+
+end FoldInstLemmas
+
+/--
+Prove that the constant folder is sound.
+This is just a straightforward induction around `constFold.foldInst_sound`.
 -/
 theorem constFold_sound {is : Program}
     (wf : is.toSeq.WellFormed ∅) :
@@ -262,130 +404,14 @@ theorem constFold_sound {is : Program}
   intro acc
   fun_induction constFold.go acc is
   case case1 => grind
-  case case2 acc is hsize i i' ih =>
+  case case2 acc is hsize i' ih =>
     intro wf
-    have his : is.toSeq = i :: is.popFront.toSeq := by grind
-    suffices ⟦ (acc.push i).toSeq ++ is.popFront.toSeq ⟧ {} ⊒ ⟦ constFold.go (acc.push i') is.popFront ⟧ {} by
-      simpa [his]
-    cases hi : constFold.foldInst? acc i
-    case none =>
-      -- There was no match, thus `i'` and `i` are actually equal
+    suffices ⟦acc.toSeq ++ is.toSeq⟧ { } ⊒ ⟦(acc.push i').toSeq ++ is.popFront.toSeq⟧ { } by
+      apply Refinement.trans this <| ih ?_
       grind
-    case some j =>
-      -- There *was* a match, so now we show that there is a context `C` and
-      -- rewrite `rw` s.t. `(acc.push i).toSeq` is `C[rw.srw]` and
-      -- `(acc.push i').toSeq` is `C[rw.tgt]`
-      obtain rfl : i' = j := by grind
-      obtain ⟨x, y, z, hi, c₁, hy, c₂, hz, hi'⟩ : ∃ x y z,
-          i = addOp x y z
-          ∧ ∃ c₁, acc.matchConst y = some c₁
-          ∧ ∃ c₂, acc.matchConst z = some c₂
-          ∧ i' = constOp x (c₁ + c₂) := by
-        simpa using hi
-
-      -- The next accumulator is still well-formed
-      generalize hjs : (acc.push i).toSeq = js at *
-      generalize hacc' : acc.push i' = acc' at *
-      have wf_acc' : acc'.toSeq.WellFormed ∅ := by
-        simp_all [← hacc']
-      specialize ih <| by
-        suffices acc'.toSeq.results = acc.toSeq.results ∪ i.resultsSet by grind
-        simp [← hacc', hi, hi']
-
-      suffices ⟦ js ⟧ {} ⊒ ⟦ acc'.toSeq ⟧ {} by
-        apply Refinement.trans ?_ ih; grind
-
-      -- It suffices to show the constant-folder is equivalent to a local rewrite
-      have : x ≠ y := by
-        have : (addOp x y z).resultsSet.Disjoint (constOp y c₁).resultsSet := by grind
-        simpa
-      have : x ≠ z := by
-        have : (addOp x y z).resultsSet.Disjoint (constOp z c₂).resultsSet := by grind
-        simpa
-      by_cases hyz : y = z
-      case' pos =>
-        obtain ⟨rfl, rfl⟩ : y = z ∧ c₁ = c₂ := by grind
-        let rw := constFoldRwAlt y x c₁
-        apply rw.isRefinedBy_of_contextual_isRefinedBy
-        · exact constFoldRwAlt.isSound
-        · grind
-        · assumption
-
-        -- The witness context:
-        exists js.toContext [[y], [x]]
-        and_intros
-        · simp only [reduceCompleteToContext]
-          and_intros; grind
-          · exists constOp y c₁; grind
-          · exists i; grind
-        · subst js
-          rw [InstSeq.plug_toContext_eq_self_of]
-          intro j hj idx hidx hres
-          match idx with
-          | 0 | 1 =>
-            simpa using (by apply InstSeq.eq_of_results_eq _ hj <;> grind)
-          | _+2 => contradiction
-
-        · suffices (InstSeq.toContext [[y], [x]] acc.toSeq).plug rw.tgt = acc.toSeq by
-            have toHole_i : i.toHole [[y], [x]] = .inr ⟨1, by grind⟩ := by
-              rw [Inst.toHole_eq_inr_iff, hi]
-              simp [List.idxOf?_eq_some_iff]
-              grind
-            simp [← hacc', ← hjs, this, toHole_i, hi']
-          rw [InstSeq.plug_toContext_eq_self_of]
-          intro j hj idx hidx hres
-          match idx with
-          | 0 =>
-            simpa using (by apply InstSeq.eq_of_results_eq _ hj <;> grind)
-          | 1 =>
-            exfalso
-            have hjr : j.results = [x] := by grind
-            have : i.resultsSet.Disjoint j.resultsSet := by grind
-            simp [Inst.resultsSet, hjr, hi, VarSet.eq_empty_iff] at this
-          | _+2 => contradiction
-
-
-      case' neg =>
-        replace hyz : y ≠ z := hyz
-        -- Since y ≠ z, we use the full rewrite
-        let rw := constFoldRw y z x c₁ c₂
-        apply rw.isRefinedBy_of_contextual_isRefinedBy
-        · exact constFoldRw.isSound
-        · grind
-        · assumption
-        -- The witness context:
-        exists js.toContext [[y], [z], [x]]
-        and_intros
-        · simp only [reduceCompleteToContext]
-          refine ⟨by grind, ?_⟩
-          and_intros
-          · exists constOp y c₁; grind
-          · exists constOp z c₂; grind
-          · exists i; grind
-
-        · rw [← hjs, InstSeq.plug_toContext_eq_self_of]
-          intro j hj idx hidx hres
-          match idx with
-          | 0 | 1 | 2 =>
-            simpa using (by
-              apply InstSeq.eq_of_results_eq _ hj
-              <;> simp -failIfUnchanged <;> grind)
-          | _+3 => contradiction
-
-        · suffices (InstSeq.toContext [[y], [z], [x]] acc.toSeq).plug rw.tgt = acc.toSeq by
-            have toHole_i : i.toHole [[y], [z], [x]] = .inr ⟨2, by grind⟩ := by
-              simp only [Inst.toHole_eq_inr_iff]; grind
-            simp [← hacc', ← hjs, this, toHole_i, hi']
-          rw [InstSeq.plug_toContext_eq_self_of]
-          intro j hj idx hidx hres
-          match idx with
-          | 0 | 1 =>
-            simpa using (by apply InstSeq.eq_of_results_eq _ hj <;> grind)
-          | 2 =>
-            exfalso
-            have hjr : j.results = [x] := by grind
-            have : i.resultsSet.Disjoint j.resultsSet := by grind
-            simp [Inst.resultsSet, hjr, hi, VarSet.eq_empty_iff] at this
-          | _+3 => contradiction
+    suffices ⟦acc.push is[0]⟧ { } ⊒ ⟦acc.push i'⟧ { } by
+      grind
+    apply constFold.foldInst_sound
+    · grind
 
 #print axioms constFold_sound
