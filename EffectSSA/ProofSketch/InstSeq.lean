@@ -509,7 +509,10 @@ theorem eq_of_results_eq {i j : Inst ι}
   intro heq hne
   apply eq_of_not_disjoint_results_of_noShadowing hi hj wf
   simp only [Inst.resultsSet, heq, disjoint_self]
-  sorry
+  simp only [eq_empty_iff, mem_setOf, Classical.not_forall, Decidable.not_not]
+  cases h : i.results
+  · grind
+  · simp [← heq, h]
 
 end ResultLemmas
 
