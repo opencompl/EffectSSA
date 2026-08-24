@@ -249,6 +249,14 @@ theorem constFold.foldInst?_eq_some_iff :
       ∧ i' = constOp x (c₁ + c₂) := by
   simp [foldInst?, Option.bind_eq_some_iff]; grind
 
+/--
+Prove that the rewriter is sound.
+
+This proof is still somewhat long, but it is *purely syntactical*.
+Any semantic reasoning has already been done in
+`Rewrite.isRefinedBy_of_contextual_isRefinedBy` and
+in the proofs that the rewrites are (locally) sound.
+-/
 theorem constFold_sound (wf : is.WellFormed ∅) :
     ⟦is⟧ {} ⊒ ⟦constFold is⟧ {} := by
   suffices ∀ acc, (acc.toSeq ++ is).WellFormed ∅ →
