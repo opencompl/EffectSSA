@@ -295,17 +295,21 @@ theorem constFold.foldInst_sound (wf : (acc.push i).toSeq.WellFormed ∅) :
     have wf' := by simpa only [hi?, Option.getD_some] using wf'
     simp only [Option.getD_some]
 
-    -- It suffices to show the constant-folder is equivalent to a local rewrite
-    have : x ≠ y := by
-      have : (addOp x y z).resultsSet.Disjoint (constOp y c₁).resultsSet := by grind
-      simpa
-    have : x ≠ z := by
-      have : (addOp x y z).resultsSet.Disjoint (constOp z c₂).resultsSet := by grind
-      simpa
+    -- We know that `x` cannot be the same variable as `y` nor `z`
+    have : x ≠ y ∧ x ≠ z := by
+      have hy : (addOp x y z).resultsSet.Disjoint (constOp y c₁).resultsSet := by grind
+      have hz : (addOp x y z).resultsSet.Disjoint (constOp z c₂).resultsSet := by grind
+      exact ⟨by simpa using hy, by simpa using hz⟩
+
+    -- Consider whether the two arguments to the addition are the same or not,
+    -- to determine which rewrite to instantiate, and how to construct the
+    -- context to use as witness
     by_cases hyz : y = z
     case' pos =>
       obtain ⟨rfl, rfl⟩ : y = z ∧ c₁ = c₂ := by grind
+      -- Since y = z, use the alternate rewrite, with a single constant
       let rw := constFoldRwAlt y x c₁
+      -- Invoke the core theory's main result
       apply rw.isRefinedBy_of_contextual_isRefinedBy
       · exact constFoldRwAlt.isSound
       · grind
@@ -345,9 +349,9 @@ theorem constFold.foldInst_sound (wf : (acc.push i).toSeq.WellFormed ∅) :
 
 
     case' neg =>
-      replace hyz : y ≠ z := hyz
-      -- Since y ≠ z, we use the full rewrite
+      -- Since y ≠ z, use the full rewrite
       let rw := constFoldRw y z x c₁ c₂
+      -- Invoke the core theory's main result
       apply rw.isRefinedBy_of_contextual_isRefinedBy
       · exact constFoldRw.isSound
       · grind
