@@ -367,19 +367,17 @@ theorem constFold_sound (wf : is.WellFormed ∅) :
         · grind
         · assumption
         -- The witness context:
-        let xyz := [[y], [z], [x]]
-        exists js.toContext xyz
+        exists js.toContext [[y], [z], [x]]
         and_intros
-        · simp only [xyz, reduceCompleteToContext]
+        · simp only [reduceCompleteToContext]
           refine ⟨by grind, ?_⟩
           and_intros
           · exists constOp y c₁; grind
           · exists constOp z c₂; grind
           · exists i; grind
 
-        · rw [InstSeq.plug_toContext_eq_self_of xyz]
+        · rw [← hjs, InstSeq.plug_toContext_eq_self_of]
           intro j hj idx hidx hres
-          subst xyz hacc' hjs
           match idx with
           | 0 | 1 | 2 =>
             simpa using (by
@@ -387,8 +385,8 @@ theorem constFold_sound (wf : is.WellFormed ∅) :
               <;> simp -failIfUnchanged <;> grind)
           | _+3 => contradiction
 
-        · suffices (InstSeq.toContext xyz acc.toSeq).plug rw.tgt = acc.toSeq by
-            have toHole_i : i.toHole xyz = .inr ⟨2, by grind⟩ := by
+        · suffices (InstSeq.toContext [[y], [z], [x]] acc.toSeq).plug rw.tgt = acc.toSeq by
+            have toHole_i : i.toHole [[y], [z], [x]] = .inr ⟨2, by grind⟩ := by
               simp only [Inst.toHole_eq_inr_iff]; grind
             simp [← hacc', ← hjs, this, toHole_i, hi']
           rw [InstSeq.plug_toContext_eq_self_of]
