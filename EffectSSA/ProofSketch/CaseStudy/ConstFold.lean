@@ -2,6 +2,7 @@ module
 
 public import EffectSSA.ProofSketch.ProofSketch
 public import EffectSSA.ProofSketch.Rewrite
+public import EffectSSA.ProofSketch.Tactic
 
 namespace EffectSSA.ProofSketch
 public section
@@ -280,15 +281,10 @@ theorem constFold_sound (wf : is.WellFormed ∅) :
             match idx with
             | 0 =>
               obtain rfl : j = constOp y c₁ := by
-                have : j.results = [y] := by
-                  simp [List.idxOf?_eq_some_iff] at hres; grind
                 apply InstSeq.eq_of_results_eq hj <;> grind
               rfl
             | 1 =>
               obtain rfl : i = j := by
-                have : j.results = [x] := by
-                  simp [List.idxOf?_eq_some_iff] at hres
-                  grind
                 apply InstSeq.eq_of_results_eq _ hj <;> grind
               rw [hi]; rfl
             | _+2 => contradiction
@@ -307,14 +303,11 @@ theorem constFold_sound (wf : is.WellFormed ∅) :
               match idx with
               | 0 =>
                 obtain rfl : j = constOp y c₁ := by
-                  have : j.results = [y] := by
-                    simp [List.idxOf?_eq_some_iff] at hres; grind
                   apply InstSeq.eq_of_results_eq hj <;> grind
                 rfl
               | 1 =>
                 exfalso
-                have : j.results = [x] := by
-                  simp [List.idxOf?_eq_some_iff] at hres; grind
+                have : j.results = [x] := by grind
                 sorry
               | _+2 => contradiction
 
@@ -340,20 +333,14 @@ theorem constFold_sound (wf : is.WellFormed ∅) :
             match idx with
             | 0 =>
               obtain rfl : j = constOp y c₁ := by
-                have : j.results = [y] := by
-                  simp [List.idxOf?_eq_some_iff, xyz] at hres; grind
                 apply InstSeq.eq_of_results_eq hj <;> grind
               rfl
             | 1 =>
               obtain rfl : j = constOp z c₂ := by
-                have : j.results = [z] := by
-                  simp [List.idxOf?_eq_some_iff, xyz] at hres; grind
                 apply InstSeq.eq_of_results_eq hj <;> grind
               rfl
             | 2 =>
               obtain rfl : i = j := by
-                have : j.results = [x] := by
-                  simp [List.idxOf?_eq_some_iff, xyz] at hres; grind
                 apply InstSeq.eq_of_results_eq _ hj <;> grind
               rw [hi];
               simp only [rw, constFoldRw]
