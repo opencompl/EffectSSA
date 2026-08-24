@@ -324,14 +324,8 @@ theorem constFold_sound (wf : is.WellFormed ∅) :
           rw [InstSeq.plug_toContext_eq_self_of ([[y], [x]])]
           intro j hj idx hidx hres
           match idx with
-          | 0 =>
-            obtain rfl : j = constOp y c₁ := by
-              apply InstSeq.eq_of_results_eq hj <;> grind
-            rfl
-          | 1 =>
-            obtain rfl : i = j := by
-              apply InstSeq.eq_of_results_eq _ hj <;> grind
-            rw [hi]; rfl
+          | 0 | 1 =>
+            simpa using (by apply InstSeq.eq_of_results_eq _ hj <;> grind)
           | _+2 => contradiction
 
         · suffices (InstSeq.toContext [[y], [x]] acc.toSeq).plug rw.tgt = acc.toSeq by
@@ -340,14 +334,11 @@ theorem constFold_sound (wf : is.WellFormed ∅) :
               simp [List.idxOf?_eq_some_iff]
               grind
             simp [← hacc', ← hjs, this, toHole_i, hi']
-            rfl
           rw [InstSeq.plug_toContext_eq_self_of ([[y], [x]])]
           intro j hj idx hidx hres
           match idx with
           | 0 =>
-            obtain rfl : j = constOp y c₁ := by
-              apply InstSeq.eq_of_results_eq hj <;> grind
-            rfl
+            simpa using (by apply InstSeq.eq_of_results_eq _ hj <;> grind)
           | 1 =>
             exfalso
             have hjr : j.results = [x] := by grind
@@ -385,44 +376,26 @@ theorem constFold_sound (wf : is.WellFormed ∅) :
           intro j hj idx hidx hres
           subst xyz hacc' hjs
           match idx with
-          | 0 =>
-            obtain rfl : j = constOp y c₁ := by
-              apply InstSeq.eq_of_results_eq hj
-              <;> simp -failIfUnchanged <;> grind
-            rfl
-          | 1 =>
-            obtain rfl : j = constOp z c₂ := by
-              apply InstSeq.eq_of_results_eq hj
-              <;> simp -failIfUnchanged <;> grind
-            rfl
-          | 2 =>
-            obtain rfl : i = j := by
+          | 0 | 1 | 2 =>
+            simpa using (by
               apply InstSeq.eq_of_results_eq _ hj
-              <;> simp -failIfUnchanged <;> grind
-            rw [hi];
-            simp only [rw, constFoldRw]
-            rfl
+              <;> simp -failIfUnchanged <;> grind)
           | _+3 => contradiction
 
         · suffices (InstSeq.toContext xyz acc.toSeq).plug rw.tgt = acc.toSeq by
             have toHole_i : i.toHole xyz = .inr ⟨2, by grind⟩ := by
               simp only [Inst.toHole_eq_inr_iff]; grind
             simp [← hacc', ← hjs, this, toHole_i, hi']
-            rfl
           rw [InstSeq.plug_toContext_eq_self_of]
           intro j hj idx hidx hres
           match idx with
-          | 0 =>
-            obtain rfl : j = constOp y c₁ := by
-              apply InstSeq.eq_of_results_eq hj <;> grind
-            rfl
-          | 1 =>
-            obtain rfl : j = constOp z c₂ := by
-              apply InstSeq.eq_of_results_eq hj <;> grind
-            rfl
+          | 0 | 1 =>
+            simpa using (by apply InstSeq.eq_of_results_eq _ hj <;> grind)
           | 2 =>
             exfalso
             have hjr : j.results = [x] := by grind
             have : i.resultsSet.Disjoint j.resultsSet := by grind
             simp [Inst.resultsSet, hjr, hi, VarSet.eq_empty_iff] at this
           | _+3 => contradiction
+
+#print axioms constFold_sound
