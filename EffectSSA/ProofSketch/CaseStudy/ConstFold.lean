@@ -406,9 +406,7 @@ theorem constFold_sound (wf : is.WellFormed ∅) :
 
         · suffices (InstSeq.toContext xyz acc.toSeq).plug rw.tgt = acc.toSeq by
             have toHole_i : i.toHole xyz = .inr ⟨2, by grind⟩ := by
-              rw [Inst.toHole_eq_inr_iff, hi]
-              simp [List.idxOf?_eq_some_iff, xyz]
-              rintro (_|_|_) <;> grind
+              simp only [Inst.toHole_eq_inr_iff]; grind
             simp [← hacc', ← hjs, this, toHole_i, hi']
             rfl
           rw [InstSeq.plug_toContext_eq_self_of]
