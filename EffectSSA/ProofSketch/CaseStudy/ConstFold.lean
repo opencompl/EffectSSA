@@ -327,15 +327,10 @@ theorem constFold_sound (wf : is.WellFormed ∅) :
         -- The witness context:
         exists js.toContext [[y], [x]]
         and_intros
-        · rw [InstSeq.complete_toContext_iff [[y], [x]]]
+        · simp only [reduceCompleteToContext]
           and_intros; grind
-          · intro x' hx'
-            if x' = [x] then
-              exists i; grind
-            else if x' = [y] then
-              exists constOp y c₁; grind
-            else
-              grind
+          · exists constOp y c₁; grind
+          · exists i; grind
         · subst js
           rw [InstSeq.plug_toContext_eq_self_of ([[y], [x]])]
           intro j hj idx hidx hres
@@ -375,18 +370,12 @@ theorem constFold_sound (wf : is.WellFormed ∅) :
         let xyz := [[y], [z], [x]]
         exists js.toContext xyz
         and_intros
-        · rw [InstSeq.complete_toContext_iff xyz]
+        · simp only [xyz, reduceCompleteToContext]
+          refine ⟨by grind, ?_⟩
           and_intros
-          · simp [xyz]; grind
-          · intro x' hx'
-            if x' = [x] then
-              exists i; grind
-            else if x' = [y] then
-              exists constOp y c₁; grind
-            else if x' = [z] then
-              exists constOp z c₂; grind
-            else
-              grind
+          · exists constOp y c₁; grind
+          · exists constOp z c₂; grind
+          · exists i; grind
 
         · rw [InstSeq.plug_toContext_eq_self_of xyz]
           intro j hj idx hidx hres
