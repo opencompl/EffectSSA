@@ -23,8 +23,8 @@ namespace Inst
 
 /-! ### VarSet Views -/
 
-noncomputable def argsSet (i : Inst ι) : VarSet := VarSet.setOf (· ∈ i.args)
-noncomputable def resultsSet (i : Inst ι) : VarSet := VarSet.setOf (· ∈ i.results)
+@[expose] noncomputable def argsSet (i : Inst ι) : VarSet := VarSet.setOf (· ∈ i.args)
+@[expose] noncomputable def resultsSet (i : Inst ι) : VarSet := VarSet.setOf (· ∈ i.results)
 
 @[simp, grind =] theorem mem_argsSet {v : VarId} {i : Inst ι} :
     v ∈ i.argsSet ↔ v ∈ i.args := VarSet.mem_setOf

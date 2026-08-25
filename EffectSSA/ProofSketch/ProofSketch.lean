@@ -26,13 +26,14 @@ namespace EffectSSA.ProofSketch
 ## Semantics
 -/
 section Semantics
+variable [SSA ι σ ν]
 
 /-! ### Definition -/
 
 structure LocalEnv (ι) {σ ν} [SSA ι σ ν] : Type where
   get? : VarId → Option ν := fun _ => none
 
-instance [SSA ι σ ν] : CoeFun (LocalEnv ι) (fun _ => VarId → Option ν) where
+instance : CoeFun (LocalEnv ι) (fun _ => VarId → Option ν) where
   coe := LocalEnv.get?
 
 /--
@@ -47,15 +48,16 @@ structure SEnv (ι) {σ ν} [ssa : SSA ι σ ν] : Type where
   /-- Whether an interpretation occurred (indicating a mallformed program). -/
   error : Bool := false
 
-/-! ### Defs -/
-variable [SSA ι σ ν]
+
+/-! ### LocalEnv-/
+namespace LocalEnv
 
 /--
 `ℓ.with? xs vs` returns the local environment `ℓ` with each variable `xs[i]`
 set to the corresponding value `vs[i]`,
 returining `none` if `xs` and `vs` are of different lengths.
 -/
-def LocalEnv.with? (ℓ : LocalEnv ι) (xs : List VarId) (vs : List ν) : Option (LocalEnv ι) :=
+def with? (ℓ : LocalEnv ι) (xs : List VarId) (vs : List ν) : Option (LocalEnv ι) :=
   if xs.length != vs.length then
     none
   else
@@ -65,19 +67,56 @@ def LocalEnv.with? (ℓ : LocalEnv ι) (xs : List VarId) (vs : List ν) : Option
       | none => ℓ x
     }
 
+def «with» (ℓ : LocalEnv ι) (x : VarId) (v : ν) : LocalEnv ι where
+  get? y := if x = y then v else ℓ y
+
+section Lemmas
+variable (ℓ : LocalEnv ι)
+
+@[ext, grind ext]
+theorem ext {ℓ κ : LocalEnv ι} (h : ∀ x, ℓ x = κ x) : ℓ = κ := by
+  cases ℓ; cases κ; congr; funext x; apply h x
+
+@[simp, grind =]
+theorem with?_cons_cons : ℓ.with? (x :: xs) (v :: vs) = (·.with x v) <$> ℓ.with? xs vs := by
+  simp only [with?, List.length_cons, Nat.reduceBneDiff, bne_iff_ne, ne_eq, ite_not]
+  by_cases hl : xs.length = vs.length
+  case neg => grind
+  case pos =>
+    simp only [hl, ↓reduceIte, Option.map_eq_map, Option.map_some, Option.some.injEq]
+    congr 1; funext y
+    grind
+
+@[simp, grind =]
+theorem with?_nil_nil : ℓ.with? [] [] = some ℓ := by
+  simp [with?]
+
+@[simp, grind =] theorem get?_with :
+    (ℓ.with x v).get? y = if x = y then some v else ℓ y := by rfl
+
+
+end Lemmas
+end LocalEnv
+
+/-! ### Denotation  -/
+
+/--
+`getD (some ρ)` returns `ρ`, `getD none` returns a default environment
+with the `error` flag set. -/
+abbrev SEnv.getD : Option (SEnv ι) → SEnv ι :=
+  (Option.getD · { error := true})
+
 /--
 The denotation of an `Inst`struction looks up the values of the declared
 arguments from the context `ρ`, then passes it to the denotation of the
 contained `opCode`, and updates the environment with the resulting values.
 -/
 instance : Denote (Inst ι) (SEnv ι → SEnv ι) where
-  denote i ρ :=
-    let ρ? : Option (SEnv ι) := do
-      let args ← i.args.mapM ρ.locals
-      let (state, results) := ⟦i.opCode⟧ ρ.state args
-      let locals ← ρ.locals.with? i.results results
-      return { ρ with locals, state }
-    ρ?.getD { error := true }
+  denote i ρ := SEnv.getD <| do
+    let args ← i.args.mapM ρ.locals
+    let (state, results) := ⟦i.opCode⟧ ρ.state args
+    let locals ← ρ.locals.with? i.results results
+    return { ρ with locals, state }
 /--
 An `InstSeq` is evaluated by evaluating each instruction in turn,
 threading the environment through.
@@ -202,9 +241,14 @@ instance : Refinement (SEnv ι) where
     !η.error ∧ ρ.state ⊒ η.state ∧ (∀ v, ρ.locals v ⊒ η.locals v)
 
 section RefineLemmas
+variable {ρ η : SEnv ι}
+
+@[grind =]
+theorem SEnv.isRefinedBy_iff : ρ ⊒ η ↔ !ρ.error →
+    !η.error ∧ ρ.state ⊒ η.state ∧ (∀ v, ρ.locals v ⊒ η.locals v) := by rfl
 
 @[simp, grind =>]
-theorem SEnv.isRefinedBy_of_error {ρ η : SEnv ι} :
+theorem SEnv.isRefinedBy_of_error :
     ρ.error → ρ ⊒ η := by
   simp [(· ⊒ ·)]; grind
 
@@ -503,7 +547,7 @@ variable {Γ : VarSet} {C : MultiContext ι n} {I : Pattern ι n} {i : Inst ι} 
 /-! invariants -/
 
 private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Residual ∅ C I := by
-  grind [Pattern.mem_iff_getElem_hole]
+  grind [Pattern.mem_iff_getElem_hole, MultiContext.Complete]
 
 @[grind →] private theorem of_cons_inst :
     Residual Γ (.inl i :: C) I → Residual (i.resultsSet ∪ Γ) C I := by
@@ -557,7 +601,7 @@ private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Inv
   have nsI : I.NoShadowing := by
     apply C.noShadowing_pattern_of_plug_noShadowing
     <;> grind
-  grind [Pattern.mem_iff_getElem_hole]
+  grind [Pattern.mem_iff_getElem_hole, MultiContext.Complete]
 
 private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
     Invariant Γ (.inl i :: C) I ρ → Invariant (i.resultsSet ∪ Γ) C I (⟦i⟧ ρ) := by
