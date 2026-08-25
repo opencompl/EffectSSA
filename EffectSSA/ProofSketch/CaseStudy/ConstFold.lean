@@ -139,15 +139,7 @@ theorem constFoldRw.isSound : (constFoldRw x y z c₁ c₂).IsSound := by
     grind
   · rintro h -
     have ⟨hx, hy⟩ : ρ.locals x = some c₁ ∧ ρ.locals y = some c₂ := by
-      replace h :
-          let S := (constFoldRw x y z c₁ c₂).src
-          S.EqnLemma x ρ ∧ S.EqnLemma y ρ := by
-        simp [constFoldRw, Pattern.EqnLemmaUpTo] at h
-        grind [constFoldRw]
-      simp only [Pattern.EqnLemma] at h
-      have := h.1 [constOp x c₁] (by simp [constFoldRw])
-      have := h.2 [constOp y c₂] (by simp [constFoldRw])
-      grind [Inst.EqnLemma]
+      reduceEqnLemmaUpTo [constFoldRw] at h
     suffices ⟦addOp z x y⟧ ρ ⊒ ⟦constOp z (c₁ + c₂)⟧ η by simpa [constFoldRw]
     grind
 
