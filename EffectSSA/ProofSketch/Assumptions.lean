@@ -9,13 +9,16 @@ public section
 
 class SSA (ι : Type) (σ : outParam Type) (ν : outParam Type) : Type where
   [decidableEq : DecidableEq ι]
-  [instDenote : Denote ι (σ → List ν → σ × List ν)]
-  initialState : σ
   [stateRefine : Refinement σ]
   [valRefine : Refinement ν]
+  initialState : σ
+  denoteInst : ι → σ → List ν → σ × List ν
 
 attribute [implicit_reducible, instance]
-  SSA.stateRefine SSA.valRefine SSA.decidableEq SSA.instDenote
+  SSA.stateRefine SSA.valRefine SSA.decidableEq
+
+@[reducible] instance SSA.instDenote [ssa : SSA ι σ ν] : Denote ι (σ → List ν → σ × List ν) where
+  denote := ssa.denoteInst
 
 /-!
 ## Axiomatized SSA Instance
