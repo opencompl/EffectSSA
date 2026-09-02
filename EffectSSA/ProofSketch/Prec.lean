@@ -43,7 +43,8 @@ end Lemmas
 
 /--
 If `C[P]` is well-formed, and if hole `k` precedes hole `l` (wrt `P`),
-then that `k` must occur before `l` in the context `C`.
+then that `k` must occur before `l` in the context `C`,
+assuming that `C` is complete.
 -/
 theorem Pattern.prec_iff {C : MultiContext ι n} {P : Pattern ι n}
     (h_wf : (C.plug P).WellFormed ∅) (hC : C.Complete)
