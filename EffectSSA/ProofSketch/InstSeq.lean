@@ -521,6 +521,45 @@ end ResultLemmas
 end Lemmas
 end WellFormed
 
+/-! ### Straight-line Semantics -/
+public section Denote
+variable [SSA ι σ ν]
+
+
+/--
+An `InstSeq` is evaluated by evaluating each instruction in turn,
+threading the environment through.
+-/
+@[default_instance]
+instance : Denote (InstSeq ι) (SEnv ι → SEnv ι) where
+  denote is := is.foldl (fun (ρ : SEnv ι) i => ⟦i⟧ ρ)
+
+section Lemmas
+
+-- Basics
+
+theorem denote_eq {is : InstSeq ι} :
+    ⟦is⟧ = is.foldl (fun (ρ : SEnv ι) i => ⟦i⟧ ρ) := by rfl
+
+@[simp, grind =] theorem denote_nil : ⟦([] : InstSeq ι)⟧ = (id : SEnv ι → SEnv ι) := by rfl
+@[simp, grind =] theorem denote_nil_apply (ρ : SEnv ι) : ⟦([] : InstSeq ι)⟧ ρ = ρ := by rfl
+
+@[simp, grind =] theorem denote_cons {i : Inst ι} {is : InstSeq ι} :
+    ⟦i ;> is⟧ = fun (ρ : SEnv ι) => ⟦is⟧ (⟦i⟧ ρ) := by rfl
+
+@[simp, grind =] theorem denote_append (is js : InstSeq ι) :
+    ⟦is ++ js⟧ = fun ρ => ⟦js⟧ (⟦is⟧ ρ) := by
+  grind [denote_eq]
+
+-- results
+
+@[grind =] theorem locals_denote_of_not_mem_results {is : InstSeq ι} {ρ : SEnv ι}
+    (h : x ∉ is.results) :
+    (⟦is⟧ ρ).locals x = ρ.locals x := by
+  induction is generalizing ρ <;> grind
+
+end Lemmas
+end Denote
 
 
 
