@@ -11,39 +11,6 @@ variable [SSA ι σ ν]
 namespace Inst
 
 /-!
-## Axioms
--/
-section Axioms
-
-/-!
-The semantics of an instruction may depend only on those variable declared
-as arguments.
--/
-theorem denote_eq_of_args : ∀ i : Inst ι, ∀ ρ η : SEnv ι,
-    ρ.state = η.state → ρ.error = η.error →
-    (∀ x ∈ i.args, ρ.locals x = η.locals x)
-    → let ρ' := ⟦i⟧ ρ
-      let η' := ⟦i⟧ η
-      ρ'.state = η'.state
-      ∧ ∀ x ∈ i.results, ρ'.locals x = η'.locals x := by
-  rintro i ⟨ℓ₁, s₁, e₁⟩ ⟨ℓ₂, s₂, e₂⟩ rfl rfl hx
-  simp only at hx
-  have : List.mapM ℓ₂ i.args = List.mapM ℓ₁ i.args := by
-    revert hx; induction i.args <;> grind
-  simp only [denote_eq, Option.bind_eq_bind, this]
-  cases List.mapM ℓ₁ i.args
-  · simp
-  · rename_i args_vals
-    simp only [Option.bind_some]
-    obtain ⟨state', rs⟩ := ⟦i.opCode⟧ s₁ args_vals
-    simp only [LocalEnv.with?, bne_iff_ne, ne_eq, ite_not, Option.pure_def]
-    split
-    · simp; grind
-    · grind
-
-end Axioms
-
-/-!
 ## SSA WellFormedness
 -/
 
