@@ -558,6 +558,13 @@ theorem denote_eq {is : InstSeq ι} :
     (⟦is⟧ ρ).locals x = ρ.locals x := by
   induction is generalizing ρ <;> grind
 
+/-- The denotation of an instruction sequence is monotone w.r.t. refinement -/
+@[grind .] theorem denote_isRefinedBy_congr {ρ₁ ρ₂ : SEnv ι} (hρ : ρ₁ ⊒ ρ₂) (is : InstSeq ι) :
+    ⟦is⟧ ρ₁ ⊒ ⟦is⟧ ρ₂ := by
+  induction is generalizing ρ₁ ρ₂
+  · simpa
+  · grind
+
 end Lemmas
 end Denote
 

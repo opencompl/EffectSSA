@@ -53,14 +53,19 @@ structure SEnv (ι) {σ ν} [ssa : SSA ι σ ν] : Type where
   /-- Whether an interpretation occurred (indicating a mallformed program). -/
   error : Bool := false
 
-/--
-`getD (some ρ)` returns `ρ`, `getD none` returns a default environment
-with the `error` flag set. -/
-abbrev SEnv.getD : Option (SEnv ι) → SEnv ι :=
-  (Option.getD · { error := true})
-
 /-! ### LocalEnv API -/
 namespace LocalEnv
+
+section Refinement
+
+instance : Refinement (LocalEnv ι) where
+  IsRefinedBy ℓ κ := ∀ v, ℓ v ⊒ κ v
+
+@[simp, grind =]
+theorem isRefinedBy_iff {ℓ κ : LocalEnv ι} :
+    ℓ ⊒ κ ↔ ∀ v, ℓ v ⊒ κ v := by rfl
+
+end Refinement
 
 /--
 `ℓ.with? xs vs` returns the local environment `ℓ` with each variable `xs[i]`
@@ -107,6 +112,51 @@ theorem with?_nil_nil : ℓ.with? [] [] = some ℓ := by
 
 end Lemmas
 end LocalEnv
+
+/-! ### SEnv API-/
+namespace SEnv
+
+/--
+`getD (some ρ)` returns `ρ`, `getD none` returns a default environment
+with the `error` flag set. -/
+abbrev getD : Option (SEnv ι) → SEnv ι :=
+  (Option.getD · { error := true})
+
+section Refinement
+
+/--
+We say that a non-erroneous `ρ` is refined by `η`,
+written as `ρ ⊒ η`, when:
+
+* `η` is also non-erroneous
+* the global state of `ρ` is refined by the global state of `η`, and
+* for each variable `v` in the domain of `ρ`,
+    the value `ρ v` is refined by `η v`.
+
+An erroneous environment `ρ`, on the other hand, is refined by anything.
+-/
+instance : Refinement (SEnv ι) where
+  IsRefinedBy ρ η := !ρ.error →
+    !η.error ∧ ρ.state ⊒ η.state ∧ (∀ v, ρ.locals v ⊒ η.locals v)
+
+variable {ρ η : SEnv ι}
+
+@[grind =]
+theorem isRefinedBy_iff : ρ ⊒ η ↔ !ρ.error →
+    !η.error ∧ ρ.state ⊒ η.state ∧ (∀ v, ρ.locals v ⊒ η.locals v) := by rfl
+
+@[simp, grind =>]
+theorem isRefinedBy_of_error :
+    ρ.error → ρ ⊒ η := by
+  simp [(· ⊒ ·)]; grind
+
+@[simp, grind =>]
+theorem isRefinedBy_iff_of_error_right {ρ η : SEnv ι} :
+    η.error → (ρ ⊒ η ↔ ρ.error) := by
+  simp [(· ⊒ ·)]; grind
+
+end Refinement
+end SEnv
 end Env
 
 /-!

@@ -65,6 +65,13 @@ theorem denote_eq {i : Inst ι} :
     (h : x ∉ i.results) : (⟦i⟧ ρ).locals x = ρ.locals x
   -- TODO: ^^ this result should now be provable
 
+/--
+Each instruction's semantics preserves refinement.
+In other words, the semantics are *monotone* w.r.t. the refinement relation.
+-/
+@[grind .] axiom denote_isRefinedBy_congr {ρ₁ ρ₂ : SEnv ι} (hρ : ρ₁ ⊒ ρ₂) (i : Inst ι) :
+    ⟦i⟧ ρ₁ ⊒ ⟦i⟧ ρ₂
+
 end Lemmas
 end Denote
 end Inst
