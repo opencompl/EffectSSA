@@ -8,55 +8,12 @@ public section
 
 variable [SSA ι σ ν]
 
-namespace Inst
-
-/-!
-## Axioms
--/
-section Axioms
-
-/-!
-The semantics of an instruction may depend only on those variable declared
-as arguments.
--/
-theorem denote_eq_of_args : ∀ i : Inst ι, ∀ ρ η : SEnv ι,
-    ρ.state = η.state → ρ.error = η.error →
-    (∀ x ∈ i.args, ρ.locals x = η.locals x)
-    → let ρ' := ⟦i⟧ ρ
-      let η' := ⟦i⟧ η
-      ρ'.state = η'.state
-      ∧ ∀ x ∈ i.results, ρ'.locals x = η'.locals x := by
-  rintro i ⟨ℓ₁, s₁, e₁⟩ ⟨ℓ₂, s₂, e₂⟩ rfl rfl hx
-  simp only at hx
-  have : List.mapM ℓ₂ i.args = List.mapM ℓ₁ i.args := by
-    revert hx; induction i.args <;> grind
-  simp only [denote_eq, Option.bind_eq_bind, this]
-  cases List.mapM ℓ₁ i.args
-  · simp
-  · rename_i args_vals
-    simp only [Option.bind_some]
-    obtain ⟨state', rs⟩ := ⟦i.opCode⟧ s₁ args_vals
-    simp only [LocalEnv.with?, bne_iff_ne, ne_eq, ite_not, Option.pure_def]
-    split
-    · simp; grind
-    · grind
-
-end Axioms
-
-/-!
-## SSA WellFormedness
--/
-
-/--
-An individual instruction is well-formed, when it doesn't use its own result
-as an argument.
--/
-def WellFormed (i : Inst ι) :=
-  ∀ x ∈ i.args, x ∉ i.results
-
 /-!
 ## Main Definitions
 -/
+@[expose] section Defs
+
+namespace Inst
 
 def EqnInv (i : Inst ι) (ρ : SEnv ι) : Prop :=
   ∀ x ∈ i.results,
@@ -70,31 +27,158 @@ structure WellBehaved (i : Inst ι) where
       → EqnInv i ρ → EqnInv i (⟦j⟧ ρ)
   idempotent: ∀ ρ, EqnInv i (⟦i⟧ ρ)
 
-
+end Inst
 
 /--
-An instruction is *purely determined*, when it's effect on local registers
-as well how the state is modified, is determined purely from the local registers.
+TODO: the proof ought to work also with a definition of EqnInv/WellBehaved for
+InstSeq that is an analogue of the above for the whole sequence's semantics.
+That would be slightly more general, as it allows for a block to be well-behaved
+as a whole, even if not each instruction is well-behaved indivually.
+For now, though, the simple definition below is good enough.
 -/
-def PurelyDet (i : Inst ι) : Prop :=
+
+abbrev InstSeq.EqnInv (is : InstSeq ι) (ρ : SEnv ι) : Prop :=
+  ∀ i ∈ is, i.EqnInv ρ
+
+abbrev InstSeq.WellBehaved (is : InstSeq ι) : Prop :=
+  ∀ i ∈ is, i.WellBehaved
+
+end Defs
+
+/-!
+## Invariance Lemmas
+-/
+section Invariance
+variable {C : MultiContext ι n} {P : Pattern ι n} {is js : InstSeq ι} {i j : Inst ι} {ρ : SEnv ι}
+
+/-! ### Inst -/
+namespace Inst
+
+@[grind =>] theorem locals_denote_of_eqnInv (h : i.EqnInv ρ) :
+    ∀ x ∈ i.results, (⟦i⟧ ρ).locals x = ρ.locals x := h
+
+/--
+If instruction `i` is well-behaved and `js` is well-formed on a context `Γ`
+that contains all of `i`'s results and arguments, then `i.EqnInv` is preserved
+by executing `js`.
+-/
+theorem eqnInv_denote_other (h : i.WellBehaved) (hwf : js.WellFormed Γ)
+    (hres : i.resultsSet ⊆ Γ) (hargs : i.argsSet ⊆ Γ) :
+    i.EqnInv ρ → i.EqnInv (⟦js⟧ ρ) := by
+  intro hρ
+  induction js generalizing Γ ρ with
+  | nil => grind
+  | cons j js ih =>
+    simp only [InstSeq.denote_cons]
+    obtain ⟨_, hdj, hwf'⟩ := InstSeq.wellFormed_cons.mp hwf
+    apply ih hwf' (by grind) (by grind) (h.stable _ _ ?_ ?_ hρ)
+    · suffices i.resultsSet.Disjoint j.resultsSet by
+        simp [VarSet.Disjoint, VarSet.eq_empty_iff] at *
+        grind
+      grind
+    · suffices i.argsSet.Disjoint j.resultsSet by
+        simp [VarSet.Disjoint, VarSet.eq_empty_iff] at *
+        grind
+      grind
+
+end Inst
+
+/-! ### InstSeq -/
+namespace InstSeq
+
+@[simp, grind .] theorem eqnInv_nil : EqnInv ([] : InstSeq ι) ρ := by grind
+@[simp] theorem eqnInv_cons : (i ;> is).EqnInv ρ ↔ i.EqnInv ρ ∧ is.EqnInv ρ := by grind
+
+@[simp] theorem eqnInv_append :
+    (is ++ js).EqnInv ρ ↔ is.EqnInv ρ ∧ js.EqnInv ρ := by
+  simp only [EqnInv, List.mem_append]; grind
+
+/--
+If `is` is well-behaved and `j` doesn't redefine `is`'s args or results,
+then `is.EqnInv` is preserved by executing `j`.
+-/
+theorem eqnInv_denote_inst (h : is.WellBehaved)
+    (hj : ∀ x ∈ j.results, x ∉ is.args ∧ x ∉ is.results) :
+    is.EqnInv ρ → is.EqnInv (⟦j⟧ ρ) := by
+  intro hρ i hi
+  apply (h i hi).stable ρ j ?_ ?_ (hρ i hi)
+  · grind
+  · suffices i.argsSet.Disjoint j.resultsSet by
+      simp [VarSet.Disjoint, VarSet.eq_empty_iff] at *
+      grind
+    grind
+
+/--
+If `is` is well-behaved and `js` is well-formed on a context `Γ` that contains
+all of `is`'s results and arguments, then `is.EqnInv` is preserved by executing
+`js`.
+-/
+theorem eqnInv_denote_other (h : is.WellBehaved) (hwf : js.WellFormed Γ)
+    (hres : is.results ⊆ Γ) (hargs : is.args ⊆ Γ) :
+    is.EqnInv ρ → is.EqnInv (⟦js⟧ ρ) := by
+  intro hρ i hi
+  apply Inst.eqnInv_denote_other (h i hi) hwf ?_ ?_ (hρ i hi) <;> grind
+
+/--
+Evaluating a well-behaved, well-formed instruction sequence yields an environment
+that satisfies its own equation invariant.
+-/
+theorem eqnInv_denote_self (h : is.WellBehaved) (hwf : is.WellFormed Γ) :
+    is.EqnInv (⟦is⟧ ρ) := by
+  induction is generalizing Γ ρ with
+  | nil => grind
+  | cons i is ih =>
+    simp only [denote_cons, eqnInv_cons]
+    obtain ⟨hia, hdj, hwf'⟩ := wellFormed_cons.mp hwf
+    refine ⟨?_, ?_⟩
+    · exact Inst.eqnInv_denote_other (h i (by grind)) hwf'
+        (by grind) (by grind) ((h i (by grind)).idempotent ρ)
+    · exact ih (fun j' hj' => h j' (by grind)) hwf'
+
+end InstSeq
+
+end Invariance
+
+/-!
+## Locally Pure
+Justify the well-behavedness predicate by showing that all so-called
+"locally pure" instructions are well-behaved.
+-/
+section LocallyPure
+open Inst
+
+/--
+An instruction is *locally pure*, when it's effect on local registers,
+is determined purely from the local registers.
+
+To wit: such an instruction is free to modify the *global state* in any way.
+-/
+@[expose] def Inst.LocallyPure (i : Inst ι) : Prop :=
   ∀ ρ η, ρ.locals = η.locals →
     (⟦i⟧ ρ).locals = (⟦i⟧ η).locals
 
-theorem purelyDet_imp (i : Inst ι) :
-    i.PurelyDet → ∀ ρ η : SEnv ι, (∀ y ∈ i.args, ρ.locals y = η.locals y) →
+theorem locallyPure_imp (i : Inst ι) :
+    i.LocallyPure → ∀ ρ η : SEnv ι, (∀ y ∈ i.args, ρ.locals y = η.locals y) →
       ∀ x ∈ i.results, (⟦i⟧ ρ).locals x = (⟦i⟧ η).locals x := by
   intro pu ρ η hy x hx
   let η' : SEnv ι := { ρ with locals := η.locals }
   calc (⟦i⟧ ρ).locals x
     _ = (⟦i⟧ η').locals x := by have := denote_eq_of_args i ρ η'; grind only
-    _ = (⟦i⟧ η).locals x := by grind [PurelyDet]
+    _ = (⟦i⟧ η).locals x := by grind [LocallyPure]
+
+/--
+An individual instruction is well-formed, when it doesn't use its own result
+as an argument.
+-/
+@[expose] def Inst.WellFormed (i : Inst ι) :=
+  ∀ x ∈ i.args, x ∉ i.results
 
 /--
 Every purely determined instruction, is well-behaved.
 -/
-theorem wellBehaved_of_purelyDet {i : Inst ι}
+theorem wellBehaved_of_locallyPure {i : Inst ι}
     (wf : i.WellFormed)
-    (pu : i.PurelyDet) :
+    (pu : i.LocallyPure) :
     i.WellBehaved := by
   constructor
   · -- Stability
@@ -108,11 +192,13 @@ theorem wellBehaved_of_purelyDet {i : Inst ι}
       have : ρ.locals x = (⟦i⟧ ρ).locals x := by grind [EqnInv]
       grind
     have : ∀ y ∈ i.args, η.locals y = ρ.locals y := by grind
-    apply purelyDet_imp <;> assumption
+    apply locallyPure_imp <;> assumption
   · -- Idempotency
     intro ρ
     intro x hx
     let η := ⟦i⟧ ρ
     show (⟦i⟧ η).locals x = (⟦i⟧ ρ).locals x
     have : ∀ y ∈ i.args, η.locals y = ρ.locals y := by grind [WellFormed]
-    apply purelyDet_imp <;> assumption
+    apply locallyPure_imp <;> assumption
+
+end LocallyPure

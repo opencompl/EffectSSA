@@ -67,6 +67,8 @@ theorem isRefinedBy_iff {ℓ κ : LocalEnv ι} :
 
 end Refinement
 
+@[expose] section Defs
+
 /--
 `ℓ.with? xs vs` returns the local environment `ℓ` with each variable `xs[i]`
 set to the corresponding value `vs[i]`,
@@ -109,8 +111,8 @@ theorem with?_nil_nil : ℓ.with? [] [] = some ℓ := by
 @[simp, grind =] theorem get?_with :
     (ℓ.with x v).get? y = if x = y then some v else ℓ y := by rfl
 
-
 end Lemmas
+end Defs
 end LocalEnv
 
 /-! ### SEnv API-/
