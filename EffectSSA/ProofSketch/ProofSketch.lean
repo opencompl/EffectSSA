@@ -279,10 +279,11 @@ We say that `Γ` is a residual of context `C` under pattern `I` when
 TODO: dedup with Invariant
 -/
 @[grind, grind cases]
-private structure Residual (Γ : VarSet) (C : MultiContext ι n) (I : Pattern ι n) where
+private structure Residual (Γ : VarSet) (C : MultiContext ι n) (I : Pattern ι n) : Prop where
+  /-- `H` is the list of previously seen holes -/
+  residual : ∃ H : List (Hole n), C.CompleteMod H ∧ ∀ h ∈ H, I[h].results ⊆ Γ
   /-- `C.plug I` is well-formed with free variables `Γ`. -/
   wf : (C.plug I).WellFormed Γ
-  residual : ∀ x ∈ I.results, x ∉ Γ → (∃ h, .inr h ∈ C ∧ x ∈ I[h].results)
 
 namespace Residual
 variable {Γ : VarSet} {C : MultiContext ι n} {I : Pattern ι n} {i : Inst ι} {h : Hole n}
@@ -290,19 +291,20 @@ variable {Γ : VarSet} {C : MultiContext ι n} {I : Pattern ι n} {i : Inst ι} 
 /-! invariants -/
 
 private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Residual ∅ C I := by
-  grind [Pattern.mem_iff_getElem_hole, MultiContext.Complete]
+  grind [Pattern.mem_iff_getElem_hole, MultiContext.CompleteMod]
 
 @[grind →] private theorem of_cons_inst :
     Residual Γ (.inl i :: C) I → Residual (i.resultsSet ∪ Γ) C I := by
-  rintro ⟨wf, residual⟩; constructor
-  · grind
-  · intro x; have := residual x; grind
+  rintro ⟨wf, residual⟩;
+  constructor
+  · simp_all; grind
+  · simp_all
 
 @[grind →] private theorem of_cons_hole  :
     Residual Γ (.inr h :: C) I → Residual (I[h].results ∪ Γ) C I := by
   rintro ⟨wf, residual⟩; constructor
-  · grind
-  · intro x; have := residual x; grind
+  · simp_all; grind
+  · simp_all
 
 end Residual
 end Residual
@@ -325,9 +327,13 @@ Within the proof, we will keep track of a residual variable set `Γ`, which has
 all variables of the original program considered in previous steps of the
 induction, thus we keep the following invariant about `Γ`.
 -/
-@[grind, grind cases] private structure Invariant
-    (Γ : VarSet) (C : MultiContext ι n) (I : Pattern ι n) (ρ : SEnv ι)
-    extends Residual Γ C I where
+@[grind, grind cases] private structure InvariantAux
+    (Γ : VarSet) (H : List (Hole n))
+    (C : MultiContext ι n) (I : Pattern ι n) (ρ : SEnv ι) where
+  /-- `H` is the list of previously seen holes -/
+  residual : C.CompleteMod H ∧ ∀ h ∈ H, I[h].results ⊆ Γ
+  /-- `C.plug I` is well-formed with free variables `Γ`. -/
+  wf : (C.plug I).WellFormed Γ
   /--
   If `x ∈ Γ`, then any transitive dependencies of `x` (in `I`) are also
   part of `Γ`.
@@ -336,44 +342,54 @@ induction, thus we keep the following invariant about `Γ`.
   eqn : ∀ x ∈ Γ, I.EqnLemma x ρ
   ns : I.NoShadowing
 
+private abbrev Invariant (C : MultiContext ι n) (I : Pattern ι n) (ρ : SEnv ι) : Prop :=
+  ∃ Γ H, InvariantAux Γ H C I ρ
+
 
 namespace Invariant
 variable {Γ} {C : MultiContext ι n} {I : Pattern ι n} {ρ : SEnv ι} {i : Inst ι}
 
-private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Invariant ∅ C I { } := by
+private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Invariant C I { } := by
   have nsI : I.NoShadowing := by
     apply C.noShadowing_pattern_of_plug_noShadowing
     <;> grind
-  grind [Pattern.mem_iff_getElem_hole, MultiContext.Complete]
+  exists ∅, []
+  constructor <;> grind
 
 private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
-    Invariant Γ (.inl i :: C) I ρ → Invariant (i.resultsSet ∪ Γ) C I (⟦i⟧ ρ) := by
-  rintro ⟨residual, closed, eqn, nsI⟩
+    Invariant (.inl i :: C) I ρ → Invariant C I (⟦i⟧ ρ) := by
+  rintro ⟨Γ, H, residual, closed, eqn, nsI⟩
+  exists (i.resultsSet ∪ Γ), H
   have : ∀ x ∈ i.resultsSet, x ∉ I.results := by
     intro x hx hxI
     have : x ∉ (C.plug I).results := by grind
-    obtain ⟨h, hhC, hhx⟩ : ∃ h, Sum.inr h ∈ C ∧ x ∈ I[h].results := by
-      have : x ∉ Γ := by grind
-      have := residual.residual x hxI;
-      grind
+    obtain ⟨h, hhx⟩ : ∃ h : Hole n, x ∈ I[h].results := by
+      exact Pattern.exists_hole_of_mem_results hxI
+    have hhC : Sum.inr h ∈ C := by
+      rcases residual with ⟨H, hH⟩
+      grind [MultiContext.CompleteMod]
     grind
   constructor
-  <;> grind
+  · simp_all; grind
+  all_goals grind
 
 private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
-    Invariant Γ (.inr h :: C) I ρ →
-    Invariant (I[h].results ∪ Γ) C I (⟦I[h]⟧ ρ) := by
-  rintro ⟨residual, closed, eqn, nsI⟩
+    Invariant (.inr h :: C) I ρ →
+    Invariant C I (⟦I[h]⟧ ρ) := by
+  rintro ⟨Γ, H, residual, closed, eqn, nsI⟩
+  exists (I[h].results ∪ Γ), (h :: H)
   generalize his : I[h] = is at *
   constructor
+  · simp_all; grind
   · grind
-  · have hΔ : is.args ⊆ Γ := by grind
+  · stop
+    have hΔ : is.args ⊆ Γ := by grind
     replace his : is ⊆ I.collapse := by grind
     generalize Γ = Δ at ⊢ hΔ closed
     clear eqn
     intro x hx y hy
     induction is generalizing Δ with
-    | nil => grind
+    | nil => sorry
     | cons i is ih =>
         have his : is ⊆ I.collapse := by grind
         have hΔ' : is.args ⊆ i.resultsSet ∪ Δ := by grind
@@ -395,7 +411,8 @@ private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
               grind
             · grind
         grind
-  · intro x hx
+  · stop
+    intro x hx
     by_cases x ∈ Γ; grind
     have hx : x ∈ is.results := by grind
     · obtain ⟨Δ, wf⟩ : ∃ Δ, is.WellFormed Δ := by grind

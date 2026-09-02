@@ -33,6 +33,24 @@ inductive Rewrite.Prec (rw : Rewrite ι n) (k l : Hole n) : Prop
   | src : rw.src.Prec k l → rw.Prec k l
   | tgt : rw.tgt.Prec k l → rw.Prec k l
 
+/--
+`rw.PrecEq k l` holds iff `k = l` or `rw.Prec k l`.
+
+That is, `PrecEq` is the reflexive closure of `Prec`.
+-/
+abbrev Rewrite.PrecEq (rw : Rewrite ι n) (k l : Hole n) :=
+  k = l ∨ rw.Prec k l
+
+/--
+`rw.EqnInvUpTo l` holds for some environment `ρ` when that environment satisfies
+the equation invariants of `rw.src[k]` and `rw.tgt[k]` for any hole `k` that
+precedes the given hole `l` (wrt the given rewrite).
+-/
+@[expose] def Rewrite.EqnInvUpTo (rw : Rewrite ι n) (l : Hole n) (ρ : SEnv ι) : Prop :=
+  True
+  -- ∀ k, rw.PrecEq k l → (rw.src[k]).EqnInv ρ ∧ (rw.tgt[k]).EqnInv ρ
+
+
 /-! ## Basic Lemmas -/
 section Lemmas
 
@@ -40,13 +58,15 @@ end Lemmas
 
 
 /-! ## Main Characterization -/
+section Characterize
+variable {C : MultiContext ι n} {P : Pattern ι n}
 
 /--
 If `C[P]` is well-formed, and if hole `k` precedes hole `l` (wrt `P`),
 then that `k` must occur before `l` in the context `C`,
 assuming that `C` is complete.
 -/
-theorem Pattern.prec_iff {C : MultiContext ι n} {P : Pattern ι n}
+theorem Pattern.prec_iff
     (h_wf : (C.plug P).WellFormed ∅) (hC : C.Complete)
     {k l} (h_prec : P.Prec k l) :
     ∀ kLoc lLoc : Nat,
@@ -120,3 +140,7 @@ theorem Pattern.prec_iff {C : MultiContext ι n} {P : Pattern ι n}
     have hm : C[mLoc]? = some (Sum.inr mid) :=
       List.getElem?_eq_some_iff.mpr ⟨hmLt, hmEq⟩
     exact Nat.lt_trans (IHkm kLoc mLoc hk hm) (IHml mLoc lLoc hm hl)
+
+theorem
+
+end Characterize

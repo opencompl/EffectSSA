@@ -68,19 +68,31 @@ namespace MultiContext
 variable (C : MultiContext ι n)
 
 /-! ### Completeness -/
-section Complete
+@[expose] section Complete
 
 /--
-An `n`-ary context `C` is considered *complete* when each possible named hole `h : Hole n`
-occurs at least once in `C`.
+An `n`-ary context `C` is *complete* module a list of holes `H`,
+when each hole `h ∉ H` occurs at least once in `C`.
 -/
-def Complete (C : MultiContext ι n) : Prop :=
-  ∀ (h : Hole n), (.inr h) ∈ C
+def CompleteMod (C : MultiContext ι n) (H : List (Hole n)) : Prop :=
+  ∀ (h : Hole n), h ∉ H → (.inr h) ∈ C
+
+/--
+An `n`-ary context `C` is considered *complete* when it is complete module the empty list.
+-/
+abbrev Complete (C : MultiContext ι n) : Prop :=
+  C.CompleteMod []
 
 section Lemmas
 
+@[simp] theorem completeMod_cons_hole : CompleteMod (.inr h :: C) H ↔ CompleteMod C (h :: H) := by
+  grind [CompleteMod]
+
+@[simp] theorem completeMod_cons_inst : CompleteMod (.inl i :: C) H ↔ CompleteMod C H := by
+  grind [CompleteMod]
+
 @[simp] theorem complete_cons_inst : Complete (.inl i :: C) ↔ Complete C := by
-  grind [Complete]
+  simp
 
 end Lemmas
 end Complete
@@ -133,7 +145,7 @@ variable {C C₁ C₂ : MultiContext ι n}
 
 @[grind =] theorem mem_plug_iff_of_complete (hC : C.Complete) (i : Inst ι) :
     i ∈ (C.plug I) ↔ (.inl i) ∈ C ∨ ∃ (h : Hole n), i ∈ I[h] := by
-  grind [Complete]
+  grind [CompleteMod]
 
 /--
 If context `C` is complete, then the results of pattern `I` are a subset of the
@@ -160,10 +172,10 @@ def embedPlug (I : Pattern ι n) (C : MultiContext ι n) (hC : C.Complete) :
     I.collapse.EmbedIn (C.plug I) where
   map p :=
     let p : I.PC := .ofCollapse p
-    embedPlugAux p C (by grind [Complete])
+    embedPlugAux p C (by grind [CompleteMod])
   get_map p := by
     let p' : I.PC := .ofCollapse p
-    have hC' : .inr p'.hole ∈ C := by grind [Complete]
+    have hC' : .inr p'.hole ∈ C := by grind [CompleteMod]
     show (embedPlugAux p' C hC').get = p.get
     clear hC
     fun_induction embedPlugAux p' C hC'
@@ -178,8 +190,8 @@ def embedPlug (I : Pattern ι n) (C : MultiContext ι n) (hC : C.Complete) :
     let p' : I.PC := .ofCollapse p
     let q' : I.PC := .ofCollapse q
     have : p' ≠ q' := by grind
-    have hCp : .inr p'.hole ∈ C := by grind [Complete]
-    have hCq : .inr q'.hole ∈ C := by grind [Complete]
+    have hCp : .inr p'.hole ∈ C := by grind [CompleteMod]
+    have hCq : .inr q'.hole ∈ C := by grind [CompleteMod]
     show (embedPlugAux p' C hCp) ≠ (embedPlugAux q' C hCq)
     clear hC
     induction C

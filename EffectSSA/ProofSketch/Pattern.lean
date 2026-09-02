@@ -293,6 +293,12 @@ variable {I : Pattern ι n} {is : InstSeq ι} {x : VarId}
 @[grind →] theorem results_subset_of_mem (h : is ∈ I) :
     is.results ⊆ I.results := by grind
 
+@[grind →]
+theorem exists_hole_of_mem_results : x ∈ I.results → ∃ h : Hole n, x ∈ I[h].results := by
+  simp only [mem_results_iff, mem_iff_getElem, getElem_hole, forall_exists_index, and_imp]
+  rintro _ h hlt rfl hres
+  exact ⟨⟨h, hlt⟩, hres⟩
+
 end Results
 
 end Lemmas
