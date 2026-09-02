@@ -456,6 +456,11 @@ theorem denote_cons  (is : InstSeq ι) (I : Pattern ι n) :
     ⟦cons is I⟧ = fun ρ => ⟦I⟧ (⟦is⟧ ρ) := by
   simp [Pattern.denote_eq]
 
+/-- The denotation of a pattern is monotone w.r.t. refinement -/
+@[grind .] theorem denote_isRefinedBy_congr {ρ₁ ρ₂ : SEnv ι} (hρ : ρ₁ ⊒ ρ₂) (I : Pattern ι n) :
+    ⟦I⟧ ρ₁ ⊒ ⟦I⟧ ρ₂ := by
+  simp [Pattern.denote_eq, InstSeq.denote_isRefinedBy_congr hρ]
+
 end Lemmas
 end Denote
 
