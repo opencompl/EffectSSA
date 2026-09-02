@@ -38,29 +38,29 @@ abbrev addOp (x y z : VarId) : Inst SimpleArith where
   opCode := .add
   args := [y, z]
 
-@[simp] theorem results_constOp : (constOp x n).results = [x] := by rfl
-@[simp] theorem args_constOp : (constOp x n).args = [] := by rfl
+@[simp, eqn_lemma] theorem results_constOp : (constOp x n).results = [x] := by rfl
+@[simp, eqn_lemma] theorem args_constOp : (constOp x n).args = [] := by rfl
 
-@[simp] theorem resultsSet_constOp : (constOp x n).resultsSet = {x} := by
+@[simp, eqn_lemma] theorem resultsSet_constOp : (constOp x n).resultsSet = {x} := by
   ext; simp
-@[simp] theorem argsSet_constOp : (constOp x n).argsSet = ∅ := by
+@[simp, eqn_lemma] theorem argsSet_constOp : (constOp x n).argsSet = ∅ := by
   ext; simp
 
-@[simp] theorem results_addOp : (addOp x y z).results = [x] := by rfl
-@[simp] theorem args_addOp : (addOp x y z).args = [y, z] := by rfl
+@[simp, eqn_lemma] theorem results_addOp : (addOp x y z).results = [x] := by rfl
+@[simp, eqn_lemma] theorem args_addOp : (addOp x y z).args = [y, z] := by rfl
 
-@[simp] theorem resultsSet_addOp : (addOp x y z).resultsSet = {x} := by
+@[simp, eqn_lemma] theorem resultsSet_addOp : (addOp x y z).resultsSet = {x} := by
   ext; simp
-@[simp] theorem argsSet_addOp : (addOp x y z).argsSet = {y, z} := by
+@[simp, eqn_lemma] theorem argsSet_addOp : (addOp x y z).argsSet = {y, z} := by
   ext; simp
 
 /-! ## Semantics Simplification -/
 
-@[simp, grind =] theorem denote_constOp :
+@[simp, eqn_lemma, grind =] theorem denote_constOp :
     ⟦constOp x c⟧ ρ = { ρ with locals := ρ.locals.with x c } := by
   simp [(⟦·⟧)]
 
-@[simp, grind =] theorem denote_addOp :
+@[simp, eqn_lemma, grind =] theorem denote_addOp :
     ⟦addOp x y z⟧ ρ = (SEnv.getD <| do
       let y ← ρ.locals y
       let z ← ρ.locals z
@@ -81,7 +81,8 @@ axiom wellbehaved (i : Inst SimpleArith) : i.HasEqn
 /-! ## Rewrite Family & Soundness -/
 
 /-- `$x := $c₁; $y := $c₂; $z := add($x, $y)` ⟹ `...; $z := ${c₁ + c₂}` -/
-@[expose] def constFoldRw (x y z : VarId) (c₁ c₂ : Nat) : Rewrite SimpleArith 3 where
+@[expose, eqn_lemma] def constFoldRw
+    (x y z : VarId) (c₁ c₂ : Nat) : Rewrite SimpleArith 3 where
   src := .ofVector #v[
     [constOp x c₁],
     [constOp y c₂],
@@ -96,7 +97,8 @@ axiom wellbehaved (i : Inst SimpleArith) : i.HasEqn
   wellbehaved_tgt := by grind
 
 /-- `$x := $c₁; $z := add($x, $x)` ⟹ `...; $z := ${c₁ + c₁}` -/
-@[expose] def constFoldRwAlt (x z : VarId) (c₁ : Nat) : Rewrite SimpleArith 2 where
+@[expose, eqn_lemma] def constFoldRwAlt
+    (x z : VarId) (c₁ : Nat) : Rewrite SimpleArith 2 where
   src := .ofVector #v[
     [constOp x c₁],
     [addOp z x x]
@@ -139,7 +141,7 @@ theorem constFoldRw.isSound : (constFoldRw x y z c₁ c₂).IsSound := by
     grind
   · rintro h -
     have ⟨hx, hy⟩ : ρ.locals x = some c₁ ∧ ρ.locals y = some c₂ := by
-      reduceEqnLemmaUpTo [constFoldRw] at h
+      reduceEqnLemma at h
     suffices ⟦addOp z x y⟧ ρ ⊒ ⟦constOp z (c₁ + c₂)⟧ η by simpa [constFoldRw]
     grind
 
@@ -152,12 +154,7 @@ theorem constFoldRwAlt.isSound : (constFoldRwAlt x z c₁).IsSound := by
     grind
   · rintro h -
     have hx : ρ.locals x = some c₁ := by
-      replace h : (constFoldRwAlt x z c₁).src.EqnLemma x ρ := by
-        simp [constFoldRwAlt, Pattern.EqnLemmaUpTo] at h
-        grind [constFoldRwAlt]
-      simp only [Pattern.EqnLemma] at h
-      specialize h [constOp x c₁] (by simp [constFoldRwAlt])
-      grind [Inst.EqnLemma]
+      reduceEqnLemma at h
     suffices ⟦addOp z x x⟧ ρ ⊒ ⟦constOp z (c₁ + c₁)⟧ η by simpa [constFoldRwAlt]
     grind
 
