@@ -22,50 +22,6 @@ implies contextual equivalence, in an SSA-based rewriting setting.
 @[expose] public noncomputable section
 namespace EffectSSA.ProofSketch
 
-/-!
-## Semantics
--/
-section Semantics
-variable [SSA ι σ ν]
-
-/-! #### MultiContext Semantics -/
-
-/-- `HoleEnv ι n` is the type of a substitution mapping holes to instruction sequences. -/
-abbrev HoleEnv (ι) (n : Nat) := Hole n → InstSeq ι
-
-namespace MultiContext
-variable (C : MultiContext ι n)
-
-instance : Denote (MultiContext ι n) (HoleEnv ι n → SEnv ι → SEnv ι) where
-  denote C η := C.foldl <| fun (ρ : SEnv ι) i =>
-                  match i with
-                  | .inl (i : Inst ι) => ⟦i⟧ ρ
-                  | .inr (h : Hole n) => ⟦η h⟧ ρ
-
-theorem denote_eq : ⟦C⟧ = fun (η : HoleEnv ι n) => C.foldl (fun (ρ : SEnv ι) i =>
-                                      match i with
-                                      | .inl (i : Inst ι) => ⟦i⟧ ρ
-                                      | .inr (h : Hole n) => ⟦η h⟧ ρ) := rfl
-
-@[simp, grind =]
-theorem denote_nil' : ⟦([] : MultiContext ι n)⟧ η = (id : SEnv ι → SEnv ι) := rfl
-
-@[simp, grind =] theorem denote_cons_inst' (i : Inst ι) :
-    ⟦(Sum.inl i :: C : MultiContext ι n)⟧ = fun η ρ => ⟦C⟧ η (⟦i⟧ ρ) := by rfl
-
-@[simp, grind =] theorem denote_cons_hole' (h : Hole n) :
-    ⟦(Sum.inr h :: C : MultiContext ι n)⟧ = fun η ρ => ⟦C⟧ η (⟦η h⟧ ρ) := by rfl
-
-@[simp, grind =]
-theorem denote_plug : ⟦C.plug I⟧ = ⟦C⟧ (I[·]) := by
-  funext ρ
-  induction C generalizing ρ
-  case nil => simp
-  case cons i C ih => cases i <;> grind
-
-end MultiContext
-end Semantics
-
 variable [SSA ι σ ν]
 
 /-!
@@ -523,8 +479,7 @@ theorem Pattern.ctxRefine_of_denoteRefine (I J : Pattern ι n)
   suffices ∀ ρ η, ρ ⊒ η →
       ∀ {Γ}, Invariant Γ C I ρ →
       ∀ {Δ}, Invariant Δ C J η →
-      ⟦C⟧ (I[·]) ρ ⊒ ⟦C⟧ (J[·]) η by
-    simp only [MultiContext.denote_plug]
+      ⟦C.plug I⟧ ρ ⊒ ⟦C.plug J⟧ η by
     apply @this { } { } ?_ ∅ ?_ ∅ ?_
     <;> grind [Invariant.initial]
   clear hC hCI hCJ
@@ -539,6 +494,7 @@ theorem Pattern.ctxRefine_of_denoteRefine (I J : Pattern ι n)
         · apply Invariant.of_invariant_cons_inst hI hCI
         · apply Invariant.of_invariant_cons_inst hJ hCJ
     | inr h =>
+        simp only [MultiContext.plug_cons_hole, getElem_hole, InstSeq.denote_append]
         apply ih (⟦I[h]⟧ ρ) (⟦J[h]⟧ η)
         · apply h_denoteRefine
           · assumption
