@@ -1,7 +1,8 @@
 module
 
 public import EffectSSA.ProofSketch.Assumptions
-public import EffectSSA.ProofSketch.ProofSketch
+public import EffectSSA.ProofSketch.InstSeq
+public import EffectSSA.ProofSketch.MultiContext
 
 namespace EffectSSA.ProofSketch
 public section

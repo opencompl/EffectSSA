@@ -1,8 +1,9 @@
 module
 
-public import EffectSSA.ProofSketch.ProofSketch
-public import EffectSSA.ProofSketch.Rewrite
-
+public import EffectSSA.ProofSketch.InstSeq
+public import EffectSSA.ProofSketch.Pattern
+public import EffectSSA.ProofSketch.MultiContext
+public import EffectSSA.ProofSketch.EqnInv
 
 /-!
 # Precedence Relation
@@ -24,31 +25,38 @@ inductive Pattern.Prec (P : Pattern ι n) : Hole n → Hole n → Prop
   | trans : P.Prec k l → P.Prec l m → P.Prec k m
 
 /--
-With repect to a rewrite `⟨S, T⟩`, hole `k` precedes hole `l`, when
-`k` precedes `l` with respect to either the source pattern `S` or the
-target pattern `T`.
--/
-@[grind, grind cases]
-inductive Rewrite.Prec (rw : Rewrite ι n) (k l : Hole n) : Prop
-  | src : rw.src.Prec k l → rw.Prec k l
-  | tgt : rw.tgt.Prec k l → rw.Prec k l
-
-/--
-`rw.PrecEq k l` holds iff `k = l` or `rw.Prec k l`.
+`P.PrecEq k l` holds iff `k = l` or `P.Prec k l`.
 
 That is, `PrecEq` is the reflexive closure of `Prec`.
 -/
-abbrev Rewrite.PrecEq (rw : Rewrite ι n) (k l : Hole n) :=
+abbrev Pattern.PrecEq (rw : Pattern ι n) (k l : Hole n) :=
   k = l ∨ rw.Prec k l
 
+-- /--
+-- With repect to a rewrite `⟨S, T⟩`, hole `k` precedes hole `l`, when
+-- `k` precedes `l` with respect to either the source pattern `S` or the
+-- target pattern `T`.
+-- -/
+-- @[grind, grind cases]
+-- inductive Rewrite.Prec (rw : Rewrite ι n) (k l : Hole n) : Prop
+--   | src : rw.src.Prec k l → rw.Prec k l
+--   | tgt : rw.tgt.Prec k l → rw.Prec k l
+
+-- /--
+-- `rw.PrecEq k l` holds iff `k = l` or `rw.Prec k l`.
+
+-- That is, `PrecEq` is the reflexive closure of `Prec`.
+-- -/
+-- abbrev Rewrite.PrecEq (rw : Rewrite ι n) (k l : Hole n) :=
+--   k = l ∨ rw.Prec k l
+
 /--
-`rw.EqnInvUpTo l` holds for some environment `ρ` when that environment satisfies
-the equation invariants of `rw.src[k]` and `rw.tgt[k]` for any hole `k` that
+`P.EqnInvUpTo l` holds for some environment `ρ` when that environment satisfies
+the equation invariant of `P[k]` for any hole `k` that
 precedes the given hole `l` (wrt the given rewrite).
 -/
-@[expose] def Rewrite.EqnInvUpTo (rw : Rewrite ι n) (l : Hole n) (ρ : SEnv ι) : Prop :=
-  True
-  -- ∀ k, rw.PrecEq k l → (rw.src[k]).EqnInv ρ ∧ (rw.tgt[k]).EqnInv ρ
+@[expose] def Pattern.EqnInvUpTo (P : Pattern ι n) (l : Hole n) (ρ : SEnv ι) : Prop :=
+  ∀ k, P.PrecEq k l → (P[k]).EqnInv ρ
 
 
 /-! ## Basic Lemmas -/
@@ -136,11 +144,9 @@ theorem Pattern.prec_iff
       exact VarSet.not_mem_of_disjoint h_b_disj hxB hxApL
   | @trans _ mid _ _ _ IHkm IHml =>
     intro kLoc lLoc hk hl
-    obtain ⟨mLoc, hmLt, hmEq⟩ := List.getElem_of_mem (hC mid)
+    obtain ⟨mLoc, hmLt, hmEq⟩ := List.getElem_of_mem (hC mid (List.not_mem_nil))
     have hm : C[mLoc]? = some (Sum.inr mid) :=
       List.getElem?_eq_some_iff.mpr ⟨hmLt, hmEq⟩
     exact Nat.lt_trans (IHkm kLoc mLoc hk hm) (IHml mLoc lLoc hm hl)
-
-theorem
 
 end Characterize
