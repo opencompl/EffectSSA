@@ -70,31 +70,38 @@ structure WellBehaved (i : Inst ι) where
       → EqnInv i ρ → EqnInv i (⟦j⟧ ρ)
   idempotent: ∀ ρ, EqnInv i (⟦i⟧ ρ)
 
-
+/-!
+## Locally Pure
+Justify the well-behavedness predicate by showing that all so-called
+"locally pure" instructions are well-behaved.
+-/
+section LocallyPure
 
 /--
-An instruction is *purely determined*, when it's effect on local registers
-as well how the state is modified, is determined purely from the local registers.
+An instruction is *locally pure*, when it's effect on local registers,
+is determined purely from the local registers.
+
+To wit: such an instruction is free to modify the *global state* in any way.
 -/
-def PurelyDet (i : Inst ι) : Prop :=
+@[expose] def LocallyPure (i : Inst ι) : Prop :=
   ∀ ρ η, ρ.locals = η.locals →
     (⟦i⟧ ρ).locals = (⟦i⟧ η).locals
 
-theorem purelyDet_imp (i : Inst ι) :
-    i.PurelyDet → ∀ ρ η : SEnv ι, (∀ y ∈ i.args, ρ.locals y = η.locals y) →
+theorem locallyPure_imp (i : Inst ι) :
+    i.LocallyPure → ∀ ρ η : SEnv ι, (∀ y ∈ i.args, ρ.locals y = η.locals y) →
       ∀ x ∈ i.results, (⟦i⟧ ρ).locals x = (⟦i⟧ η).locals x := by
   intro pu ρ η hy x hx
   let η' : SEnv ι := { ρ with locals := η.locals }
   calc (⟦i⟧ ρ).locals x
     _ = (⟦i⟧ η').locals x := by have := denote_eq_of_args i ρ η'; grind only
-    _ = (⟦i⟧ η).locals x := by grind [PurelyDet]
+    _ = (⟦i⟧ η).locals x := by grind [LocallyPure]
 
 /--
 Every purely determined instruction, is well-behaved.
 -/
-theorem wellBehaved_of_purelyDet {i : Inst ι}
+theorem wellBehaved_of_locallyPure {i : Inst ι}
     (wf : i.WellFormed)
-    (pu : i.PurelyDet) :
+    (pu : i.LocallyPure) :
     i.WellBehaved := by
   constructor
   · -- Stability
@@ -108,11 +115,13 @@ theorem wellBehaved_of_purelyDet {i : Inst ι}
       have : ρ.locals x = (⟦i⟧ ρ).locals x := by grind [EqnInv]
       grind
     have : ∀ y ∈ i.args, η.locals y = ρ.locals y := by grind
-    apply purelyDet_imp <;> assumption
+    apply locallyPure_imp <;> assumption
   · -- Idempotency
     intro ρ
     intro x hx
     let η := ⟦i⟧ ρ
     show (⟦i⟧ η).locals x = (⟦i⟧ ρ).locals x
     have : ∀ y ∈ i.args, η.locals y = ρ.locals y := by grind [WellFormed]
-    apply purelyDet_imp <;> assumption
+    apply locallyPure_imp <;> assumption
+
+end LocallyPure
