@@ -49,7 +49,39 @@ end Defs
 ## Invariance Lemmas
 -/
 section Invariance
-variable {C : MultiContext ι n} {P : Pattern ι n} {is js : InstSeq ι} {j : Inst ι} {ρ : SEnv ι}
+variable {C : MultiContext ι n} {P : Pattern ι n} {is js : InstSeq ι} {i j : Inst ι} {ρ : SEnv ι}
+
+/-! ### Inst -/
+namespace Inst
+
+@[grind =>] theorem locals_denote_of_eqnInv (h : i.EqnInv ρ) :
+    ∀ x ∈ i.results, (⟦i⟧ ρ).locals x = ρ.locals x := h
+
+/--
+If instruction `i` is well-behaved and `js` is well-formed on a context `Γ`
+that contains all of `i`'s results and arguments, then `i.EqnInv` is preserved
+by executing `js`.
+-/
+theorem eqnInv_denote_other (h : i.WellBehaved) (hwf : js.WellFormed Γ)
+    (hres : i.resultsSet ⊆ Γ) (hargs : i.argsSet ⊆ Γ) :
+    i.EqnInv ρ → i.EqnInv (⟦js⟧ ρ) := by
+  intro hρ
+  induction js generalizing Γ ρ with
+  | nil => grind
+  | cons j js ih =>
+    simp only [InstSeq.denote_cons]
+    obtain ⟨_, hdj, hwf'⟩ := InstSeq.wellFormed_cons.mp hwf
+    apply ih hwf' (by grind) (by grind) (h.stable _ _ ?_ ?_ hρ)
+    · suffices i.resultsSet.Disjoint j.resultsSet by
+        simp [VarSet.Disjoint, VarSet.eq_empty_iff] at *
+        grind
+      grind
+    · suffices i.argsSet.Disjoint j.resultsSet by
+        simp [VarSet.Disjoint, VarSet.eq_empty_iff] at *
+        grind
+      grind
+
+end Inst
 
 /-! ### InstSeq -/
 namespace InstSeq
@@ -57,46 +89,53 @@ namespace InstSeq
 @[simp, grind .] theorem eqnInv_nil : EqnInv ([] : InstSeq ι) ρ := by grind
 @[simp] theorem eqnInv_cons : (i ;> is).EqnInv ρ ↔ i.EqnInv ρ ∧ is.EqnInv ρ := by grind
 
+@[simp] theorem eqnInv_append :
+    (is ++ js).EqnInv ρ ↔ is.EqnInv ρ ∧ js.EqnInv ρ := by
+  simp only [EqnInv, List.mem_append]; grind
+
+/--
+If `is` is well-behaved and `j` doesn't redefine `is`'s args or results,
+then `is.EqnInv` is preserved by executing `j`.
+-/
 theorem eqnInv_denote_inst (h : is.WellBehaved)
     (hj : ∀ x ∈ j.results, x ∉ is.args ∧ x ∉ is.results) :
     is.EqnInv ρ → is.EqnInv (⟦j⟧ ρ) := by
-  sorry
+  intro hρ i hi
+  apply (h i hi).stable ρ j ?_ ?_ (hρ i hi)
+  · grind
+  · suffices i.argsSet.Disjoint j.resultsSet by
+      simp [VarSet.Disjoint, VarSet.eq_empty_iff] at *
+      grind
+    grind
 
+/--
+If `is` is well-behaved and `js` is well-formed on a context `Γ` that contains
+all of `is`'s results and arguments, then `is.EqnInv` is preserved by executing
+`js`.
+-/
 theorem eqnInv_denote_other (h : is.WellBehaved) (hwf : js.WellFormed Γ)
     (hres : is.results ⊆ Γ) (hargs : is.args ⊆ Γ) :
     is.EqnInv ρ → is.EqnInv (⟦js⟧ ρ) := by
-  intro hρ
-  induction js generalizing ρ
-  · grind
-  case cons _ _ ih =>
-    simp only [denote_cons]
-    apply ih
-    · sorry
-    apply eqnInv_denote_inst
-    · assumption
-    · sorry
-    · assumption
+  intro hρ i hi
+  apply Inst.eqnInv_denote_other (h i hi) hwf ?_ ?_ (hρ i hi) <;> grind
 
-theorem eqnInv_denote_self (h : is.WellBehaved) (hwf : is.NoShadowing) :
+/--
+Evaluating a well-behaved, well-formed instruction sequence yields an environment
+that satisfies its own equation invariant.
+-/
+theorem eqnInv_denote_self (h : is.WellBehaved) (hwf : is.WellFormed Γ) :
     is.EqnInv (⟦is⟧ ρ) := by
-  stop
-  intro i' hi'
-  induction is generalizing ρ
-  · contradiction
-  case cons i is ih =>
+  induction is generalizing Γ ρ with
+  | nil => grind
+  | cons i is ih =>
     simp only [denote_cons, eqnInv_cons]
-    and_intros
-    · apply eqnInv_denote_other
-    · apply ih <;> grind
+    obtain ⟨hia, hdj, hwf'⟩ := wellFormed_cons.mp hwf
+    refine ⟨?_, ?_⟩
+    · exact Inst.eqnInv_denote_other (h i (by grind)) hwf'
+        (by grind) (by grind) ((h i (by grind)).idempotent ρ)
+    · exact ih (fun j' hj' => h j' (by grind)) hwf'
 
 end InstSeq
-
-/-! ### Context Plugging-/
-namespace MultiContext
-
-theorem foo :
-
-end MultiContext
 
 end Invariance
 
