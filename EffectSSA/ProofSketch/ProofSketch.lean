@@ -237,19 +237,6 @@ def Pattern.DenRefine (I J : Pattern ι n) : Prop :=
 -- but it likely should be a pre-order (not quite partial, because antisymmetry is
 -- probably broken, but that can be fixed w/ quotients)
 
-/--
-A pattern `I` is denotationally equivalent to pattern `J`,
-when for any hole `h` and environments `ρ` which satisfies the equation lemma
-for all (transitive) dependencies of the `h`-th hole of both `I` and `J`,
-it is the case that the denotation of `h`-th of `I` is equal to the denotation
-of the `h`-th hole of `J`.
--/
-def Pattern.DenEquiv (I J : Pattern ι n) : Prop :=
-  ∀ h : Hole n, ∀ ρ η,
-    I.EqnLemmaUpTo h ρ →
-    J.EqnLemmaUpTo h η →
-    ⟦ I[h] ⟧ ρ = ⟦ J[h] ⟧ η
-
 end Denotational
 
 /-!
