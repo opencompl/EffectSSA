@@ -431,4 +431,33 @@ theorem results_disjoint_of_mem_of_noShadowing (hi : is ∈ I) (hj : js ∈ I) (
 
 end Lemmas
 end WellFormed
+
+/-! ### Straigt-Line Semantics -/
+public section Denote
+variable [SSA ι σ ν]
+
+/--
+A `Pattern` is evaluated by collapsing it into an instruction sequence,
+and evaluating that.
+-/
+instance : Denote (Pattern ι n) (SEnv ι → SEnv ι) where
+  denote I := ⟦I.collapse⟧
+
+section Lemmas
+
+@[grind =] theorem denote_eq {I : Pattern ι n} :
+    ⟦I⟧ = ⟦I.collapse⟧ := by rfl
+
+@[simp, grind =] theorem denote_nil {I : Pattern ι 0} : ⟦I⟧ = id := by
+  cases I; rfl
+
+@[simp, grind =]
+theorem denote_cons  (is : InstSeq ι) (I : Pattern ι n) :
+    ⟦cons is I⟧ = fun ρ => ⟦I⟧ (⟦is⟧ ρ) := by
+  simp [Pattern.denote_eq]
+
+end Lemmas
+end Denote
+
+
 end Pattern
