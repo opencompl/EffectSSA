@@ -93,6 +93,11 @@ induction, thus we keep the following invariant about `Γ`.
 @[grind, grind cases] private structure InvariantAux
     (Γ : VarSet) (H : List (Hole n))
     (C : MultiContext ι n) (P : Pattern ι n) (ρ : SEnv ι) where
+  -- Semantics
+  /-- The equation invariant of `P[h]`, for any `h ∈ H`, is satisfied by `ρ`. -/
+  eqnInv : ∀ h ∈ H, P[h].EqnInv ρ
+
+  -- Holes
   /-- `C` is complete module `H` -/
   completeMod : C.CompleteMod H
   /-- `Γ` contains the arguments of `I[h]` for each `h ∈ H` -/
@@ -105,6 +110,10 @@ induction, thus we keep the following invariant about `Γ`.
   -/
   results_covered : ∀ (k : Hole n) (x : VarId),
     x ∈ P[k].results → x ∈ Γ → k ∈ H
+  /-- `H` is closed under the precedence relation (≺). -/
+  closed : ∀ l ∈ H, ∀ k, P.Prec k l → k ∈ H
+
+  -- Wellformedness & -behavedness
   /-- `C.plug P` is well-formed with free variables `Γ`. -/
   wf : (C.plug P).WellFormed Γ
   /-- The pattern `P` does not redefine any of its own variables. -/
@@ -113,10 +122,6 @@ induction, thus we keep the following invariant about `Γ`.
   wfP : ∀ (k : Hole n), ∃ Δ, P[k].WellFormed Δ
   /-- The pattern `P` is well-behaved. -/
   wbP : P.WellBehaved
-  /-- The equation invariant of `P[h]`, for any `h ∈ H`, is satisfied by `ρ`. -/
-  eqnInv : ∀ h ∈ H, P[h].EqnInv ρ
-  /-- `H` is closed under the precedence relation (≺). -/
-  closed : ∀ l ∈ H, ∀ k, P.Prec k l → k ∈ H
 
 private abbrev Invariant (C : MultiContext ι n) (P : Pattern ι n) (ρ : SEnv ι) : Prop :=
   ∃ Γ H, InvariantAux Γ H C P ρ
