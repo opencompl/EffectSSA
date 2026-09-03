@@ -1,5 +1,6 @@
 module
 
+public import EffectSSA.ProofSketch.Assumptions
 public import EffectSSA.ProofSketch.Notation.Refinement
 public import EffectSSA.ProofSketch.Denote
 public import EffectSSA.ProofSketch.VarSet
@@ -9,7 +10,7 @@ public import EffectSSA.ProofSketch.Pattern
 public import EffectSSA.ProofSketch.MultiContext
 public import EffectSSA.ProofSketch.Effect
 public import EffectSSA.ProofSketch.CFG
-public import EffectSSA.ProofSketch.Assumptions
+public import EffectSSA.ProofSketch.Prec
 
 /-!
 # Contextual Equivalence Proof Sketch
@@ -229,8 +230,8 @@ in `I` and `J`.
 -/
 def Pattern.DenRefine (I J : Pattern ι n) : Prop :=
   ∀ h : Hole n, ∀ ρ η, ρ ⊒ η →
-    I.EqnLemmaUpTo h ρ →
-    J.EqnLemmaUpTo h η →
+    I.EqnInvUpTo h ρ →
+    J.EqnInvUpTo h η →
     ⟦ I[h] ⟧ ρ ⊒ ⟦ J[h] ⟧ η
 
 -- Sanity check: we should check/proof that denrefine is at least reflexive,
@@ -266,29 +267,29 @@ We say that `Γ` is a residual of context `C` under pattern `I` when
 TODO: dedup with Invariant
 -/
 @[grind, grind cases]
-private structure Residual (Γ : VarSet) (C : MultiContext ι n) (I : Pattern ι n) : Prop where
+private structure Residual (Γ : VarSet) (C : MultiContext ι n) (P : Pattern ι n) : Prop where
   /-- `H` is the list of previously seen holes -/
-  residual : ∃ H : List (Hole n), C.CompleteMod H ∧ ∀ h ∈ H, I[h].results ⊆ Γ
+  residual : ∃ H : List (Hole n), C.CompleteMod H ∧ ∀ h ∈ H, P[h].results ⊆ Γ
   /-- `C.plug I` is well-formed with free variables `Γ`. -/
-  wf : (C.plug I).WellFormed Γ
+  wf : (C.plug P).WellFormed Γ
 
 namespace Residual
-variable {Γ : VarSet} {C : MultiContext ι n} {I : Pattern ι n} {i : Inst ι} {h : Hole n}
+variable {Γ : VarSet} {C : MultiContext ι n} {P : Pattern ι n} {i : Inst ι} {h : Hole n}
 
 /-! invariants -/
 
-private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Residual ∅ C I := by
+private theorem initial (wf : (C.plug P).WellFormed ∅) (hC : C.Complete) : Residual ∅ C P := by
   grind [Pattern.mem_iff_getElem_hole, MultiContext.CompleteMod]
 
 @[grind →] private theorem of_cons_inst :
-    Residual Γ (.inl i :: C) I → Residual (i.resultsSet ∪ Γ) C I := by
+    Residual Γ (.inl i :: C) P → Residual (i.resultsSet ∪ Γ) C P := by
   rintro ⟨wf, residual⟩;
   constructor
   · simp_all; grind
   · simp_all
 
 @[grind →] private theorem of_cons_hole  :
-    Residual Γ (.inr h :: C) I → Residual (I[h].results ∪ Γ) C I := by
+    Residual Γ (.inr h :: C) P → Residual (P[h].results ∪ Γ) C P := by
   rintro ⟨wf, residual⟩; constructor
   · simp_all; grind
   · simp_all
@@ -304,6 +305,7 @@ attribute [grind =] id_eq
 open MultiContext (plug)
 
 /-! ### Invariant -/
+section Invariant
 
 /--
 In the main proof, we will do induction on the context `C`, meaning that the
@@ -316,58 +318,117 @@ induction, thus we keep the following invariant about `Γ`.
 -/
 @[grind, grind cases] private structure InvariantAux
     (Γ : VarSet) (H : List (Hole n))
-    (C : MultiContext ι n) (I : Pattern ι n) (ρ : SEnv ι) where
-  /-- `H` is the list of previously seen holes -/
-  residual : C.CompleteMod H ∧ ∀ h ∈ H, I[h].results ⊆ Γ
-  /-- `C.plug I` is well-formed with free variables `Γ`. -/
-  wf : (C.plug I).WellFormed Γ
-  /--
-  If `x ∈ Γ`, then any transitive dependencies of `x` (in `I`) are also
-  part of `Γ`.
-  -/
-  closed : ∀ x ∈ Γ, ∀ y ∈ I.usesAt x, y ∈ Γ
-  eqn : ∀ x ∈ Γ, I.EqnLemma x ρ
-  ns : I.NoShadowing
+    (C : MultiContext ι n) (P : Pattern ι n) (ρ : SEnv ι) where
+  /-- `C` is complete module `H` -/
+  completeMod : C.CompleteMod H
+  /-- `Γ` contains the results of `I[h]` iff `h ∈ H` -/
+  results_subset_iff_mem : ∀ h, h ∈ H ↔ P[h].results ⊆ Γ
+  /-- `Γ` contains the arguments of `I[h]` for each `h ∈ H` -/
+  args_subset_of_mem : ∀ h ∈ H, P[h].args ⊆ Γ
+  /-- `C.plug P` is well-formed with free variables `Γ`. -/
+  wf : (C.plug P).WellFormed Γ
+  /-- The pattern `P` does not redefine any of its own variables. -/
+  nsP : P.NoShadowing
+  /-- Each component of the pattern `P` is wellformed, for some other set of variables `Δ`. -/
+  wfP : ∀ (k : Hole n), ∃ Δ, P[k].WellFormed Δ
+  /-- The pattern `P` is well-behaved. -/
+  wbP : P.WellBehaved
+  /-- The equation invariant of `P[h]`, for any `h ∈ H`, is satisfied by `ρ`. -/
+  eqnInv : ∀ h ∈ H, P[h].EqnInv ρ
+  /-- `H` is closed under the precedence relation (≺). -/
+  closed : ∀ l ∈ H, ∀ k, P.Prec k l → k ∈ H
 
-private abbrev Invariant (C : MultiContext ι n) (I : Pattern ι n) (ρ : SEnv ι) : Prop :=
-  ∃ Γ H, InvariantAux Γ H C I ρ
+private abbrev Invariant (C : MultiContext ι n) (P : Pattern ι n) (ρ : SEnv ι) : Prop :=
+  ∃ Γ H, InvariantAux Γ H C P ρ
 
+variable {Γ} {C : MultiContext ι n} {P : Pattern ι n} {ρ : SEnv ι} {i : Inst ι}
 
-namespace Invariant
-variable {Γ} {C : MultiContext ι n} {I : Pattern ι n} {ρ : SEnv ι} {i : Inst ι}
+namespace InvariantAux
 
-private theorem initial (wf : (C.plug I).WellFormed ∅) (hC : C.Complete) : Invariant C I { } := by
-  have nsI : I.NoShadowing := by
-    apply C.noShadowing_pattern_of_plug_noShadowing
-    <;> grind
-  exists ∅, []
-  constructor <;> grind
+private theorem initial (wf : (C.plug P).WellFormed ∅) (hC : C.Complete) (hI : P.WellBehaved) :
+    InvariantAux ∅ [] C P { } := by
+  constructor
+  case wfP =>
+    show ∀ k : Hole n, ∃ Δ, P[k].WellFormed Δ
+    sorry
+  case nsP =>
+    show P.NoShadowing
+    apply MultiContext.noShadowing_of_plug_noShadowing
+    · assumption
+    · grind
+  case results_subset_iff_mem =>
+    simp
+    sorry
+  all_goals grind
 
-private theorem of_invariant_cons_inst (hI : I.HasEqn := by assumption) :
-    Invariant (.inl i :: C) I ρ → Invariant C I (⟦i⟧ ρ) := by
-  rintro ⟨Γ, H, residual, closed, eqn, nsI⟩
-  exists (i.resultsSet ∪ Γ), H
-  have : ∀ x ∈ i.resultsSet, x ∉ I.results := by
+private theorem of_cons_inst  :
+    InvariantAux Γ H (.inl i :: C) P ρ
+    → InvariantAux (i.resultsSet ∪ Γ) H C P (⟦i⟧ ρ) := by
+  rintro ⟨_, _⟩
+  have : ∀ x ∈ i.resultsSet, x ∉ P.results := by
     intro x hx hxI
-    have : x ∉ (C.plug I).results := by grind
-    obtain ⟨h, hhx⟩ : ∃ h : Hole n, x ∈ I[h].results := by
+    have : x ∉ (C.plug P).results := by grind
+    obtain ⟨h, hhx⟩ : ∃ h : Hole n, x ∈ P[h].results := by
       exact Pattern.exists_hole_of_mem_results hxI
     have hhC : Sum.inr h ∈ C := by
-      rcases residual with ⟨H, hH⟩
       grind [MultiContext.CompleteMod]
     grind
   constructor
-  · simp_all; grind
+  case completeMod => simp_all
+  case eqnInv =>
+    intros;
+    apply InstSeq.eqnInv_denote_inst_of_wellFormed (Γ := Γ)
+    <;> grind
+  case results_subset_iff_mem =>
+    intros; sorry
+  all_goals solve | assumption | grind
+
+private theorem of_cons_hole :
+    InvariantAux Γ H (.inr h :: C) P ρ →
+    InvariantAux (P[h].results ∪ Γ) (h :: H)  C P (⟦P[h]⟧ ρ) := by
+  intro inv
+  constructor
+  case completeMod => simpa using inv.completeMod
+  case eqnInv =>
+    sorry
+  case results_subset_iff_mem =>
+    intro k
+    have := inv.results_subset_iff_mem
+    simp only [List.mem_cons, Pattern.getElem_hole]
+    suffices P[↑k].results ⊆ P[↑h].results ∪ Γ → k = h ∨ k ∈ H by
+      constructor <;> grind
+    by_cases P[k].results.Disjoint P[h].results
+    case pos => grind
+    case neg =>
+      suffices k = h by grind
+      sorry
+
+
+
+    suffices P[↑h].args ⊆ Γ by
+      simp only [List.mem_cons, Pattern.getElem_hole, forall_eq_or_imp]
+      and_intros <;> (intros; and_intros <;> grind)
+    grind -- by wellformedness of `C.plug I`
+
+
+  case closed =>
+    suffices ∀ (k : Hole n), P.Prec k h → k ∈ H by grind
+    have subset := inv.subset_Γ_of_mem_H
+    have closed := inv.closed;
+    clear inv
+    rintro k hk
+    induction hk
+    case prec k x l hres hargs =>
+      sorry
+    case trans => assumption
+
+
+  case wfP => exact inv.wfP
   all_goals grind
 
-private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
-    Invariant (.inr h :: C) I ρ →
-    Invariant C I (⟦I[h]⟧ ρ) := by
-  rintro ⟨Γ, H, residual, closed, eqn, nsI⟩
-  exists (I[h].results ∪ Γ), (h :: H)
-  generalize his : I[h] = is at *
-  constructor
-  · simp_all; grind
+  stop
+  · simp_all
+  · grind
   · grind
   · stop
     have hΔ : is.args ⊆ Γ := by grind
@@ -410,48 +471,84 @@ private theorem of_invariant_cons_hole (hI : I.HasEqn := by assumption) :
       · grind
   · grind
 
+end InvariantAux
 
+namespace Invariant
+
+private theorem initial (wf : (C.plug P).WellFormed ∅) (hC : C.Complete) (wb : P.WellBehaved) :
+    Invariant C P { } :=
+  ⟨_, _, .initial wf hC wb⟩
+
+private theorem of_invariant_cons_inst :
+    Invariant (.inl i :: C) P ρ → Invariant C P (⟦i⟧ ρ) :=
+  fun ⟨_, _, inv⟩ => ⟨_, _, inv.of_cons_inst⟩
+
+private theorem of_invariant_cons_hole :
+    Invariant (.inr h :: C) P ρ → Invariant C P (⟦P[h]⟧ ρ) :=
+  fun ⟨_, _, inv⟩ => ⟨_, _, inv.of_cons_hole⟩
+
+/--
+If the invariant holds for a context that starts with hole `h`, then the
+environment `ρ` satisfies the equation lemma for elements of `I` up-to that
+particular hole `h`.
+
+Recall that "up-to `h`" in particular does *not* include `h` itself.
+-/
+private theorem eqnInvUpTo_of_invariant_cons_hole :
+    Invariant (.inr h :: C) P ρ → P.EqnInvUpTo h ρ := by
+  rintro ⟨Γ, H, inv⟩ k hk
+  suffices k ∈ H by apply inv.eqnInv _ this
+  suffices k ∈ h :: H by
+    have : k ≠ h := Hole.neq_of_prec (hp := by assumption) (wf := inv.wfP)
+    grind
+  apply (inv.of_cons_hole).closed h (by simp) _ hk
+
+end Invariant
 end Invariant
 
 /--
 Proving denotational refinement is sufficient for showing contextual refinement.
 -/
-theorem Pattern.ctxRefine_of_denoteRefine (I J : Pattern ι n)
-    (hI : I.HasEqn) (hJ : J.HasEqn)
-    (h_denoteRefine : I.DenRefine J) :
-    I.CtxRefine J := by
-  intro C hC CI CJ hCI hCJ
-  subst CI CJ
+theorem Pattern.ctxRefine_of_denoteRefine (S T : Pattern ι n)
+    (hS : S.WellBehaved) (hT : T.WellBehaved)
+    (h_denoteRefine : S.DenRefine T) :
+    S.CtxRefine T := by
+  intro C hC CS CT hCS hCT
+  subst CS CT
 
   suffices ∀ ρ η, ρ ⊒ η →
-      ∀ {Γ}, Invariant Γ C I ρ →
-      ∀ {Δ}, Invariant Δ C J η →
-      ⟦C.plug I⟧ ρ ⊒ ⟦C.plug J⟧ η by
-    apply @this { } { } ?_ ∅ ?_ ∅ ?_
-    <;> grind [Invariant.initial]
-  clear hC hCI hCJ
+      Invariant C S ρ →
+      Invariant C T η →
+      ⟦C.plug S⟧ ρ ⊒ ⟦C.plug T⟧ η by
+    apply @this { } { } <;> solve
+      | apply Invariant.initial <;> grind
+      | grind
+  clear hC hCS hCT
 
-  induction C <;> (intro ρ η hρη Γ hCI Δ hCJ)
+  induction C <;> (intro ρ η hρη hCS hCT)
   case nil => simpa
   case cons h_or_i C ih =>
     cases h_or_i with
     | inl i =>
+        -- The LHS and RHS both start with the instruction `i` from the context.
         apply ih (⟦i⟧ ρ) (⟦i⟧ η)
         · grind
-        · apply Invariant.of_invariant_cons_inst hI hCI
-        · apply Invariant.of_invariant_cons_inst hJ hCJ
+        · apply hCS.of_invariant_cons_inst
+        · apply hCT.of_invariant_cons_inst
     | inr h =>
+        -- The context starts with hole `h`, meaning that the LHS and RHS start
+        -- with `S[h]` and `T[h]`, respectively
         simp only [MultiContext.plug_cons_hole, getElem_hole, InstSeq.denote_append]
-        apply ih (⟦I[h]⟧ ρ) (⟦J[h]⟧ η)
-        · apply h_denoteRefine
-          · assumption
-          · intro x (hx : x ∈ I[h].args) y hy
-            have : I[h].args ⊆ Γ := by grind
-            rcases hCI
-            grind
-          · intro x (hx : x ∈ J[h].args)
-            have : J[h].args ⊆ Δ := by grind
-            rcases hCJ
-            grind
-        · apply Invariant.of_invariant_cons_hole hI hCI
-        · apply Invariant.of_invariant_cons_hole hJ hCJ
+        -- By the IH, and the preservation of the invariant, the following suffices:
+        suffices ⟦S[h]⟧ ρ ⊒ ⟦T[h]⟧ η by
+          apply ih (⟦S[h]⟧ ρ) (⟦T[h]⟧ η)
+          · apply this
+          · apply hCS.of_invariant_cons_hole
+          · apply hCT.of_invariant_cons_hole
+        -- Finally, the refinement follows from denotational refinement,
+        -- using the fact that the invariant implies the equation invariant
+        -- up-to the starting hole `h`.
+        apply h_denoteRefine
+        · assumption
+        · apply hCS.eqnInvUpTo_of_invariant_cons_hole
+        · apply hCT.eqnInvUpTo_of_invariant_cons_hole

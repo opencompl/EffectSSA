@@ -409,22 +409,34 @@ section WellFormed
 @[inherit_doc InstSeq.NoShadowing]
 abbrev NoShadowing (I : Pattern ι n) := I.collapse.NoShadowing
 
-@[inherit_doc InstSeq.WellFormed]
-abbrev WellFormed (Γ : VarSet) (I : Pattern ι n) : Prop := I.collapse.WellFormed Γ
+@[inherit_doc InstSeq.WellFormed, grind, grind cases]
+inductive WellFormed : {m : Nat} → (Γ : VarSet) → (I : Pattern ι m) → Prop
+  | nil {I : Pattern ι 0} : WellFormed Γ I
+  | cons {n : Nat} {I : Pattern ι (n+1)} :
+      (I.head).WellFormed Γ →
+      (I.tail).WellFormed (I.head.results ∪ Γ) →
+      I.WellFormed Γ
 
 section Lemmas
 variable {I : Pattern ι n}
 
 @[simp, grind =]
-theorem wellFormed_cons :
+theorem wellFormed_succ (I : Pattern ι (n+1)) :
+    I.WellFormed Γ ↔ I.head.WellFormed Γ ∧ I.tail.WellFormed (I.head.results ∪ Γ) := by
+  constructor
+  · rintro ⟨⟩; grind
+  · grind
+
+@[simp, grind =]
+theorem wellFormed_cons (I : Pattern ι (n+1)) :
     (cons is I).WellFormed Γ ↔ is.WellFormed Γ ∧ I.WellFormed (is.results ∪ Γ) := by
-  grind
+  simp
 
 theorem wellFormed_get_of_wellFormed {k : Nat} {hk : k < n} :
     I.WellFormed Γ → ∃ Δ, (I[k]).WellFormed Δ := by
   induction I generalizing Γ k
   · grind
-  · cases k <;> grind
+  · cases k <;> simp <;> grind
 grind_pattern wellFormed_get_of_wellFormed => I.WellFormed Γ, (I[k]).WellFormed _
 
 /-! results -/

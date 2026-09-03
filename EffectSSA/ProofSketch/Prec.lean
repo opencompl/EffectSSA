@@ -53,14 +53,33 @@ abbrev Pattern.PrecEq (rw : Pattern ι n) (k l : Hole n) :=
 /--
 `P.EqnInvUpTo l` holds for some environment `ρ` when that environment satisfies
 the equation invariant of `P[k]` for any hole `k` that
-precedes the given hole `l` (wrt the given rewrite).
+(strictly) precedes the given hole `l` (wrt the given rewrite).
 -/
 @[expose] def Pattern.EqnInvUpTo (P : Pattern ι n) (l : Hole n) (ρ : SEnv ι) : Prop :=
-  ∀ k, P.PrecEq k l → (P[k]).EqnInv ρ
+  ∀ k, P.Prec k l → (P[k]).EqnInv ρ
 
 
 /-! ## Basic Lemmas -/
 section Lemmas
+open Pattern
+
+@[grind →]
+axiom Hole.eq_of_prec_of_prec (k l : Hole n) {P : Pattern ι n}
+    (wf : ∀ k : Hole n, ∃ Γ, P[k].WellFormed Γ) :
+    P.Prec k l → P.Prec l k → k = l
+  -- Follows from the wellformedness precluding an overlap in the results
+  -- of different holes
+
+@[grind →] theorem Hole.neq_of_prec (k l : Hole n) {P : Pattern ι n}
+    (wf : ∀ k : Hole n, ∃ Γ, P[k].WellFormed Γ)
+    (hp : P.Prec k l) : k ≠ l := by
+  induction hp
+  case prec k x l hk hl =>
+    specialize wf k; grind
+  case trans k l m _ _ _ _ =>
+    rintro (rfl : k = m) -- suppose, towards a contradiction, that `k = m`
+    suffices k = l by contradiction -- we'll show that `k = l`, which is a contradiction
+    sorry
 
 end Lemmas
 

@@ -218,7 +218,7 @@ def embedPlug (I : Pattern ι n) (C : MultiContext ι n) (hC : C.Complete) :
             apply PC.appendLeft_neq_appendRight _ _ h.symm
           · grind
 
-def noShadowing_pattern_of_plug_noShadowing {n} {C : MultiContext ι n} {I : Pattern ι n}
+def noShadowing_of_plug_noShadowing {n} {C : MultiContext ι n} {I : Pattern ι n}
     (hC : C.Complete) :
     (C.plug I).NoShadowing → I.NoShadowing := by
   simp only [InstSeq.noShadowing_iff, ne_eq]

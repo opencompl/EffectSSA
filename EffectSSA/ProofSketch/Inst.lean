@@ -26,10 +26,10 @@ namespace Inst
 @[expose] noncomputable def argsSet (i : Inst ι) : VarSet := VarSet.setOf (· ∈ i.args)
 @[expose] noncomputable def resultsSet (i : Inst ι) : VarSet := VarSet.setOf (· ∈ i.results)
 
-@[simp, grind =] theorem mem_argsSet {v : VarId} {i : Inst ι} :
+@[simp, grind =, grind =_] theorem mem_argsSet {v : VarId} {i : Inst ι} :
     v ∈ i.argsSet ↔ v ∈ i.args := VarSet.mem_setOf
 
-@[simp, grind =] theorem mem_resultsSet {v : VarId} {i : Inst ι} :
+@[simp, grind =, grind =_] theorem mem_resultsSet {v : VarId} {i : Inst ι} :
     v ∈ i.resultsSet ↔ v ∈ i.results := VarSet.mem_setOf
 
 /-! ### Straight-line Semantics -/
@@ -100,4 +100,17 @@ In other words, the semantics are *monotone* w.r.t. the refinement relation.
 
 end Lemmas
 end Denote
+
+/-!
+## Wellformedness
+-/
+section WellFormed
+-- TODO: rename to write Well*f*ormed, small f, instead. For now, we wrote
+--       `Inst.WellFormed` to keep consistent with `InstSeq.WellFormed`
+
+@[expose, grind] def WellFormed (i : Inst ι) (Γ : VarSet := ∅) : Prop :=
+  i.argsSet ⊆ Γ ∧ Γ.Disjoint i.resultsSet
+
+end WellFormed
+
 end Inst

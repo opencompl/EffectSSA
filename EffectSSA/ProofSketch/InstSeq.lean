@@ -392,6 +392,10 @@ public section WellFormed
 /--
 `is.NoShadowing` holds if no two instructions in `is` define the same
 resulting variable.
+
+Note that this does *not* necessarily imply there exists some context `Γ` for
+which `is` is wellformed, since it says nothing about arguments being defined
+before they are used.
 -/
 inductive NoShadowing : InstSeq ι → Prop
   | nil : NoShadowing []
