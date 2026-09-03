@@ -227,6 +227,35 @@ def noShadowing_of_plug_noShadowing {n} {C : MultiContext ι n} {I : Pattern ι 
   have := ns (f i) (f j)
   grind
 
+/--
+If `C.plug P` is well-formed,
+then for every hole `k` that appears in `C`,
+the sequence `P[k]` is well-formed for *some* variable set.
+-/
+theorem wellFormed_getElem_of_plug_wellFormed
+    {C : MultiContext ι n} {P : Pattern ι n} {Γ : VarSet}
+    (hwf : (C.plug P).WellFormed Γ) {k : Hole n} (hin : Sum.inr k ∈ C) :
+    ∃ Δ, P[k].WellFormed Δ := by
+  induction C generalizing Γ with
+  | nil => cases hin
+  | cons x C ih =>
+    simp only [List.mem_cons] at hin
+    cases x with
+    | inl i =>
+        simp only [MultiContext.plug_cons_inst, InstSeq.wellFormed_cons] at hwf
+        refine ih hwf.2.2 ?_
+        rcases hin with heq | hmem
+        · cases heq
+        · exact hmem
+    | inr h =>
+        simp only [MultiContext.plug_cons_hole, InstSeq.wellFormed_append] at hwf
+        by_cases heq : h = k
+        · exact ⟨_, heq ▸ hwf.1⟩
+        · refine ih hwf.2 ?_
+          rcases hin with heq' | hmem
+          · injection heq' with heq'; exact absurd heq'.symm heq
+          · exact hmem
+
 end Lemmas
 end Plug
 

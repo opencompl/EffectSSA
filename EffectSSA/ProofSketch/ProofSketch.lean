@@ -321,10 +321,16 @@ induction, thus we keep the following invariant about `Γ`.
     (C : MultiContext ι n) (P : Pattern ι n) (ρ : SEnv ι) where
   /-- `C` is complete module `H` -/
   completeMod : C.CompleteMod H
-  /-- `Γ` contains the results of `I[h]` iff `h ∈ H` -/
-  results_subset_iff_mem : ∀ h, h ∈ H ↔ P[h].results ⊆ Γ
   /-- `Γ` contains the arguments of `I[h]` for each `h ∈ H` -/
   args_subset_of_mem : ∀ h ∈ H, P[h].args ⊆ Γ
+  /-- `Γ` contains the results of `I[h]` for each `h ∈ H`. -/
+  results_subset_of_mem : ∀ h ∈ H, P[h].results ⊆ Γ
+  /--
+  If any of the results of a pattern component `P[k]` are present in `Γ`,
+  this variable must have come from `P[k]`, and thus `k ∈ H`.
+  -/
+  results_covered : ∀ (k : Hole n) (x : VarId),
+    x ∈ P[k].results → x ∈ Γ → k ∈ H
   /-- `C.plug P` is well-formed with free variables `Γ`. -/
   wf : (C.plug P).WellFormed Γ
   /-- The pattern `P` does not redefine any of its own variables. -/
@@ -345,131 +351,120 @@ variable {Γ} {C : MultiContext ι n} {P : Pattern ι n} {ρ : SEnv ι} {i : Ins
 
 namespace InvariantAux
 
+/--
+If `P[h].args ⊆ Γ`, all "results-covered" holes are in `H`, and `H` is closed
+under precedence, then any hole `k` that precedes `h` must be in `H`.
+-/
+private theorem closed_of_prec
+    {Γ : VarSet} {H : List (Hole n)} {P : Pattern ι n} {h : Hole n}
+    (hargs_h : ∀ x ∈ P[h].args, x ∈ Γ)
+    (hcovered : ∀ (k : Hole n) (x : VarId), x ∈ P[k].results → x ∈ Γ → k ∈ H)
+    (hclosed : ∀ l ∈ H, ∀ k, P.Prec k l → k ∈ H)
+    {k : Hole n} (hkl : P.Prec k h) :
+    k ∈ H := by
+  suffices ∀ (k' l' : Hole n), P.Prec k' l' → l' ∈ h :: H → k' ∈ H by
+    grind
+  intro k' l' hkl'
+  induction hkl' with
+  | @prec k _ l  =>
+      rw [List.mem_cons]
+      rintro (rfl | hl)
+      · grind
+      · apply hclosed _ hl _ <| Pattern.Prec.prec ..
+        <;> assumption
+  | trans => grind
+
+open MultiContext in
 private theorem initial (wf : (C.plug P).WellFormed ∅) (hC : C.Complete) (hI : P.WellBehaved) :
     InvariantAux ∅ [] C P { } := by
   constructor
-  case wfP =>
-    show ∀ k : Hole n, ∃ Δ, P[k].WellFormed Δ
-    sorry
-  case nsP =>
-    show P.NoShadowing
-    apply MultiContext.noShadowing_of_plug_noShadowing
-    · assumption
-    · grind
-  case results_subset_iff_mem =>
-    simp
-    sorry
-  all_goals grind
+  case nsP => exact noShadowing_of_plug_noShadowing hC wf.noShadowing
+  case wfP => intro k; apply wellFormed_getElem_of_plug_wellFormed wf (hC k List.not_mem_nil)
+  all_goals solve | assumption | grind
 
 private theorem of_cons_inst  :
-    InvariantAux Γ H (.inl i :: C) P ρ
+    InvariantAux Γ H (Sum.inl i :: C) P ρ
     → InvariantAux (i.resultsSet ∪ Γ) H C P (⟦i⟧ ρ) := by
-  rintro ⟨_, _⟩
-  have : ∀ x ∈ i.resultsSet, x ∉ P.results := by
-    intro x hx hxI
-    have : x ∉ (C.plug P).results := by grind
-    obtain ⟨h, hhx⟩ : ∃ h : Hole n, x ∈ P[h].results := by
-      exact Pattern.exists_hole_of_mem_results hxI
-    have hhC : Sum.inr h ∈ C := by
-      grind [MultiContext.CompleteMod]
-    grind
+  intro inv
+  obtain ⟨hi_args, hi_disj, hwf_C⟩ := by
+    simpa only [MultiContext.plug_cons_inst, InstSeq.wellFormed_cons]
+      using inv.wf
+  have hi_wf : i.WellFormed Γ := ⟨hi_args, hi_disj⟩
+  have { .. } := inv
   constructor
-  case completeMod => simp_all
+  case completeMod =>
+    intro k hk
+    have hmem := inv.completeMod k hk
+    simp only [List.mem_cons] at hmem
+    rcases hmem with heq | hin
+    · cases heq
+    · exact hin
+  case results_covered =>
+    -- No result of `i` can also be a result of the pattern `P`.
+    have h_disj_P : ∀ x ∈ i.resultsSet, x ∉ P.results := by
+      intro x hx hxP
+      obtain ⟨k, hxk⟩ := Pattern.exists_hole_of_mem_results hxP
+      by_cases hkH : k ∈ H
+      · grind
+      · have hkC : Sum.inr k ∈ C := by simpa using inv.completeMod k hkH
+        have hxC : x ∈ (C.plug P).results := by grind
+        grind
+    intro k x hxk hx
+    suffices x ∈ Γ by
+      exact inv.results_covered k x hxk this
+    suffices x ∉ i.resultsSet by grind
+    intro hc
+    suffices x ∈ P.results by grind
+    suffices P[k] ∈ P by grind
+    grind
+
   case eqnInv =>
-    intros;
-    apply InstSeq.eqnInv_denote_inst_of_wellFormed (Γ := Γ)
-    <;> grind
-  case results_subset_iff_mem =>
-    intros; sorry
+    intro h hh
+    have hwb_h : P[h].WellBehaved := inv.wbP _ (by grind)
+    apply InstSeq.eqnInv_denote_inst_of_wellFormed
+    <;> solve | assumption | grind
   all_goals solve | assumption | grind
 
 private theorem of_cons_hole :
-    InvariantAux Γ H (.inr h :: C) P ρ →
+    InvariantAux Γ H (Sum.inr h :: C) P ρ →
     InvariantAux (P[h].results ∪ Γ) (h :: H)  C P (⟦P[h]⟧ ρ) := by
   intro inv
+  obtain ⟨hwf_h, hwf_C⟩ := by
+    simpa only [MultiContext.plug_cons_hole, InstSeq.wellFormed_append] using inv.wf
+  have hwb_h : P[h].WellBehaved := inv.wbP _ (by grind)
+  have { .. } := inv
   constructor
-  case completeMod => simpa using inv.completeMod
-  case eqnInv =>
-    sorry
-  case results_subset_iff_mem =>
-    intro k
-    have := inv.results_subset_iff_mem
-    simp only [List.mem_cons, Pattern.getElem_hole]
-    suffices P[↑k].results ⊆ P[↑h].results ∪ Γ → k = h ∨ k ∈ H by
-      constructor <;> grind
-    by_cases P[k].results.Disjoint P[h].results
-    case pos => grind
-    case neg =>
-      suffices k = h by grind
-      sorry
-
-
-
-    suffices P[↑h].args ⊆ Γ by
-      simp only [List.mem_cons, Pattern.getElem_hole, forall_eq_or_imp]
-      and_intros <;> (intros; and_intros <;> grind)
-    grind -- by wellformedness of `C.plug I`
-
-
-  case closed =>
-    suffices ∀ (k : Hole n), P.Prec k h → k ∈ H by grind
-    have subset := inv.subset_Γ_of_mem_H
-    have closed := inv.closed;
-    clear inv
-    rintro k hk
-    induction hk
-    case prec k x l hres hargs =>
-      sorry
-    case trans => assumption
-
-
-  case wfP => exact inv.wfP
-  all_goals grind
-
-  stop
-  · simp_all
-  · grind
-  · grind
-  · stop
-    have hΔ : is.args ⊆ Γ := by grind
-    replace his : is ⊆ I.collapse := by grind
-    generalize Γ = Δ at ⊢ hΔ closed
-    clear eqn
-    intro x hx y hy
-    induction is generalizing Δ with
-    | nil => sorry
-    | cons i is ih =>
-        have his : is ⊆ I.collapse := by grind
-        have hΔ' : is.args ⊆ i.resultsSet ∪ Δ := by grind
-        specialize ih his _ hΔ'
-        specialize ih <| by -- prove closedness
-          clear ih
-          intro x hx y hy
-          by_cases x ∈ Δ; grind
-          have : x ∈ i.resultsSet := by grind
-          · rw [InstSeq.mem_usesAt'] at hy
-            obtain ⟨j, hj, hxj, hy⟩ := hy
-            obtain rfl : i = j := by
-              have hi : i ∈ I.collapse := by grind
-              have hj : j ∈ I.collapse := by grind
-              apply InstSeq.eq_of_not_disjoint_results_of_noShadowing hi hj nsI
-              grind
-            rcases hy with ( (hy : y ∈ i.argsSet) | ⟨z, hzi, hyz⟩ )
-            · have : y ∈ Δ := by grind
-              grind
-            · grind
+  case completeMod => intro k hk; grind [inv.completeMod k]
+  case results_covered =>
+    intro k x hxk hx
+    rcases VarSet.mem_union.mp hx with hxh | hxΓ
+    · -- `x ∈ P[h].results` and `x ∈ P[k].results`. Show `k = h ∨ k ∈ H`.
+      by_cases hkh : k = h
+      · grind
+      · suffices k ∈ H by grind
+        false_or_by_contra
+        have hkC : Sum.inr k ∈ C := by grind [inv.completeMod k]
+        have hxC : x ∈ (C.plug P).results := by grind
         grind
-  · stop
-    intro x hx
-    by_cases x ∈ Γ; grind
-    have hx : x ∈ is.results := by grind
-    · obtain ⟨Δ, wf⟩ : ∃ Δ, is.WellFormed Δ := by grind
-      subst his
-      rw [Pattern.eqnLemma_of_mem_results_get hx nsI]
-      apply InstSeq.eqnLemma_denote_self _
-      · grind
-      · grind
-  · grind
+    · grind
+  case eqnInv =>
+    intro k hk
+    simp only [List.mem_cons] at hk
+    rcases hk with rfl | hkH
+    · exact InstSeq.eqnInv_denote_self hwb_h hwf_h
+    · have hwb_k : P[k].WellBehaved := by grind
+      apply InstSeq.eqnInv_denote_other hwb_k hwf_h
+      <;> grind
+  case closed =>
+    intro l hl k hkl
+    simp only [List.mem_cons] at hl
+    rcases hl with rfl | hlH
+    · suffices k ∈ H by grind
+      apply closed_of_prec
+      · intro x; apply VarSet.mem_of_subset_of_mem hwf_h.args
+      all_goals grind
+    · grind
+  all_goals solve | assumption | grind
 
 end InvariantAux
 
