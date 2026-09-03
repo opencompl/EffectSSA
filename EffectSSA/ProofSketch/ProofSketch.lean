@@ -426,8 +426,8 @@ private theorem of_cons_inst  :
   all_goals solve | assumption | grind
 
 private theorem of_cons_hole :
-    InvariantAux Γ H (Sum.inr h :: C) P ρ →
-    InvariantAux (P[h].results ∪ Γ) (h :: H)  C P (⟦P[h]⟧ ρ) := by
+    InvariantAux Γ H (Sum.inr h :: C) P ρ
+    → InvariantAux (P[h].results ∪ Γ) (h :: H) C P (⟦P[h]⟧ ρ) := by
   intro inv
   obtain ⟨hwf_h, hwf_C⟩ := by
     simpa only [MultiContext.plug_cons_hole, InstSeq.wellFormed_append] using inv.wf
