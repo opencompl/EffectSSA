@@ -118,10 +118,11 @@ induction, thus we keep the following invariant about `Γ`.
   wf : (C.plug P).WellFormed Γ
   /-- The pattern `P` does not redefine any of its own variables. -/
   nsP : P.NoShadowing
-  /-- Each component of the pattern `P` is wellformed, for some other set of variables `Δ`. -/
-  wfP : ∀ (k : Hole n), ∃ Δ, P[k].WellFormed Δ
   /-- The pattern `P` is well-behaved. -/
   wbP : P.WellBehaved
+  /-- `P` can be made into a well-formed program by some context `D`. -/
+  hasComplete : ∃ D : MultiContext ι n,
+    D.Complete ∧ (D.plug P).WellFormed ∅
 
 private abbrev Invariant (C : MultiContext ι n) (P : Pattern ι n) (ρ : SEnv ι) : Prop :=
   ∃ Γ H, InvariantAux Γ H C P ρ
@@ -158,7 +159,6 @@ private theorem initial (wf : (C.plug P).WellFormed ∅) (hC : C.Complete) (hI :
     InvariantAux ∅ [] C P { } := by
   constructor
   case nsP => exact noShadowing_of_plug_noShadowing hC wf.noShadowing
-  case wfP => intro k; apply wellFormed_getElem_of_plug_wellFormed wf (hC k List.not_mem_nil)
   all_goals solve | assumption | grind
 
 private theorem of_cons_inst  :
@@ -273,7 +273,9 @@ private theorem eqnInvUpTo_of_invariant_cons_hole :
   rintro ⟨Γ, H, inv⟩ k hk
   suffices k ∈ H by apply inv.eqnInv _ this
   suffices k ∈ h :: H by
-    have : k ≠ h := Hole.neq_of_prec (hp := by assumption) (wf := inv.wfP)
+    have : k ≠ h := by
+      obtain ⟨D, hD, hDwf⟩ := inv.hasComplete
+      apply Hole.neq_of_prec hDwf hD; assumption
     grind
   apply (inv.of_cons_hole).closed h (by simp) _ hk
 
