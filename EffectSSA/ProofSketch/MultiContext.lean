@@ -236,6 +236,7 @@ theorem wellFormed_getElem_of_plug_wellFormed
     {C : MultiContext ι n} {P : Pattern ι n} {Γ : VarSet}
     (hwf : (C.plug P).WellFormed Γ) {k : Hole n} (hin : Sum.inr k ∈ C) :
     ∃ Δ, P[k].WellFormed Δ := by
+  -- **AI DISCLOSURE**: LLM-assisted proof
   induction C generalizing Γ with
   | nil => cases hin
   | cons x C ih =>
