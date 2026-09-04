@@ -171,13 +171,7 @@ private theorem of_cons_inst  :
   have hi_wf : i.WellFormed Γ := ⟨hi_args, hi_disj⟩
   have { .. } := inv
   constructor
-  case completeMod =>
-    intro k hk
-    have hmem := inv.completeMod k hk
-    simp only [List.mem_cons] at hmem
-    rcases hmem with heq | hin
-    · cases heq
-    · exact hin
+  case completeMod => intro k hk; grind [inv.completeMod k ]
   case results_covered =>
     -- No result of `i` can also be a result of the pattern `P`.
     have h_disj_P : ∀ x ∈ i.resultsSet, x ∉ P.results := by
