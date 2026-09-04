@@ -111,6 +111,19 @@ theorem eq_empty_iff : A = ∅ ↔ (∀ v, v ∉ A) := by
 
 end Empty
 
+/-! ### subset -/
+
+@[grind →] theorem mem_of_subset_of_mem : A ⊆ B → a ∈ A → a ∈ B :=
+  Set.mem_of_subset_of_mem
+
+@[grind =] theorem subset_iff : A ⊆ B ↔ (∀ x, x ∈ A → x ∈ B) := by
+  show A.toSet ⊆ B.toSet ↔ ∀ x, x ∈ A.toSet → x ∈ B.toSet
+  grind
+theorem subset_intro : (∀ x, x ∈ A → x ∈ B) → A ⊆ B := by grind
+
+@[simp, grind .] theorem empty_subset : (∅ : VarSet) ⊆ A := by grind
+@[simp, grind =] theorem subset_empty_iff : A ⊆ (∅ : VarSet) ↔ A = ∅ := by grind
+
 /-! ### union -/
 section Union
 
@@ -127,6 +140,9 @@ section Union
 
 @[simp] theorem union_eq_empty_iff : A ∪ B = ∅ ↔ A = ∅ ∧ B = ∅ := by
   simp [eq_empty_iff]; grind
+
+theorem subset_union_of_subset_left : A ⊆ B → A ⊆ (B ∪ C) := by grind
+theorem subset_union_of_subset_right : A ⊆ C → A ⊆ (B ∪ C) := by grind
 
 end Union
 
@@ -149,18 +165,6 @@ section Inter
 
 end Inter
 
-/-! ### subset -/
-
-@[grind →] theorem mem_of_subset_of_mem : A ⊆ B → a ∈ A → a ∈ B :=
-  Set.mem_of_subset_of_mem
-
-@[grind =] theorem subset_iff : A ⊆ B ↔ (∀ x, x ∈ A → x ∈ B) := by
-  show A.toSet ⊆ B.toSet ↔ ∀ x, x ∈ A.toSet → x ∈ B.toSet
-  grind
-theorem subset_intro : (∀ x, x ∈ A → x ∈ B) → A ⊆ B := by grind
-
-@[simp, grind .] theorem empty_subset : (∅ : VarSet) ⊆ A := by grind
-
 /-! ### sdiff -/
 
 @[simp, grind =] theorem mem_sdiff : v ∈ A - B ↔ v ∈ A ∧ v ∉ B := Set.mem_sdiff v
@@ -178,6 +182,9 @@ end Lemmas
 section Lemmas
 variable {A B : VarSet}
 attribute [local grind] Disjoint
+
+@[grind =] theorem disjoint_iff : A.Disjoint B ↔ (∀ x ∈ A, x ∉ B) := by
+  simp [Disjoint, eq_empty_iff]
 
 @[simp, grind .] theorem empty_disjoint : Disjoint ∅ A := by grind
 @[simp, grind .] theorem disjoint_empty : Disjoint A ∅ := by grind

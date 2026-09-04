@@ -21,44 +21,6 @@ nix shell nixpkgs#elan -c lake build <target>
 
 `elan` reads `lean-toolchain` and fetches the right `lean`/`lake` binaries.
 
-## Project Overview
-
-**EffectSSA** is a Lean 4 formalization of a type system and semantics for programs with explicit memory effects tracked via *effect traces*. The central idea is that memory operations (load/store/alloc/free) can either hide effects implicitly or expose them explicitly through linear *effect* variables that carry a `Trace`.
-
-## Architecture
-
-### Key Abstraction Layers
-
-1. **Assumptions** (`Assumptions/`) — Abstract interfaces, not proofs:
-   - `MemorySignature.lean` — `Ptr`, `DVal : DType → Type`
-   - `MemoryModel.lean` — `read`, `LegalTrace`, `Compat` (all with `Decidable` instances)
-   - `LawfulMemoryModel.lean` — Equational laws on the model
-   - `Compat.lean` — The `⌣` (compatible) relation typeclass
-
-2. **Types** (`Types/`) — The type system:
-   - `Basic.lean` — `Ty.Typ`: three base kinds: `ptr`, `eff`, `data d`
-   - `Context/Basic.lean` — `Context τ`: a snoc-list of `Option Typ`, indexed by de Bruijn position; key ops: `<:` (snoc), `eraseVar`, `take`, `drop`, `isUnrestricted`
-   - `Context/IsDerivedFrom.lean` — `IsDerivedFrom` relation between contexts
-   - `WellTyped.lean` — `Instruction.WellTyped Γ i Γ'` typing judgment
-
-3. **Syntax** (`Syntax/`) — Program representation:
-   - `Untyped/Basic.lean` — `Instruction τ` and `InstructionSeq τ`; instructions are either *implicit* (`loadI`, `storeI`, `allocI`, `freeI`) or *explicit/Effect-SSA* (`loadE`, `storeE`, `allocE`, `freeE`), plus `split`, `merge`, `createEff`, `consumeEff`
-   - `Untyped/Var.lean` — De Bruijn variable operations
-   - `Typed/` — Typed variants and substitution
-
-4. **Trace** (`Trace/`) — Events and their composition:
-   - `Defs.lean` — `Event τ`, `ClockedEvent τ c`, `Trace τ` (includes `isUB : Bool` and pairwise compatibility proof), `TraceZipper`
-   - `SplitMerge.lean` — How traces split and merge for effect variable tracking
-   - `Interleave.lean` — Event interleaving/reordering
-
-5. **Semantics** (`Semantics/`) — Execution:
-   - `Environment.lean` — `Ty.TVal : Typ → Type` maps `ptr→Ptr`, `eff→Trace`, `data d→DVal d`; `Environment τ` maps de Bruijn vars to values
-   - `ExecM.lean` — State monad carrying `Environment × Trace`
-   - `Program.lean` — `Instruction.execM` executes one instruction; whole-program semantics by composition
-   - `Equiv/` — Program equivalence (in progress)
-
-6. **ITC** (`ITC/`) — Interval Temporal Calculus stubs for clock/concurrency model
-
 ## Proof Style
 
 Proofs should be **succinct**. Use `grind` and `simp` aggressively — if a goal closes with either, don't write a manual proof.
@@ -79,9 +41,10 @@ In particular:
    by a less powerful tactic
 
 
-### Important Design Choices
+## AI Disclaimer
 
-- Variables use **de Bruijn indices**; the context `Context τ` is a snoc-list so index 0 is the most recent binding.
-- **Linearity** is enforced via `eraseVar`: consuming an effect variable removes it from the context. `isUnrestricted` checks no effect variables remain.
-- Implicit instructions (e.g., `loadI`) require an unrestricted context entry for the effect, while explicit instructions (e.g., `loadE`) consume a dedicated `eff`-typed variable.
-- `Trace τ` bundles events with a `Clock` and a proof that all events are pairwise compatible (`Compat`); appending an event (`consLegal`) checks legality against the existing trace.
+Start any LLM-generated proof with the following comment:
+"-- **AI DISCLOSURE**: LLM-generated proof" .
+If a theorem statement or definition was entirely LLM-generated, 
+include "**AI DISCLOSURE**: LLM-generated theorem/definition" at the bottom
+of the doc-string, as well as the comment for the body of the proof.

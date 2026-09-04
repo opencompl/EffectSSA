@@ -1,7 +1,8 @@
 module
 
 public import EffectSSA.ProofSketch.Assumptions
-public import EffectSSA.ProofSketch.ProofSketch
+public import EffectSSA.ProofSketch.InstSeq
+public import EffectSSA.ProofSketch.MultiContext
 
 namespace EffectSSA.ProofSketch
 public section
@@ -42,6 +43,9 @@ abbrev InstSeq.EqnInv (is : InstSeq ι) (ρ : SEnv ι) : Prop :=
 
 abbrev InstSeq.WellBehaved (is : InstSeq ι) : Prop :=
   ∀ i ∈ is, i.WellBehaved
+
+abbrev Pattern.WellBehaved (P : Pattern ι n) : Prop :=
+  ∀ is ∈ P, is.WellBehaved
 
 end Defs
 
@@ -108,6 +112,11 @@ theorem eqnInv_denote_inst (h : is.WellBehaved)
       grind
     grind
 
+theorem eqnInv_denote_inst_of_wellFormed (h : is.WellBehaved)
+    (hj : j.WellFormed Γ) (hΓ : is.results ⊆ Γ ∧ is.args ⊆ Γ) :
+    is.EqnInv ρ → is.EqnInv (⟦j⟧ ρ) := by
+  apply eqnInv_denote_inst <;> grind
+
 /--
 If `is` is well-behaved and `js` is well-formed on a context `Γ` that contains
 all of `is`'s results and arguments, then `is.EqnInv` is preserved by executing
@@ -166,18 +175,13 @@ theorem locallyPure_imp (i : Inst ι) :
     _ = (⟦i⟧ η').locals x := by have := denote_eq_of_args i ρ η'; grind only
     _ = (⟦i⟧ η).locals x := by grind [LocallyPure]
 
-/--
-An individual instruction is well-formed, when it doesn't use its own result
-as an argument.
--/
-@[expose] def Inst.WellFormed (i : Inst ι) :=
-  ∀ x ∈ i.args, x ∉ i.results
+
 
 /--
 Every purely determined instruction, is well-behaved.
 -/
 theorem wellBehaved_of_locallyPure {i : Inst ι}
-    (wf : i.WellFormed)
+    (wf : i.WellFormed Γ)
     (pu : i.LocallyPure) :
     i.WellBehaved := by
   constructor
@@ -198,7 +202,8 @@ theorem wellBehaved_of_locallyPure {i : Inst ι}
     intro x hx
     let η := ⟦i⟧ ρ
     show (⟦i⟧ η).locals x = (⟦i⟧ ρ).locals x
-    have : ∀ y ∈ i.args, η.locals y = ρ.locals y := by grind [WellFormed]
+    have : ∀ y ∈ i.args, η.locals y = ρ.locals y := by
+      grind [WellFormed]
     apply locallyPure_imp <;> assumption
 
 end LocallyPure
