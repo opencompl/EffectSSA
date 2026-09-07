@@ -27,32 +27,38 @@ variable [SSA ι σ ν]
 
 
 /-!
-## Denotational Refinement & Equivalence
+## Denotational Refinement
 -/
 section Denotational
+namespace Pattern
 
 /--
-A pattern `I` is denotationally refined by pattern `J`,
+A pattern `S` is denotationally refined by pattern `T`,
 when for any hole `h` and environments such that `ρ ⊒ η` and
 `ρ` (resp `η`) satisfies the equation lemma for all (transitive) dependencies
-of the `h`-th sequence of `I` (resp `J`), it is the case that the denotation of
-`h`-th of `I` under `ρ` is refined by the denotation of the `h`-th hole of `J`
+of the `h`-th sequence of `S` (resp `T`), it is the case that the denotation of
+`h`-th of `S` under `ρ` is refined by the denotation of the `h`-th hole of `T`
 under `η`.
 
 TODO: We ought to prove that this condition is actually implied by the much more
-simple `⟦I⟧ ρ ⊒ ⟦J⟧ ρ` with some side-condition on the variables of each pattern
-in `I` and `J`.
+simple `⟦S⟧ ρ ⊒ ⟦T⟧ ρ` with some side-condition on the variables of each pattern
+in `S` and `T`.
 -/
-def Pattern.DenRefine (I J : Pattern ι n) : Prop :=
+def IsDenoteRefinedBy (S T : Pattern ι n) : Prop :=
   ∀ h : Hole n, ∀ ρ η, ρ ⊒ η →
-    I.EqnInvUpTo h ρ →
-    J.EqnInvUpTo h η →
-    ⟦ I[h] ⟧ ρ ⊒ ⟦ J[h] ⟧ η
+    S.EqnInvUpTo h ρ →
+    T.EqnInvUpTo h η →
+    ⟦ S[h] ⟧ ρ ⊒ ⟦ T[h] ⟧ η
 
--- Sanity check: we should check/proof that denrefine is at least reflexive,
--- but it likely should be a pre-order (not quite partial, because antisymmetry is
--- probably broken, but that can be fixed w/ quotients)
+section Lemmas
 
+@[grind .] theorem isDenoteRefinedBy_rfl (P : Pattern ι n) : P.IsDenoteRefinedBy P := by
+  grind [IsDenoteRefinedBy]
+
+-- TODO: Sanity check: we could check/proof that IsDenoteRefinedBy is transitive
+
+end Lemmas
+end Pattern
 end Denotational
 
 /-!
@@ -281,7 +287,7 @@ Proving denotational refinement is sufficient for showing contextual refinement.
 -/
 theorem Pattern.ctxRefine_of_denoteRefine (S T : Pattern ι n)
     (hS : S.WellBehaved) (hT : T.WellBehaved)
-    (h_denoteRefine : S.DenRefine T) :
+    (h_denoteRefine : S.IsDenoteRefinedBy T) :
     S.CtxRefine T := by
   intro C hC CS CT hCS hCT
   subst CS CT

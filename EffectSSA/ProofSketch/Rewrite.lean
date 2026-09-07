@@ -34,7 +34,7 @@ attribute [simp, grind .] Rewrite.wellbehaved_src Rewrite.wellbehaved_tgt
 A rewrite is sound when its source is refined by its target.
 -/
 abbrev IsSound (rw : Rewrite ι n) : Prop :=
-  rw.src.DenRefine rw.tgt
+  rw.src.Pattern.IsDenoteRefinedBy rw.tgt
 
 /--
 Show that `is` is refined by `js` by relating these programs to
