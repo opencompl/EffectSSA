@@ -17,6 +17,8 @@ class SSA (ι : Type) (σ : outParam Type) (ν : outParam Type) : Type where
   [valRefine : Refinement ν]
   initialState : σ
   denoteInst : ι → σ → List ν → σ × List ν
+  isRefinedBy_denote :
+    s ⊒ t → xs ⊒ ys → denoteInst i s xs ⊒ denoteInst i t ys
 
 attribute [implicit_reducible, instance]
   SSA.stateRefine SSA.valRefine SSA.decidableEq

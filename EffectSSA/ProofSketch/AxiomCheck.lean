@@ -8,9 +8,6 @@ namespace EffectSSA.ProofSketch
 
 
 /--
-info: 'EffectSSA.ProofSketch.Pattern.ctxRefine_of_denoteRefine' depends on axioms: [propext,
- Classical.choice,
- Quot.sound,
- Inst.denote_isRefinedBy_congr]
+info: 'EffectSSA.ProofSketch.Pattern.ctxRefine_of_denoteRefine' depends on axioms: [propext, Classical.choice, Quot.sound]
 -/
 #guard_msgs in #print axioms Pattern.ctxRefine_of_denoteRefine
