@@ -52,13 +52,11 @@ section Lemmas
 
 theorem denote_eq {i : Inst ι} :
     ⟦i⟧ ρ =
-      let ρ? : Option (SEnv ι) := do
+      (SEnv.getD <| do
         let args ← i.args.mapM ρ.locals
         let (state, results) := ⟦i.opCode⟧ ρ.state args
         let locals ← ρ.locals.with? i.results results
-        return { ρ with locals, state }
-      ρ?.getD { error := true } := by rfl
-
+        return { ρ with locals, state }) := by rfl
 
 /-- Instructions only modify the registers in their `results` set. -/
 @[grind .] axiom locals_denote_of_not_mem_results (i : Inst ι) {x : VarId} {ρ : SEnv ι}
@@ -105,13 +103,12 @@ In other words, the semantics are *monotone* w.r.t. the refinement relation.
     ⟦i⟧ ρ₁ ⊒ ⟦i⟧ ρ₂ := by
   -- **AI DISCLOSURE**: LLM-generated proof
   match hρ₁_err : ρ₁.error with
-  | true => exact SEnv.isRefinedBy_of_error (denote_error_of_error hρ₁_err)
+  | true => grind
   | false =>
-    have hρ' := SEnv.isRefinedBy_iff.mp hρ (by simp [hρ₁_err])
-    obtain ⟨he₂, hs, hℓ⟩ := hρ'
-    simp only [Bool.not_eq_true'] at he₂
-    -- Extract mapM refinement
-    have hmap := List.mapM_isRefinedBy_congr i.args (fun v _ => hℓ v)
+    obtain ⟨he₂, hs, hℓ⟩ : ρ₂.error = false ∧ ρ₁.state ⊒ ρ₂.state ∧ (∀ v, ρ₁.locals v ⊒ ρ₂.locals v) := by
+      simpa using SEnv.isRefinedBy_iff.mp hρ (by simp [hρ₁_err])
+    have hmap : List.mapM ρ₁.locals.get? i.args ⊒ List.mapM ρ₂.locals.get? i.args :=
+      List.mapM_isRefinedBy_congr i.args (fun v _ => hℓ v)
     match hmap₁ : i.args.mapM ρ₁.locals with
     | none =>
       apply SEnv.isRefinedBy_of_error
@@ -122,9 +119,12 @@ In other words, the semantics are *monotone* w.r.t. the refinement relation.
       | some ys =>
         have h_op : ⟦i.opCode⟧ ρ₁.state xs = ⟦i.opCode⟧ ρ₂.state ys :=
           SSA.isRefinedBy_denote hs <| by simpa [hmap₁, hmap₂] using hmap
-        rw [denote_eq, denote_eq]
-        simp only [hmap₁, hmap₂, h_op, Option.bind_eq_bind, Option.bind_some]
-        grind [LocalEnv.with?]
+        simp only [denote_eq, hmap₁, hmap₂, h_op, Option.bind_eq_bind, Option.bind_some,
+          Option.pure_def, LocalEnv.with?, bne_iff_ne, ne_eq, ite_not]
+        split
+        · simp only [Option.bind_some, Option.getD_some]
+          grind
+        · grind
 
 end Lemmas
 end Denote

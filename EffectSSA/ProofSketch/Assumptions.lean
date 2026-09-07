@@ -159,6 +159,10 @@ theorem isRefinedBy_iff_of_error_right {ρ η : SEnv ι} :
     η.error → (ρ ⊒ η ↔ ρ.error) := by
   simp [(· ⊒ ·)]; grind
 
+@[simp, grind =] theorem error_getD_eq_false_iff {ρ? : Option (SEnv ι)} :
+    (getD ρ?).error = false ↔ (∃ ρ ∈ ρ?, ρ.error = false) := by
+  cases ρ? <;> simp
+
 end Refinement
 end SEnv
 end Env
