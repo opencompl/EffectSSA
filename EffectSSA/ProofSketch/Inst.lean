@@ -91,12 +91,40 @@ theorem denote_eq_of_args : ∀ i : Inst ι, ∀ ρ η : SEnv ι,
     · simp; grind
     · grind
 
+/-- If the input environment has an error, so does the denotation. -/
+@[simp, grind =] theorem denote_error_of_error {i : Inst ι} {ρ : SEnv ι}
+    (h : ρ.error = true) : (⟦i⟧ ρ).error = true := by
+  cases hiρ : i.args.mapM ρ.locals
+  <;> grind [denote_eq, LocalEnv.with?]
+
 /--
 Each instruction's semantics preserves refinement.
 In other words, the semantics are *monotone* w.r.t. the refinement relation.
 -/
-@[grind .] axiom denote_isRefinedBy_congr {ρ₁ ρ₂ : SEnv ι} (hρ : ρ₁ ⊒ ρ₂) (i : Inst ι) :
-    ⟦i⟧ ρ₁ ⊒ ⟦i⟧ ρ₂
+@[grind .] theorem denote_isRefinedBy_congr {ρ₁ ρ₂ : SEnv ι} (hρ : ρ₁ ⊒ ρ₂) (i : Inst ι) :
+    ⟦i⟧ ρ₁ ⊒ ⟦i⟧ ρ₂ := by
+  -- **AI DISCLOSURE**: LLM-generated proof
+  match hρ₁_err : ρ₁.error with
+  | true => exact SEnv.isRefinedBy_of_error (denote_error_of_error hρ₁_err)
+  | false =>
+    have hρ' := SEnv.isRefinedBy_iff.mp hρ (by simp [hρ₁_err])
+    obtain ⟨he₂, hs, hℓ⟩ := hρ'
+    simp only [Bool.not_eq_true'] at he₂
+    -- Extract mapM refinement
+    have hmap := List.mapM_isRefinedBy_congr i.args (fun v _ => hℓ v)
+    match hmap₁ : i.args.mapM ρ₁.locals with
+    | none =>
+      apply SEnv.isRefinedBy_of_error
+      simp [denote_eq, hmap₁]
+    | some xs =>
+      match hmap₂ : i.args.mapM ρ₂.locals with
+      | none => simp [hmap₁, hmap₂] at hmap
+      | some ys =>
+        have h_op : ⟦i.opCode⟧ ρ₁.state xs = ⟦i.opCode⟧ ρ₂.state ys :=
+          SSA.isRefinedBy_denote hs <| by simpa [hmap₁, hmap₂] using hmap
+        rw [denote_eq, denote_eq]
+        simp only [hmap₁, hmap₂, h_op, Option.bind_eq_bind, Option.bind_some]
+        grind [LocalEnv.with?]
 
 end Lemmas
 end Denote
