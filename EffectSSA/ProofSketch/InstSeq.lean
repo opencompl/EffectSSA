@@ -555,12 +555,20 @@ theorem denote_eq {is : InstSeq ι} :
     ⟦is ++ js⟧ = fun ρ => ⟦js⟧ (⟦is⟧ ρ) := by
   grind [denote_eq]
 
+@[simp, grind →] theorem of_denote_error_eq_false {is : InstSeq ι} {ρ : SEnv ι} :
+    (⟦is⟧ ρ).error = false → ρ.error = false := by
+  induction is generalizing ρ <;> grind
+
 -- results
 
 @[grind =] theorem locals_denote_of_not_mem_results {is : InstSeq ι} {ρ : SEnv ι}
-    (h : x ∉ is.results) :
+    (h : x ∉ is.results) (h_err : !(⟦is⟧ ρ).error) :
     (⟦is⟧ ρ).locals x = ρ.locals x := by
-  induction is generalizing ρ <;> grind
+  induction is generalizing ρ
+  case nil => grind
+  case cons i is ih =>
+    rw [denote_cons, @ih (⟦i⟧ ρ), Inst.locals_denote_of_not_mem_results]
+    <;> grind
 
 /-- The denotation of an instruction sequence is monotone w.r.t. refinement -/
 @[grind .] theorem denote_isRefinedBy_congr {ρ₁ ρ₂ : SEnv ι} (hρ : ρ₁ ⊒ ρ₂) (is : InstSeq ι) :
