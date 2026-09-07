@@ -141,13 +141,13 @@ An erroneous environment `ρ`, on the other hand, is refined by anything.
 -/
 instance : Refinement (SEnv ι) where
   IsRefinedBy ρ η := !ρ.error →
-    !η.error ∧ ρ.state ⊒ η.state ∧ (∀ v, ρ.locals v ⊒ η.locals v)
+    !η.error ∧ ρ.state ⊒ η.state ∧ (ρ.locals ⊒ η.locals)
 
 variable {ρ η : SEnv ι}
 
 @[grind =]
 theorem isRefinedBy_iff : ρ ⊒ η ↔ !ρ.error →
-    !η.error ∧ ρ.state ⊒ η.state ∧ (∀ v, ρ.locals v ⊒ η.locals v) := by rfl
+    !η.error ∧ ρ.state ⊒ η.state ∧ ρ.locals ⊒ η.locals := by rfl
 
 @[simp, grind =>]
 theorem isRefinedBy_of_error :
