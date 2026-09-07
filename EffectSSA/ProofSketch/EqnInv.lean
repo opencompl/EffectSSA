@@ -17,7 +17,7 @@ variable [SSA ι σ ν]
 namespace Inst
 
 def EqnInv (i : Inst ι) (ρ : SEnv ι) : Prop :=
-  ∀ x ∈ i.results,
+  ρ.error = false → ∀ x ∈ i.results,
     (⟦i⟧ ρ).locals x = ρ.locals x
 
 structure WellBehaved (i : Inst ι) where
@@ -58,8 +58,8 @@ variable {C : MultiContext ι n} {P : Pattern ι n} {is js : InstSeq ι} {i j : 
 /-! ### Inst -/
 namespace Inst
 
-@[grind =>] theorem locals_denote_of_eqnInv (h : i.EqnInv ρ) :
-    ∀ x ∈ i.results, (⟦i⟧ ρ).locals x = ρ.locals x := h
+@[grind →] theorem locals_denote_of_eqnInv (h : i.EqnInv ρ) (he : ρ.error = false) :
+    ∀ x ∈ i.results, (⟦i⟧ ρ).locals x = ρ.locals x := h he
 
 /--
 If instruction `i` is well-behaved and `js` is well-formed on a context `Γ`
@@ -175,8 +175,6 @@ theorem locallyPure_imp (i : Inst ι) :
     _ = (⟦i⟧ η').locals x := by have := denote_eq_of_args i ρ η'; grind only
     _ = (⟦i⟧ η).locals x := by grind [LocallyPure]
 
-
-
 /--
 Every purely determined instruction, is well-behaved.
 -/
@@ -187,23 +185,31 @@ theorem wellBehaved_of_locallyPure {i : Inst ι}
   constructor
   · -- Stability
     intro ρ j hres harg hρ
-    intro x hx
+    intro he x hx
     let η := ⟦j⟧ ρ
     show (⟦i⟧ η).locals x = η.locals x
     suffices (⟦i⟧ η).locals x = (⟦i⟧ ρ).locals x by
       have : x ∉ j.results := by grind
-      have : η.locals x = ρ.locals x := by grind
-      have : ρ.locals x = (⟦i⟧ ρ).locals x := by grind [EqnInv]
+      have : η.locals x = ρ.locals x := by
+        apply locals_denote_of_not_mem_results
+        · assumption
+        · grind
+      have : ρ.locals x = (⟦i⟧ ρ).locals x := by grind
       grind
     have : ∀ y ∈ i.args, η.locals y = ρ.locals y := by grind
     apply locallyPure_imp <;> assumption
   · -- Idempotency
     intro ρ
-    intro x hx
+    intro he x hx
     let η := ⟦i⟧ ρ
     show (⟦i⟧ η).locals x = (⟦i⟧ ρ).locals x
     have : ∀ y ∈ i.args, η.locals y = ρ.locals y := by
       grind [WellFormed]
     apply locallyPure_imp <;> assumption
+
+/--
+info: 'EffectSSA.ProofSketch.wellBehaved_of_locallyPure' depends on axioms: [propext, Classical.choice, Quot.sound]
+-/
+#guard_msgs in #print axioms wellBehaved_of_locallyPure
 
 end LocallyPure

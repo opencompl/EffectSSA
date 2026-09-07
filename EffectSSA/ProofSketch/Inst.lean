@@ -52,26 +52,25 @@ section Lemmas
 
 theorem denote_eq {i : Inst ι} :
     ⟦i⟧ ρ =
-      let ρ? : Option (SEnv ι) := do
+      (SEnv.getD <| do
         let args ← i.args.mapM ρ.locals
         let (state, results) := ⟦i.opCode⟧ ρ.state args
         let locals ← ρ.locals.with? i.results results
-        return { ρ with locals, state }
-      ρ?.getD { error := true } := by rfl
-
+        return { ρ with locals, state }) := by rfl
 
 /-- Instructions only modify the registers in their `results` set. -/
-@[grind .] axiom locals_denote_of_not_mem_results (i : Inst ι) {x : VarId} {ρ : SEnv ι}
-    (h : x ∉ i.results) : (⟦i⟧ ρ).locals x = ρ.locals x
-  -- TODO: ^^ this result should now be provable
+@[grind .] theorem locals_denote_of_not_mem_results (i : Inst ι) {x : VarId} {ρ : SEnv ι}
+    (h : x ∉ i.results) : !(⟦i⟧ ρ).error → (⟦i⟧ ρ).locals x = ρ.locals x := by
+  simp [(⟦·⟧)]; grind [LocalEnv.with?]
 
 /-!
 The semantics of an instruction may depend only on those variable declared
 as arguments.
 -/
 theorem denote_eq_of_args : ∀ i : Inst ι, ∀ ρ η : SEnv ι,
-    ρ.state = η.state → ρ.error = η.error →
-    (∀ x ∈ i.args, ρ.locals x = η.locals x)
+    ρ.state = η.state
+    → ρ.error = η.error
+    → (∀ x ∈ i.args, ρ.locals x = η.locals x)
     → let ρ' := ⟦i⟧ ρ
       let η' := ⟦i⟧ η
       ρ'.state = η'.state
@@ -97,6 +96,11 @@ theorem denote_eq_of_args : ∀ i : Inst ι, ∀ ρ η : SEnv ι,
   cases hiρ : i.args.mapM ρ.locals
   <;> grind [denote_eq, LocalEnv.with?]
 
+/-- If the denotation is error-free, then the original must have been error-free, too. -/
+@[simp, grind →] theorem of_denote_error_eq_false {i : Inst ι} {ρ : SEnv ι} :
+    (⟦i⟧ ρ).error = false → ρ.error = false := by
+  cases h : ρ.error <;> grind
+
 /--
 Each instruction's semantics preserves refinement.
 In other words, the semantics are *monotone* w.r.t. the refinement relation.
@@ -105,13 +109,12 @@ In other words, the semantics are *monotone* w.r.t. the refinement relation.
     ⟦i⟧ ρ₁ ⊒ ⟦i⟧ ρ₂ := by
   -- **AI DISCLOSURE**: LLM-generated proof
   match hρ₁_err : ρ₁.error with
-  | true => exact SEnv.isRefinedBy_of_error (denote_error_of_error hρ₁_err)
+  | true => grind
   | false =>
-    have hρ' := SEnv.isRefinedBy_iff.mp hρ (by simp [hρ₁_err])
-    obtain ⟨he₂, hs, hℓ⟩ := hρ'
-    simp only [Bool.not_eq_true'] at he₂
-    -- Extract mapM refinement
-    have hmap := List.mapM_isRefinedBy_congr i.args (fun v _ => hℓ v)
+    obtain ⟨he₂, hs, hℓ⟩ : ρ₂.error = false ∧ ρ₁.state ⊒ ρ₂.state ∧ (∀ v, ρ₁.locals v ⊒ ρ₂.locals v) := by
+      simpa using SEnv.isRefinedBy_iff.mp hρ (by simp [hρ₁_err])
+    have hmap : List.mapM ρ₁.locals.get? i.args ⊒ List.mapM ρ₂.locals.get? i.args :=
+      List.mapM_isRefinedBy_congr i.args (fun v _ => hℓ v)
     match hmap₁ : i.args.mapM ρ₁.locals with
     | none =>
       apply SEnv.isRefinedBy_of_error
@@ -122,9 +125,12 @@ In other words, the semantics are *monotone* w.r.t. the refinement relation.
       | some ys =>
         have h_op : ⟦i.opCode⟧ ρ₁.state xs = ⟦i.opCode⟧ ρ₂.state ys :=
           SSA.isRefinedBy_denote hs <| by simpa [hmap₁, hmap₂] using hmap
-        rw [denote_eq, denote_eq]
-        simp only [hmap₁, hmap₂, h_op, Option.bind_eq_bind, Option.bind_some]
-        grind [LocalEnv.with?]
+        simp only [denote_eq, hmap₁, hmap₂, h_op, Option.bind_eq_bind, Option.bind_some,
+          Option.pure_def, LocalEnv.with?, bne_iff_ne, ne_eq, ite_not]
+        split
+        · simp only [Option.bind_some, Option.getD_some]
+          grind
+        · grind
 
 end Lemmas
 end Denote
