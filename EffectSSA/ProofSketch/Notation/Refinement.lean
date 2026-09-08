@@ -65,6 +65,9 @@ inductive ListRefinement : List α → List α → Prop
   | nil : ListRefinement [] []
   | cons : x ⊒ y → ListRefinement xs ys → ListRefinement (x :: xs) (y :: ys)
 
+namespace List
+variable {x y : α} {xs ys : List α}
+
 /--
 Refinement instance on `List α`,
 where `xs` is refined by `ys` if they are of equal length and
@@ -78,25 +81,37 @@ instance : Refinement (List α) where
     <;> cases h₂ <;> grind
 
 
-@[simp, grind =] theorem List.cons_isRefinedBy_cons {x y : α} {xs ys : List α} :
-  (x :: xs) ⊒ (y :: ys) ↔ x ⊒ y ∧ xs ⊒ ys := by
+@[simp, grind =] theorem cons_isRefinedBy_cons :
+    (x :: xs) ⊒ (y :: ys) ↔ x ⊒ y ∧ xs ⊒ ys := by
   constructor
   · rintro ⟨_⟩; and_intros <;> assumption
   · exact fun ⟨hx, hxs⟩ => ListRefinement.cons hx hxs
 
-@[grind →] theorem List.length_eq_of_isRefinedBy {xs ys : List α} :
+@[simp, grind =] theorem isRefinedBy_nil_iff : xs ⊒ [] ↔ xs = [] := by
+  simp [(· ⊒ ·)]; grind
+@[simp, grind =] theorem nil_isRefinedBy_iff : [] ⊒ xs ↔ xs = [] := by
+  simp [(· ⊒ ·)]; grind
+
+@[simp, grind =] theorem cons_isRefinedBy_iff :
+    (x :: xs) ⊒ ys ↔ (∃ y' ys', ys = y' :: ys' ∧ x ⊒ y' ∧ xs ⊒ ys') := by
+  cases ys <;> grind
+@[simp, grind =] theorem isRefinedBy_cons_iff :
+    xs ⊒ (y :: ys) ↔ (∃ x' xs', xs = x' :: xs' ∧ x' ⊒ y ∧ xs' ⊒ ys) := by
+  cases xs <;> grind
+
+
+@[grind →] theorem length_eq_of_isRefinedBy {xs ys : List α} :
     xs ⊒ ys → xs.length = ys.length := by
   intro h; induction h <;> grind
 
-theorem List.getElem?_isRefinedBy_congr {xs ys : List α} (h : xs ⊒ ys) (i : Nat) :
+theorem getElem?_isRefinedBy_congr {xs ys : List α} (h : xs ⊒ ys) (i : Nat) :
     xs[i]? ⊒ ys[i]? := by
   induction h generalizing i with
   | nil => simp
   | cons _ _ ih => cases i <;> grind
+grind_pattern getElem?_isRefinedBy_congr => xs[i]?, ys[i]?, xs ⊒ ys
 
-grind_pattern List.getElem?_isRefinedBy_congr => xs[i]?, ys[i]?, xs ⊒ ys
-
-theorem List.mapM_isRefinedBy_congr (xs : List β) {f g : β → Option α} :
+theorem mapM_isRefinedBy_congr (xs : List β) {f g : β → Option α} :
     (∀ x ∈ xs, f x ⊒ g x) → xs.mapM f ⊒ xs.mapM g := by
   -- **AI DISCLOSURE**: LLM-generated proof
   intro hx
@@ -114,6 +129,8 @@ theorem List.mapM_isRefinedBy_congr (xs : List β) {f g : β → Option α} :
         simp only [Option.bind_some]
         cases hxsf : xs.mapM f <;> cases hxsg : xs.mapM g <;> rw [hxsf, hxsg] at ih
         <;> grind
+
+end List
 
 /-! ### Unit -/
 
