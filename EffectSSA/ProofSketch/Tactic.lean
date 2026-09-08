@@ -1,11 +1,14 @@
 module
 
 public import EffectSSA.ProofSketch.Pattern
+public import EffectSSA.ProofSketch.Prec
 public import EffectSSA.ProofSketch.Rewrite
 public import Lean.Elab.Tactic.Simp
 public import Lean.Meta.LitValues
 public meta import Lean.Meta.Tactic.Simp.Main
 public meta import Lean.Meta.Tactic.Simp.Rewrite
+public meta import Lean.Elab.Term.TermElabM
+public meta import Lean.Elab.Tactic.Basic
 
 public section
 
@@ -214,4 +217,135 @@ simproc reduceCompleteToContext
 
 end CompleteToContext
 
+/-!
+## `decide_prec` — Proof Automation for `Pattern.Prec`
+
+Given a concrete pattern `P` (that is, one whose contents reduce under default
+transparency to concrete `List` literals of `Inst` structure literals), and
+concrete hole indices `k, l`, the `decide_prec` tactic discharges goals of the
+form `P.Prec k l` by
+1. reducing `P[k]` and `P[l]` to instruction-list literals,
+2. searching for a variable appearing both in `P[k].results` and `P[l].args`,
+3. applying the `Pattern.Prec.prec` constructor with that variable as witness,
+4. discharging the resulting membership subgoals with `simp` (and `grind` as
+   a fallback).
+-/
+section PrecTactic
+open Lean Meta Elab Tactic
+
+/--
+Reduce an expression `e` of type `InstSeq ι` (under default transparency)
+to a concrete list literal `[i₀, i₁, …]`, returning the array of
+instruction expressions.
+Returns `none` if the reduction does not produce a `List.nil`/`List.cons` chain.
+-/
+private meta partial def reducePatternToInstList (e : Expr) : MetaM (Option (Array Expr)) := do
+  let e ← withDefault <| whnf e
+  match_expr e with
+  | List.nil _ => return some #[]
+  | List.cons _ head tail =>
+      let some rest ← reducePatternToInstList tail | return none
+      return some (#[head] ++ rest)
+  | _ => return none
+
+/--
+Reduce the given `Inst`-projection (`Inst.results` or `Inst.args`) at
+instruction expression `i` to a concrete list literal of `VarId` expressions.
+-/
+private meta def reduceInstListField (fieldName : Name) (i : Expr) : MetaM (Option (Array Expr)) := do
+  let field ← mkAppM fieldName #[i]
+  let field ← withDefault <| whnf field
+  getListLit? field
+
+/--
+Given a list of `Inst`-expressions, concatenate the given field (e.g.
+`Inst.results`) across all instructions, returning the resulting flat array
+of `VarId` expressions.
+-/
+private meta def collectInstField (fieldName : Name) (is : Array Expr) :
+    MetaM (Option (Array Expr)) := do
+  let mut acc : Array Expr := #[]
+  for i in is do
+    let some vs ← reduceInstListField fieldName i | return none
+    acc := acc ++ vs
+  return some acc
+
+/--
+Find the first `x ∈ xs` that is definitionally equal to some `y ∈ ys`,
+returning `some x` (the element from `xs`) or `none` if no such pair exists.
+-/
+private meta def findDefEqIn (xs ys : Array Expr) : MetaM (Option Expr) := do
+  for x in xs do
+    for y in ys do
+      if ← isDefEq x y then
+        return some x
+  return none
+
+/--
+Build the expression `P[k] : InstSeq ι` using the `Hole n` `GetElem`
+instance for `Pattern ι n`.
+
+`mkAppM ``getElem #[P, k, True.intro]` would fail because the `dom` outParam
+isn't reduced to `fun _ _ => True` before the last argument is type-checked;
+we work around this by providing the domain function explicitly.
+-/
+private meta def mkPatternHoleGetElem (P k : Expr) : MetaM Expr := do
+  let PType ← inferType P
+  let_expr Pattern ι n := PType
+    | throwError "decide_prec: expected `Pattern _ _`, got:{indentExpr PType}"
+  let HoleType := mkApp (mkConst ``Hole) n
+  let InstSeqType := mkApp (mkConst ``InstSeq) ι
+  let domFn ← withLocalDeclD `_ PType fun x =>
+    withLocalDeclD `_ HoleType fun h =>
+      mkLambdaFVars #[x, h] (mkConst ``True)
+  mkAppOptM ``getElem
+    #[some PType, some HoleType, some InstSeqType, some domFn,
+      none, some P, some k, some (mkConst ``True.intro)]
+
+/--
+`decide_prec` proves goals of the form `P.Prec k l`, where `P` is a concrete
+pattern and `k`, `l` are concrete `Hole` indices.
+
+The tactic reduces `P[k]` and `P[l]` under default transparency to concrete
+lists of instructions, searches for a variable that appears both in
+`P[k].results` and `P[l].args`, and applies the `Pattern.Prec.prec`
+constructor with that variable as witness. The resulting membership subgoals
+are discharged with `simp` (falling back to `grind`).
+-/
+elab "decide_prec" : tactic => withMainContext do
+  let goal ← getMainGoal
+  let tgt ← instantiateMVars (← goal.getType)
+  let tgt ← withDefault <| whnf tgt
+  let_expr Pattern.Prec ι n P k l := tgt
+    | throwError "decide_prec: expected goal of form `_.Prec _ _`, got:{indentExpr tgt}"
+  -- `P[k]`, `P[l]` at type `InstSeq ι` (using the `Hole n` GetElem instance)
+  let Pk ← mkPatternHoleGetElem P k
+  let Pl ← mkPatternHoleGetElem P l
+  let some Pks ← reducePatternToInstList Pk | throwError
+    "decide_prec: failed to reduce P[k] to a concrete instruction list:{indentExpr Pk}"
+  let some Pls ← reducePatternToInstList Pl | throwError
+    "decide_prec: failed to reduce P[l] to a concrete instruction list:{indentExpr Pl}"
+  let some rs ← collectInstField ``Inst.results Pks | throwError
+    "decide_prec: failed to reduce the `.results` of an instruction in P[k]"
+  let some as ← collectInstField ``Inst.args Pls | throwError
+    "decide_prec: failed to reduce the `.args` of an instruction in P[l]"
+  let some x ← findDefEqIn rs as | throwError
+    "decide_prec: no common variable between P[k].results{indentD (MessageData.ofArray <| rs.map MessageData.ofExpr)}\
+     \nand P[l].args{indentD (MessageData.ofArray <| as.map MessageData.ofExpr)}"
+  -- Build the types of the two membership subgoals.
+  let PkResults ← mkAppM ``InstSeq.results #[Pk]
+  let PlArgs ← mkAppM ``InstSeq.args #[Pl]
+  let memResultsTy ← mkAppM ``Membership.mem #[PkResults, x]
+  let memArgsTy ← mkAppM ``Membership.mem #[PlArgs, x]
+  let memResultsMVar ← mkFreshExprSyntheticOpaqueMVar memResultsTy `decide_prec.results
+  let memArgsMVar ← mkFreshExprSyntheticOpaqueMVar memArgsTy `decide_prec.args
+  -- Assemble the proof `Pattern.Prec.prec (x := x) ?_ ?_`.
+  let proof := mkAppN (mkConst ``Pattern.Prec.prec)
+    #[ι, n, P, k, x, l, memResultsMVar, memArgsMVar]
+  goal.assign proof
+  setGoals [memResultsMVar.mvarId!, memArgsMVar.mvarId!]
+  -- Discharge the two membership subgoals.
+  evalTactic <| ← `(tactic| all_goals first | (simp; done) | grind)
+
+end PrecTactic
 end EffectSSA.ProofSketch

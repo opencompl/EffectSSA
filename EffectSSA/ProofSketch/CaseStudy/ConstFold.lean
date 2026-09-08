@@ -16,15 +16,20 @@ inductive SimpleArith
   | add
   deriving DecidableEq
 
+instance : Refinement Nat := .default
+
 instance : SSA SimpleArith Unit Nat where
   initialState := ()
-  instDenote := {
-    denote i _ xs := ((), match i, xs with
-      | .const n, [] => [n]
-      | .add, [x, y] => [x + y]
-      | _, _ => []
-    )
-  }
+  denoteInst i _ xs := ((), match i, xs with
+    | .const n, [] => [n]
+    | .add, [x, y] => [x + y]
+    | _, _ => []
+  )
+  isRefinedBy_denoteInst := @fun ⟨⟩ ⟨⟩ xs ys i _ hxy => by
+    simp only [Prod.mk_isRefinedBy_mk, Refinement.default_isRefinedBy, true_and]
+    split <;> solve
+      | simp_all
+      | split <;> simp_all
 
 /-- `$x := $n` -/
 abbrev constOp (x : VarId) (n : Nat) : Inst SimpleArith where
@@ -58,25 +63,34 @@ abbrev addOp (x y z : VarId) : Inst SimpleArith where
 
 @[simp, grind =] theorem denote_constOp :
     ⟦constOp x c⟧ ρ = { ρ with locals := ρ.locals.with x c } := by
-  simp [(⟦·⟧)]
+  have hop : ⟦SimpleArith.const c⟧ ρ.state [] = (ρ.state, [c]) := rfl
+  simp [Inst.denote_eq, constOp, hop]
 
 @[simp, grind =] theorem denote_addOp :
     ⟦addOp x y z⟧ ρ = (SEnv.getD <| do
       let y ← ρ.locals y
       let z ← ρ.locals z
       return { ρ with locals := ρ.locals.with x (y + z) }) := by
-  simp only [Denote.denote, List.mapM_cons, List.mapM_nil, Option.pure_def, Option.bind_eq_bind,
-    Option.bind_some]
-  cases ρ.locals y; simp
-  cases ρ.locals z <;> simp
+  simp only [Inst.denote_eq, addOp, List.mapM_cons, List.mapM_nil, Option.pure_def,
+    Option.bind_eq_bind, Option.bind_some]
+  cases hy : ρ.locals y
+  · simp
+  · cases hz : ρ.locals z
+    · simp
+    have hop (v w) : ⟦(SimpleArith.add : SimpleArith)⟧ ρ.state [v, w] = (ρ.state, [v + w]) := by
+      rfl
+    simp [hop]
+
+@[simp, grind =] theorem eqnInv_constOp : (constOp x c).EqnInv ρ ↔ (ρ.error = false → ρ.locals x = some c) := by
+  grind [Inst.EqnInv]
 
 /-! ## WellBehavedness -/
 
 /--
 All instructions of `SimpleArith` are pure, and thus well-behaved.
 -/
-@[simp, grind .]
-axiom wellbehaved (i : Inst SimpleArith) : i.HasEqn
+@[grind .]
+axiom wellbehaved (i : Inst SimpleArith) : i.WellBehaved
 
 /-! ## Rewrite Family & Soundness -/
 
@@ -126,48 +140,48 @@ Ideally, though, we would like to say that for that particular instance of the
 3-ary rewrite `constFoldRw`, the notion of completeness is a bit more relaxed
 to be able to use that one as-is.
 -/
-
 @[simp, grind .]
 theorem constFoldRw.isSound : (constFoldRw x y z c₁ c₂).IsSound := by
-  simp only [Rewrite.IsSound, Pattern.DenRefine, Pattern.getElem_hole]
-  rintro ⟨_|_|_⟩ ρ η hρη
+  simp only [Rewrite.IsSound, Pattern.IsDenoteRefinedBy, Pattern.getElem_hole]
+  rintro ⟨_|_|n⟩ ρ η hρη
   · suffices ⟦constOp x c₁⟧ ρ ⊒ ⟦constOp x c₁⟧ η by
       rintro - -; simpa [constFoldRw]
     grind
   · suffices ⟦constOp y c₂⟧ ρ ⊒ ⟦constOp y c₂⟧ η by
       rintro - -; simpa [constFoldRw]
     grind
-  · rintro h -
-    have ⟨hx, hy⟩ : ρ.locals x = some c₁ ∧ ρ.locals y = some c₂ := by
-      replace h :
-          let S := (constFoldRw x y z c₁ c₂).src
-          S.EqnLemma x ρ ∧ S.EqnLemma y ρ := by
-        simp [constFoldRw, Pattern.EqnLemmaUpTo] at h
-        grind [constFoldRw]
-      simp only [Pattern.EqnLemma] at h
-      have := h.1 [constOp x c₁] (by simp [constFoldRw])
-      have := h.2 [constOp y c₂] (by simp [constFoldRw])
-      grind [Inst.EqnLemma]
-    suffices ⟦addOp z x y⟧ ρ ⊒ ⟦constOp z (c₁ + c₂)⟧ η by simpa [constFoldRw]
+  · obtain rfl : n = 0 := by grind
+    rintro h -
+    suffices ⟦addOp z x y⟧ ρ ⊒ ⟦constOp z (c₁ + c₂)⟧ η by
+      simpa [constFoldRw]
+    suffices ρ.error = false → ⟦addOp z x y⟧ ρ ⊒ ⟦constOp z (c₁ + c₂)⟧ η by
+      grind
+
+    intro hρ_err
+    have : ρ.locals x = some c₁ ∧ ρ.locals y = some c₂ := by
+      and_intros
+      · simpa [*] using h ⟨0, by grind⟩ (by decide_prec)
+      · simpa [*] using h ⟨1, by grind⟩ (by decide_prec)
+
     grind
 
 @[simp, grind .]
 theorem constFoldRwAlt.isSound : (constFoldRwAlt x z c₁).IsSound := by
-  simp only [Rewrite.IsSound, Pattern.DenRefine, Pattern.getElem_hole]
-  rintro ⟨_|_⟩ ρ η hρη
-  · suffices ⟦constOp x c₁⟧ ρ ⊒ ⟦constOp x c₁⟧ η by
-      rintro - -; simpa [constFoldRw]
+  simp only [Rewrite.IsSound, Pattern.IsDenoteRefinedBy, Pattern.getElem_hole]
+  rintro ⟨_ | _ | _, hlt⟩ ρ η hρη hS hT
+  · suffices ⟦constOp x c₁⟧ ρ ⊒ ⟦constOp x c₁⟧ η by simpa [constFoldRwAlt]
     grind
-  · rintro h -
+  · suffices ⟦addOp z x x⟧ ρ ⊒ ⟦constOp z (c₁ + c₁)⟧ η by
+      simpa [constFoldRwAlt]
+    suffices ρ.error = false → ∃ a, ρ.locals x = some a ∧
+        a + a = c₁ + c₁ by
+      grind
+
+    intro hρ_error
     have hx : ρ.locals x = some c₁ := by
-      replace h : (constFoldRwAlt x z c₁).src.EqnLemma x ρ := by
-        simp [constFoldRwAlt, Pattern.EqnLemmaUpTo] at h
-        grind [constFoldRwAlt]
-      simp only [Pattern.EqnLemma] at h
-      specialize h [constOp x c₁] (by simp [constFoldRwAlt])
-      grind [Inst.EqnLemma]
-    suffices ⟦addOp z x x⟧ ρ ⊒ ⟦constOp z (c₁ + c₁)⟧ η by simpa [constFoldRwAlt]
+      simpa [*] using hS ⟨0, by grind⟩ (by decide_prec)
     grind
+  · grind
 
 /-! ## Implementation -/
 
@@ -318,8 +332,11 @@ theorem constFold.foldInst_sound (wf : (acc.push i).toSeq.WellFormed ∅) :
       -- The witness context:
       exists (acc.push i).toSeq.toContext [[y], [x]]
       and_intros
-      · simp only [reduceCompleteToContext]
-        and_intros; grind
+      · rw [InstSeq.complete_toContext_iff]
+        refine ⟨by simp; grind, ?_⟩
+        intro v hv
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hv
+        rcases hv with rfl | rfl
         · exists constOp y c₁; grind
         · exists i; grind
       · rw [InstSeq.plug_toContext_eq_self_of]
@@ -359,9 +376,11 @@ theorem constFold.foldInst_sound (wf : (acc.push i).toSeq.WellFormed ∅) :
       -- The witness context:
       exists (acc.push i).toSeq.toContext [[y], [z], [x]]
       and_intros
-      · simp only [reduceCompleteToContext]
-        refine ⟨by grind, ?_⟩
-        and_intros
+      · rw [InstSeq.complete_toContext_iff]
+        refine ⟨by simp; grind, ?_⟩
+        intro v hv
+        simp only [List.mem_cons, List.not_mem_nil, or_false] at hv
+        rcases hv with rfl | rfl | rfl
         · exists constOp y c₁; grind
         · exists constOp z c₂; grind
         · exists i; grind
