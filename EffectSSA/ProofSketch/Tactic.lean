@@ -311,6 +311,9 @@ lists of instructions, searches for a variable that appears both in
 `P[k].results` and `P[l].args`, and applies the `Pattern.Prec.prec`
 constructor with that variable as witness. The resulting membership subgoals
 are discharged with `simp` (falling back to `grind`).
+
+NOTE: This only decides instances of `P.Prec k l` which hold in a *single*
+step, it does *not* account for the transitivity of `Prec`.
 -/
 elab "decide_prec" : tactic => withMainContext do
   let goal ← getMainGoal
