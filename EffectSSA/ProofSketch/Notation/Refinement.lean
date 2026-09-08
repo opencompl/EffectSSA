@@ -84,6 +84,18 @@ instance : Refinement (List α) where
   · rintro ⟨_⟩; and_intros <;> assumption
   · exact fun ⟨hx, hxs⟩ => ListRefinement.cons hx hxs
 
+@[grind →] theorem List.length_eq_of_isRefinedBy {xs ys : List α} :
+    xs ⊒ ys → xs.length = ys.length := by
+  intro h; induction h <;> grind
+
+theorem List.getElem?_isRefinedBy_congr {xs ys : List α} (h : xs ⊒ ys) (i : Nat) :
+    xs[i]? ⊒ ys[i]? := by
+  induction h generalizing i with
+  | nil => simp
+  | cons _ _ ih => cases i <;> grind
+
+grind_pattern List.getElem?_isRefinedBy_congr => xs[i]?, ys[i]?, xs ⊒ ys
+
 theorem List.mapM_isRefinedBy_congr (xs : List β) {f g : β → Option α} :
     (∀ x ∈ xs, f x ⊒ g x) → xs.mapM f ⊒ xs.mapM g := by
   -- **AI DISCLOSURE**: LLM-generated proof
@@ -112,15 +124,33 @@ instance : Refinement PUnit.{u} where
 @[simp, grind .]
 theorem unit_isRefinedBy (u u' : PUnit.{u}) : u ⊒ u' := by grind
 
+/-! ### Prod -/
+namespace Prod
+variable [Refinement β]
+
+instance : Refinement (α × β) where
+  IsRefinedBy x y := x.1 ⊒ y.1 ∧ x.2 ⊒ y.2
+
+@[simp, grind =] theorem mk_isRefinedBy_mk {a x : α} (b y : β) :
+  (a, b) ⊒ (x, y) ↔ a ⊒ x ∧ b ⊒ y := by rfl
+
+end Prod
+
 /-! ### Fallback -/
 
 /--
 Default refinement instance for any type, where `x` is only refined by itself.
 
-Marked low-priority such that specific types may provide a better refinement
-instance, if available.
+Explcitily not an instance, so that individual types need to opt-in for
+this default instance.
 -/
-instance (priority := low) : Refinement α where
+@[implicit_reducible] def Refinement.default : Refinement β where
   IsRefinedBy x y := x = y
+
+@[simp] theorem Refinement.default_isRefinedBy :
+    @IsRefinedBy β (.default) = Eq := by rfl
+grind_pattern Refinement.default_isRefinedBy => @IsRefinedBy β .default
+
+@[simp, grind] instance : Refinement Unit := .default
 
 end Instances
