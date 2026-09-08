@@ -122,8 +122,9 @@ induction, thus we keep the following invariant about `Γ`.
   -- Wellformedness & -behavedness
   /-- `C.plug P` is well-formed with free variables `Γ`. -/
   wf : (C.plug P).WellFormed Γ
-  /-- The pattern `P` does not redefine any of its own variables. -/
-  nsP : P.NoShadowing
+
+  -- N.B: the following properties really only depend on `P`, which is fixed
+  --      throughout the induction, so it's not striclty part of the invariant.
   /-- The pattern `P` is well-behaved. -/
   wbP : P.WellBehaved
   /-- `P` can be made into a well-formed program by some context `D`. -/
@@ -164,7 +165,6 @@ open MultiContext in
 private theorem initial (wf : (C.plug P).WellFormed ∅) (hC : C.Complete) (hI : P.WellBehaved) :
     InvariantAux ∅ [] C P { } := by
   constructor
-  case nsP => exact noShadowing_of_plug_noShadowing hC wf.noShadowing
   all_goals solve | assumption | grind
 
 private theorem of_cons_inst  :
