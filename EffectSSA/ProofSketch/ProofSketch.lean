@@ -12,6 +12,9 @@ public import EffectSSA.ProofSketch.Effect
 public import EffectSSA.ProofSketch.CFG
 public import EffectSSA.ProofSketch.Prec
 
+public import EffectSSA.ProofSketch.Dominance
+
+
 /-!
 # Contextual Equivalence Proof Sketch
 
