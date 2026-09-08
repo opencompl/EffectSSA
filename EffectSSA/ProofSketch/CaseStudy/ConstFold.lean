@@ -91,6 +91,7 @@ All instructions of `SimpleArith` are pure, and thus well-behaved.
 -/
 @[grind .]
 axiom wellbehaved (i : Inst SimpleArith) : i.WellBehaved
+  -- TODO: prove this via `wellBehaved_of_locallyPure`
 
 /-! ## Rewrite Family & Soundness -/
 
