@@ -71,7 +71,7 @@ abbrev addOp (x y z : VarId) : Inst SimpleArith where
       let y ← ρ.locals y
       let z ← ρ.locals z
       return { ρ with locals := ρ.locals.with x (y + z) }) := by
-  simp only [Inst.denote_eq, addOp, List.mapM_cons, List.mapM_nil, Option.pure_def,
+  simp only [Inst.denote_eq, List.mapM_cons, List.mapM_nil, Option.pure_def,
     Option.bind_eq_bind, Option.bind_some]
   have hop (v w) : ⟦SimpleArith.add⟧ ρ.state [v, w] = (ρ.state, [v + w]) := rfl
   cases ρ.locals y; simp
