@@ -23,8 +23,8 @@ An `n`-ary rewrite consists of a pair `(S, T)` of (well-behaved) `n`-ary pattern
 structure Rewrite (ι) [SSA ι σ ν] (n : Nat) where
   src : Pattern ι n
   tgt : Pattern ι n
-  wellbehaved_src : src.HasEqn
-  wellbehaved_tgt : tgt.HasEqn
+  wellbehaved_src : src.WellBehaved
+  wellbehaved_tgt : tgt.WellBehaved
 
 namespace Rewrite
 
@@ -34,7 +34,7 @@ attribute [simp, grind .] Rewrite.wellbehaved_src Rewrite.wellbehaved_tgt
 A rewrite is sound when its source is refined by its target.
 -/
 abbrev IsSound (rw : Rewrite ι n) : Prop :=
-  rw.src.Pattern.IsDenoteRefinedBy rw.tgt
+  rw.src.IsDenoteRefinedBy rw.tgt
 
 /--
 Show that `is` is refined by `js` by relating these programs to
@@ -122,7 +122,7 @@ A context derived from sequence `is` via result variables `xs` is complete iff:
     (is.toContext xs).Complete ↔
       xs.Pairwise (· ≠ ·)
       ∧ ∀ x ∈ xs, ∃ i ∈ is, i.results = x := by
-  simp only [MultiContext.Complete, InstSeq.toContext, List.mem_map, Inst.toHole_eq_inr_iff, ne_eq]
+  simp only [MultiContext.Complete, MultiContext.CompleteMod, InstSeq.toContext, List.mem_map, Inst.toHole_eq_inr_iff, ne_eq]
   constructor
   · intro h
     and_intros
@@ -134,11 +134,10 @@ A context derived from sequence `is` via result variables `xs` is complete iff:
     · intro x hx
       obtain ⟨idx, hidx, rfl⟩ : ∃ idx, ∃ h : idx < xs.length, xs[idx] = x :=
         List.getElem_of_mem hx
-      specialize h ⟨idx, hidx⟩
-      obtain ⟨i, hi, hmatch⟩ := h
+      obtain ⟨i, hi, hmatch⟩ := h ⟨idx, hidx⟩ (by grind)
       exists i, hi
       grind [List.idxOf?_eq_some_iff]
-  · intro ⟨hd, h⟩ hole
+  · intro ⟨hd, h⟩ hole _
     specialize h (xs[hole.val]) (by grind)
     obtain ⟨i, hi, hres⟩ := h
     exists i, hi
