@@ -17,7 +17,7 @@ class SSA (ι : Type) (σ : outParam Type) (ν : outParam Type) : Type where
   [valRefine : Refinement ν]
   initialState : σ
   denoteInst : ι → σ → List ν → σ × List ν
-  isRefinedBy_denote :
+  isRefinedBy_denoteInst :
     s ⊒ t → xs ⊒ ys → denoteInst i s xs ⊒ denoteInst i t ys
 
 attribute [implicit_reducible, instance]
@@ -25,6 +25,10 @@ attribute [implicit_reducible, instance]
 
 @[reducible] instance SSA.instDenote [ssa : SSA ι σ ν] : Denote ι (σ → List ν → σ × List ν) where
   denote := ssa.denoteInst
+
+@[grind .] theorem SSA.isRefinedBy_denote [ssa : SSA ι σ ν] (i : ι) :
+    s ⊒ t → xs ⊒ ys → ⟦i⟧ s xs ⊒ ⟦i⟧ t ys :=
+  SSA.isRefinedBy_denoteInst
 
 /-!
 ## Environment

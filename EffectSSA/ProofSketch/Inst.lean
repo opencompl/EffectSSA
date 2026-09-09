@@ -123,13 +123,22 @@ In other words, the semantics are *monotone* w.r.t. the refinement relation.
       match hmap₂ : i.args.mapM ρ₂.locals with
       | none => simp [hmap₁, hmap₂] at hmap
       | some ys =>
-        have h_op : ⟦i.opCode⟧ ρ₁.state xs = ⟦i.opCode⟧ ρ₂.state ys :=
-          SSA.isRefinedBy_denote hs <| by simpa [hmap₁, hmap₂] using hmap
-        simp only [denote_eq, hmap₁, hmap₂, h_op, Option.bind_eq_bind, Option.bind_some,
-          Option.pure_def, LocalEnv.with?, bne_iff_ne, ne_eq, ite_not]
+        have hxy : xs ⊒ ys := by grind
+        have h_op : ⟦i.opCode⟧ ρ₁.state xs ⊒ ⟦i.opCode⟧ ρ₂.state ys :=
+          SSA.isRefinedBy_denote i.opCode hs hxy
+        have h_st : (⟦i.opCode⟧ ρ₁.state xs).fst ⊒ (⟦i.opCode⟧ ρ₂.state ys).fst := h_op.1
+        have h_res : (⟦i.opCode⟧ ρ₁.state xs).snd ⊒ (⟦i.opCode⟧ ρ₂.state ys).snd := h_op.2
+        have h_len := List.length_eq_of_isRefinedBy h_res
+        simp only [denote_eq, hmap₁, hmap₂, Option.bind_eq_bind, Option.bind_some,
+          Option.pure_def, LocalEnv.with?, bne_iff_ne, ne_eq, ite_not, h_len]
         split
         · simp only [Option.bind_some, Option.getD_some]
-          grind
+          rw [SEnv.isRefinedBy_iff]
+          refine fun _ => ⟨by simp [he₂], h_st, fun v => ?_⟩
+          dsimp only
+          split
+          · exact List.getElem?_isRefinedBy_congr h_res _
+          · exact hℓ v
         · grind
 
 end Lemmas

@@ -93,6 +93,8 @@ namespace InstSeq
 @[simp, grind .] theorem eqnInv_nil : EqnInv ([] : InstSeq ι) ρ := by grind
 @[simp] theorem eqnInv_cons : (i ;> is).EqnInv ρ ↔ i.EqnInv ρ ∧ is.EqnInv ρ := by grind
 
+@[simp] theorem eqnInv_nil_iff : EqnInv ([] : InstSeq ι) ρ ↔ True := by grind
+
 @[simp] theorem eqnInv_append :
     (is ++ js).EqnInv ρ ↔ is.EqnInv ρ ∧ js.EqnInv ρ := by
   simp only [EqnInv, List.mem_append]; grind
